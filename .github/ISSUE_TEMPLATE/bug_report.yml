@@ -1,0 +1,54 @@
+name: Bug report
+description: Something in Escale does not work as it should.
+labels: ["type:bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. For a security problem, please do not open an issue: see SECURITY.md.
+        Help › Send Feedback… in Escale opens a feedback form with the version, build and macOS already filled in.
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      description: Apple menu › About This Mac.
+      placeholder: "15.4"
+    validations:
+      required: true
+  - type: input
+    id: escale
+    attributes:
+      label: Escale version and build
+      description: Settings › About.
+      placeholder: "0.6.1 (202610051200)"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The smallest set of steps that shows the problem. A public address or a small HTML file helps a lot.
+      placeholder: |
+        1. Open …
+        2. Click …
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: Screenshots are welcome. If Escale crashed, a log may be at ~/Library/Application Support/Escale/crash.log — read it before sharing, it stays on your Mac otherwise.
+    validations:
+      required: true
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: Extensions installed, other browsers where it works, how often it happens.

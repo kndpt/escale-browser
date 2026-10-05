@@ -1,0 +1,52 @@
+# Build output — build.sh and SwiftPM regenerate all of this.
+.build/
+build/
+.swiftpm/
+DerivedData/
+*.xcarchive
+*.dmg
+*.zip
+*.dSYM/
+__pycache__/
+*.pyc
+
+# Xcode, when the package is opened in it.
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+# Signing and release material tied to one Apple Developer account. It stays
+# on the release Mac (Config/README.md); the scripts run without it.
+Config/Signing.local.env
+*.local.xcconfig
+*.provisionprofile
+*.mobileprovision
+*.p12
+*.p8
+*.pem
+*.key
+*.cer
+*.certSigningRequest
+*.keychain
+*.keychain-db
+ExportOptions*.plist
+.env
+.env.*
+
+# macOS and editors.
+.DS_Store
+.AppleDouble
+._*
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs.
+*.log
+
+# Local Claude Code state.
+.claude/worktrees/
+.claude/scheduled_tasks.lock
+.claude/settings.local.json

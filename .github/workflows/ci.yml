@@ -1,0 +1,49 @@
+name: CI
+
+# Builds Escale and runs its unit tests on every pull request and on main.
+# GitHub-hosted runners only, no secrets, no signing: the build is the one a
+# contributor gets with `swift build` on a fresh clone. The app scenarios that
+# drive a running Escale (Tests/Bench) need a logged-in Mac and stay local.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      # actions/checkout v7.0.1, pinned to its commit.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+      - name: Whitespace
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          git diff --check "$BASE_SHA" HEAD
+      - name: Build (debug, unsigned)
+        run: swift build
+      - name: Unit tests
+        run: ./test.sh
+      - name: Tooling tests
+        run: |
+          python3 -m unittest discover -s Tests/Verification
+          python3 -m unittest discover -s Tests/Bench -p 'test_resource_*.py'

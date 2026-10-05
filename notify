@@ -1,0 +1,44 @@
+#!/bin/sh
+# Send one development event to Escale over its local, user-only socket.
+# macOS supplies osascript for JSON quoting and nc for Unix sockets, so a
+# packaged copy works without installing a language runtime or network client.
+
+set -eu
+
+usage() {
+    printf 'Usage: notify [--world NAME] {agent|build|pr|workflow} TITLE [BODY]\n' >&2
+    exit 2
+}
+
+world_name=
+if [ "${1:-}" = "--world" ]; then
+    [ "$#" -ge 2 ] || usage
+    world_name=$2
+    shift 2
+    case "$world_name" in
+        ''|*[!a-z0-9-]*) usage ;;
+    esac
+fi
+[ "$#" -ge 2 ] && [ "$#" -le 3 ] || usage
+event_kind=$1
+event_title=$2
+event_body=${3:-}
+case "$event_kind" in
+    agent|build|pr|workflow) ;;
+    *) usage ;;
+esac
+
+event_json=$(osascript -l JavaScript -e \
+    'function run(argv) { return JSON.stringify({kind: argv[0], title: argv[1], body: argv[2]}); }' \
+    "$event_kind" "$event_title" "$event_body")
+support_name=Escale
+[ -z "$world_name" ] || support_name="Escale ($world_name)"
+socket_path="$HOME/Library/Application Support/$support_name/alerts.sock"
+if ! response=$(printf '%s\n' "$event_json" | nc -U -w 3 "$socket_path" 2>&1); then
+    printf 'Escale notifications are not listening: %s\n' "$response" >&2
+    exit 1
+fi
+case "$response" in
+    *'"accepted":true'*) printf 'sent\n' ;;
+    *) printf 'Escale did not accept the event: %s\n' "$response" >&2; exit 1 ;;
+esac

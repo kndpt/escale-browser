@@ -1,0 +1,12 @@
+#!/usr/bin/env python3
+"""Change notes: `./changelog` lists them, `check` validates them, `release X.Y`
+gathers them into CHANGELOG.md and `body X.Y` prints the text of that version's
+GitHub release. The rules are in changelog.d/README.md."""
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "Tests/Verification"))
+from fragments import main
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

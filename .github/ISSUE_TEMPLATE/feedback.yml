@@ -1,0 +1,21 @@
+# Help › Send Feedback… in Escale opens this form with `escale` and `macos`
+# filled in (Links.writeFeedback). Keep those two ids if the form changes.
+name: Feedback
+description: A question, an idea or anything else about Escale.
+body:
+  - type: textarea
+    id: feedback
+    attributes:
+      label: Your feedback
+      description: What you noticed, what you would like, or what went wrong. For a security problem, please see SECURITY.md instead.
+    validations:
+      required: true
+  - type: input
+    id: escale
+    attributes:
+      label: Escale version and build
+      description: Settings › About.
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
