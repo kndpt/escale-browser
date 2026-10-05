@@ -221,7 +221,8 @@ enum ExtensionShims {
     }
 
     /// The families whose answers leave the extension's own origin: what the
-    /// browser knows about the person using it. WebKit keeps no permission
+    /// browser knows about the person using it, and user scripts, which this
+    /// app reads from disk and writes for it. WebKit keeps no permission
     /// object for them, they are the APIs this shim exists to supply, so the
     /// gate reads the names the extension's own manifest asked for.
     nonisolated private static let gates: [String: String] = [
@@ -232,6 +233,7 @@ enum ExtensionShims {
         "topSites": "topSites",
         "browsingData": "browsingData",
         "readingList": "readingList",
+        "userScripts": "userScripts",
     ]
 
     /// The names `api` needs. Opening a download hands a file to another
@@ -851,8 +853,8 @@ enum ExtensionShims {
         for source in script["js"] as? [[String: Any]] ?? [] {
             if let inline = source["code"] as? String {
                 code += inline + "\n;\n"
-            } else if let file = source["file"] as? String,
-                      let text = try? String(contentsOf: folder.appendingPathComponent(file.trimmingCharacters(in: CharacterSet(charactersIn: "/"))), encoding: .utf8) {
+            } else if let file = source["file"] as? String, let path = inside(file, of: folder),
+                      let text = try? String(contentsOf: path, encoding: .utf8) {
                 code += text + "\n;\n"
             }
         }
