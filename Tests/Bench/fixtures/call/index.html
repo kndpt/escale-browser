@@ -1,0 +1,387 @@
+<!doctype html>
+<!-- A synthetic meeting for the Spaces and meeting-window scenarios.
+     A far side and a near side live in one page and talk over local ICE, so it needs
+     no account, microphone, camera or server. The page is built like a call site:
+     the far audio plays in an <audio>, each participant is a named tile holding a muted
+     <video> that grows when they speak, or an avatar once their camera is off, a
+     participant without a camera shows only an avatar and a muted microphone, a shared
+     screen arrives by renegotiation, the sender's own picture is a small mirrored tile,
+     and a large decorative video sits behind everything. The meeting's own buttons
+     appear once joined. Names, labels and markup follow what the window looks for;
+     nothing here proves how a real Meet page behaves. -->
+<meta charset="utf-8">
+<title>Synthetic call</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #111; color: #eee; font: 14px system-ui; }
+  #stage { display: flex; gap: 4px; height: calc(100% - 44px); padding: 6px; box-sizing: border-box; }
+  /* Tiles are laid out the way a call site animates them: each is transformed
+     and contains its own painting, which makes it the box a fixed picture inside
+     it is placed in and cut to. */
+  .tile { flex: 1; position: relative; background: #000; min-width: 0; transform: translateZ(0); contain: paint; }
+  .tile.speaking { flex: 4; }
+  .tile.presentation { flex: 9; }
+  .tile video { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .tile .name { position: absolute; left: 6px; bottom: 4px; }
+  .tile .avatar { position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px; border-radius: 50%; }
+  .google-symbols { position: absolute; right: 6px; top: 4px; font-style: normal; }
+  #selftile { position: fixed; right: 8px; bottom: 52px; width: 15vw; aspect-ratio: 16 / 9; background: #003; z-index: 4; }
+  #self { width: 100%; height: 100%; display: block; transform: scaleX(-1); }
+  /* The sender's own screen, drawn with the same mirror as their camera. */
+  .tile[data-who="mine"] video { transform: scaleX(-1); }
+  #decor { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; opacity: .25; object-fit: cover; }
+  #bar { position: fixed; left: 0; right: 0; bottom: 0; height: 44px; display: flex; gap: 8px; padding: 6px; box-sizing: border-box; background: #222; z-index: 5; }
+  button { font: inherit; padding: 0 14px; }
+</style>
+<video id="decor" muted autoplay loop playsinline></video>
+<div id="stage"></div>
+<div id="selftile" data-participant-id="me"><video id="self" muted autoplay playsinline></video><span class="name">You</span></div>
+<audio id="far" autoplay></audio>
+<div id="bar">
+  <button id="join">Join</button>
+  <button id="speaker">Next speaker</button>
+  <button id="share">Share screen</button>
+  <button id="camera">Camera and microphone</button>
+  <button id="cameras">Cameras off</button>
+  <!-- Named the way a call site names its own buttons, so the window can find them.
+       Like a call site's, they exist only while the meeting does. -->
+  <span id="controls" hidden>
+    <button id="mic" jsname="BOHaEe" data-is-muted="false" aria-label="Turn off microphone (ctrl + d)">Microphone</button>
+    <button id="cam" data-is-muted="false" aria-label="Turn off camera (ctrl + e)">Camera</button>
+    <button id="present" aria-pressed="false" aria-label="Présenter maintenant">Present</button>
+    <button id="hand" aria-pressed="false" aria-label="Raise hand (ctrl + alt + h)">Hand</button>
+    <button id="leave" jsname="CQylAd" aria-label="Leave call">Leave</button>
+  </span>
+</div>
+<script>
+(() => {
+  const state = window.call = {
+    phase: 'ready', error: null, speaker: 'ada', sharing: false, muted: false,
+    cameraOff: false, presenting: false, presentError: null, hand: false, camerasOff: false,
+    // As the meeting's host, leaving asks whether to end the call for everyone;
+    // `odd` asks something the window cannot answer.
+    host: false, endedForAll: false,
+    // Like Meet once left, the page may keep a sound of its own going, which
+    // WebKit still counts as playing.
+    lingering: false,
+    // Survives only while this document does: a reload gives another one.
+    marker: Math.random().toString(36).slice(2),
+  };
+  const $ = selector => document.querySelector(selector);
+  const colours = {ada: '#2e7d32', bob: '#ef6c00', screen: '#283593', me: '#00838f', decor: '#6a1b9a', cara: '#ad1457'};
+  const names = {ada: 'Ada', bob: 'Bob', cara: 'Cara', screen: 'Ada (Presentation)', mine: 'Vous êtes en train de présenter'};
+  let presented = [];
+  const who = new Map();
+  let contexts = [], timers = [], tracks = [], far, near, level, queue = Promise.resolve();
+
+  function feed(name, width, height) {
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const drawing = canvas.getContext('2d');
+    let frame = 0;
+    const paint = () => {
+      drawing.fillStyle = colours[name]; drawing.fillRect(0, 0, width, height);
+      drawing.fillStyle = 'white'; drawing.font = `${height / 6}px monospace`;
+      drawing.fillText(`${name} ${frame++}`, 12, height / 2);
+    };
+    paint();
+    timers.push(setInterval(paint, 100));
+    const stream = canvas.captureStream(15);
+    tracks.push(...stream.getTracks());
+    return stream;
+  }
+
+  function tile(name, track) {
+    const box = document.createElement('div');
+    box.className = 'tile' + (name === 'screen' ? ' presentation' : '');
+    box.dataset.who = name;
+    box.dataset.participantId = 'spaces/test/devices/' + name;
+    const label = document.createElement('span');
+    label.className = 'name';
+    label.textContent = names[name];
+    box.append(label);
+    if (track) {
+      const video = document.createElement('video');
+      video.autoplay = true; video.muted = true; video.playsInline = true;
+      video.srcObject = new MediaStream([track]);
+      box.prepend(video);
+      video.play().catch(() => {});
+    } else {
+      pictureOf(box, name);
+    }
+    $('#stage').append(box);
+    speaking();
+  }
+
+  // A participant whose camera is off is a round picture of them, drawn here.
+  function pictureOf(box, name) {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 96;
+    const drawing = canvas.getContext('2d');
+    drawing.fillStyle = colours[name]; drawing.fillRect(0, 0, 96, 96);
+    drawing.fillStyle = 'white'; drawing.font = '48px system-ui'; drawing.fillText(names[name][0], 32, 64);
+    const image = document.createElement('img');
+    image.className = 'avatar';
+    image.src = canvas.toDataURL();
+    box.prepend(image);
+  }
+
+  function silenced(box) {
+    const icon = document.createElement('i');
+    icon.className = 'google-symbols';
+    icon.textContent = 'mic_off';
+    box.append(icon);
+  }
+
+  function speaking() {
+    for (const box of document.querySelectorAll('.tile')) {
+      box.classList.toggle('speaking', box.dataset.who === state.speaker);
+    }
+  }
+
+  function negotiate() {
+    queue = queue.then(async () => {
+      await far.setLocalDescription(await far.createOffer());
+      await near.setRemoteDescription(far.localDescription);
+      await near.setLocalDescription(await near.createAnswer());
+      await far.setRemoteDescription(near.localDescription);
+    }).catch(fail);
+    return queue;
+  }
+
+  function fail(error) { state.error = String(error); state.phase = 'failed'; }
+
+  async function join() {
+    if (state.phase !== 'ready' && state.phase !== 'left') return;
+    state.phase = 'joining'; state.error = null; state.speaker = 'ada'; state.sharing = false;
+    state.devices = undefined;
+    if (state.muted) mute();
+    const audio = new AudioContext({sampleRate: 48000});
+    contexts.push(audio);
+    // Where a join that never arrives stopped: the audio, or the connection.
+    state.audio = 'resuming'; state.ice = null;
+    await audio.resume();
+    state.audio = audio.state;
+    const destination = audio.createMediaStreamDestination();
+    const tone = audio.createOscillator(), volume = audio.createGain();
+    tone.frequency.value = 440; volume.gain.value = 0.05; level = volume;
+    tone.connect(volume).connect(destination); tone.start();
+    tracks.push(...destination.stream.getTracks());
+
+    far = new RTCPeerConnection({iceServers: []});
+    near = new RTCPeerConnection({iceServers: []});
+    for (const [from, to] of [[far, near], [near, far]]) {
+      from.onicecandidate = ({candidate}) => { if (candidate) to.addIceCandidate(candidate).catch(fail); };
+    }
+    near.ontrack = ({track, streams}) => {
+      if (track.kind === 'audio') {
+        $('#far').srcObject = new MediaStream([track]);
+        $('#far').play().catch(fail);
+      } else {
+        tile(who.get(streams[0].id), track);
+      }
+    };
+    near.onconnectionstatechange = () => { if (near.connectionState === 'connected') state.phase = 'in-call'; };
+    state.ice = near.iceConnectionState;
+    near.oniceconnectionstatechange = () => { state.ice = near.iceConnectionState; };
+
+    const talk = new MediaStream();
+    who.set(talk.id, 'talk');
+    far.addTrack(destination.stream.getAudioTracks()[0], talk);
+    for (const name of ['ada', 'bob']) {
+      const stream = feed(name, 640, 360);
+      who.set(stream.id, name);
+      far.addTrack(stream.getVideoTracks()[0], stream);
+    }
+    await negotiate();
+    tile('cara', null);
+    silenced(document.querySelector('.tile[data-who="cara"]'));
+    $('#controls').hidden = false;
+
+    $('#self').srcObject = feed('me', 320, 180);
+    $('#decor').srcObject = feed('decor', 640, 360);
+    $('#decor').play().catch(() => {});
+  }
+
+  async function share() {
+    if (!far || state.phase !== 'in-call') return;
+    if (state.sharing) {
+      state.sharing = false;
+      const sender = far.getSenders().find(one => who.get(one.track?.id) === 'screen');
+      if (sender) far.removeTrack(sender);
+      document.querySelector('.tile[data-who="screen"]')?.remove();
+      await negotiate();
+      return;
+    }
+    const stream = feed('screen', 1280, 800);
+    who.set(stream.id, 'screen');
+    who.set(stream.getVideoTracks()[0].id, 'screen');
+    state.sharing = true;
+    far.addTrack(stream.getVideoTracks()[0], stream);
+    await negotiate();
+  }
+
+  // The sender's own devices. Only a run with WebKit's mock devices gets an answer.
+  async function camera() {
+    const stream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
+    tracks.push(...stream.getTracks());
+    state.devices = stream.getTracks().map(track => track.kind + ':' + track.label);
+    $('#self').srcObject = stream;
+    for (const track of stream.getAudioTracks()) track.enabled = !state.muted;
+  }
+
+  // Everyone else turns their camera off: their pictures stop arriving and their
+  // tiles show who they are instead. The meeting and its sound go on.
+  async function cameras() {
+    if (!far || state.camerasOff) return;
+    state.camerasOff = true;
+    for (const name of ['ada', 'bob']) {
+      const sender = far.getSenders().find(one => who.get(one.track?.id) === name);
+      if (sender) far.removeTrack(sender);
+      const box = document.querySelector(`.tile[data-who="${name}"]`);
+      box?.querySelector('video')?.remove();
+      if (box) pictureOf(box, name);
+    }
+    await negotiate();
+  }
+
+  // The sender's own camera, on and off.
+  function camOnOff() {
+    state.cameraOff = !state.cameraOff;
+    const button = $('#cam');
+    button.dataset.isMuted = String(state.cameraOff);
+    button.setAttribute('aria-label', (state.cameraOff ? 'Turn on' : 'Turn off') + ' camera (ctrl + e)');
+    for (const track of $('#self').srcObject?.getVideoTracks() ?? []) track.enabled = !state.cameraOff;
+  }
+
+  // Presenting asks for a screen, which a page may do only in answer to a press.
+  async function present() {
+    const button = $('#present');
+    if (state.presenting) {
+      for (const track of presented) track.stop();
+      presented = [];
+      state.presenting = false;
+      document.querySelector('.tile[data-who="mine"]')?.remove();
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({video: true});
+        presented = stream.getTracks();
+        tracks.push(...presented);
+        state.presenting = true;
+        state.presentError = null;
+        // The sender's own screen, shown back to them in a tile of its own.
+        tile('mine', stream.getVideoTracks()[0]);
+      } catch (error) {
+        state.presentError = String(error);
+      }
+    }
+    button.setAttribute('aria-pressed', String(state.presenting));
+    button.setAttribute('aria-label', state.presenting ? 'Arrêter la présentation' : 'Présenter maintenant');
+  }
+
+  function hand() {
+    state.hand = !state.hand;
+    const button = $('#hand');
+    button.setAttribute('aria-pressed', String(state.hand));
+    button.setAttribute('aria-label', (state.hand ? 'Lower' : 'Raise') + ' hand (ctrl + alt + h)');
+  }
+
+  // Muting is real: the outgoing microphone track stops carrying sound.
+  function mute() {
+    state.muted = !state.muted;
+    const button = $('#mic');
+    button.dataset.isMuted = String(state.muted);
+    button.setAttribute('aria-label', (state.muted ? 'Turn on' : 'Turn off') + ' microphone (ctrl + d)');
+    for (const track of $('#self').srcObject?.getAudioTracks() ?? []) track.enabled = !state.muted;
+  }
+
+  function speaker() {
+    state.speaker = state.speaker === 'ada' ? 'bob' : 'ada';
+    speaking();
+  }
+
+  function leave() {
+    for (const timer of timers) clearInterval(timer);
+    for (const track of tracks) track.stop();
+    far?.close(); near?.close();
+    for (const context of contexts) context.close();
+    timers = []; tracks = []; contexts = []; far = near = undefined;
+    document.querySelector('#stage').replaceChildren();
+    $('#controls').hidden = true;
+    presented = [];
+    if (state.cameraOff) camOnOff();
+    if (state.hand) hand();
+    state.camerasOff = false; state.presenting = false;
+    $('#present').setAttribute('aria-pressed', 'false');
+    $('#present').setAttribute('aria-label', 'Présenter maintenant');
+    document.querySelector('[role="dialog"]')?.remove();
+    for (const id of ['#far', '#self', '#decor']) $(id).srcObject = null;
+    if (state.lingering) {
+      const after = new AudioContext();
+      contexts.push(after);
+      const hum = after.createOscillator(), low = after.createGain(), out = after.createMediaStreamDestination();
+      low.gain.value = 0.02;
+      hum.connect(low).connect(out);
+      hum.start();
+      tracks.push(...out.stream.getTracks());
+      after.resume().catch(() => {});
+      $('#far').srcObject = out.stream;
+      $('#far').play().catch(() => {});
+    }
+    state.phase = 'left'; state.sharing = false;
+  }
+
+  // What arrived, for the runner: media counters only, never an address.
+  state.stats = async () => {
+    const answer = {audioPackets: 0, audioSamples: 0, videoFrames: 0};
+    if (!near) return answer;
+    for (const report of (await near.getStats()).values()) {
+      if (report.type !== 'inbound-rtp') continue;
+      if (report.kind === 'audio') {
+        answer.audioPackets += report.packetsReceived || 0;
+        answer.audioSamples += report.totalSamplesReceived || 0;
+      } else {
+        answer.videoFrames += report.framesDecoded || 0;
+      }
+    }
+    return answer;
+  };
+  // A meeting where nobody is speaking still holds its connection.
+  state.quiet = on => { if (level) level.gain.value = on ? 0 : 0.05; };
+  state.micLive = () => [...($('#self').srcObject?.getAudioTracks() ?? [])].map(track => track.enabled);
+  state.hear = () => {
+    const element = $('#far');
+    return {paused: element.paused, muted: element.muted, time: element.currentTime, ready: element.readyState};
+  };
+
+  $('#join').onclick = () => join().catch(fail);
+  $('#speaker').onclick = speaker;
+  $('#share').onclick = () => share().catch(fail);
+  $('#camera').onclick = () => camera().catch(fail);
+  // A host is asked first, in a dialog, as Meet asks.
+  function hangUp() {
+    if (!state.host) return leave();
+    if (document.querySelector('[role="dialog"]')) return;
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    dialog.style.cssText = 'position:fixed;left:30%;top:30%;background:#fff;color:#000;padding:12px;z-index:9';
+    const choice = (words, act) => {
+      const button = document.createElement('button');
+      button.textContent = words;
+      button.onclick = () => { dialog.remove(); act(); };
+      dialog.append(button);
+    };
+    if (state.host !== 'odd') choice("Quitter l'appel", leave);
+    else choice('Annuler', () => {});
+    choice("Mettre fin à l'appel pour tout le monde", () => { state.endedForAll = true; leave(); });
+    document.body.append(dialog);
+  }
+  state.leave = leave;
+
+  $('#mic').onclick = mute;
+  $('#cam').onclick = camOnOff;
+  $('#present').onclick = () => present().catch(fail);
+  $('#hand').onclick = hand;
+  $('#cameras').onclick = () => cameras().catch(fail);
+  $('#leave').onclick = hangUp;
+})();
+</script>

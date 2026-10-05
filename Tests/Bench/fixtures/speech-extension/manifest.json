@@ -1,0 +1,7 @@
+{
+  "manifest_version": 3,
+  "name": "Escale speech fixture",
+  "version": "1.0",
+  "description": "Local speech regression fixture.",
+  "permissions": ["tts"]
+}

@@ -1,0 +1,13 @@
+<!-- Synthetic WebRTC peers isolate transport from microphones, accounts and
+     display capture. A received tone and received pixels are measured separately;
+     this fixture cannot certify speaker output or real screen-sharing quality. -->
+<!doctype html>
+<meta charset="utf-8">
+<title>WebRTC quality probe</title>
+<button id="start">Start synthetic call</button>
+<button id="stop">Stop</button>
+<p id="scope">No microphone, camera, display capture or external server is used.</p>
+<canvas id="source" width="1280" height="720"></canvas>
+<video id="received" muted playsinline></video>
+<pre id="status">Ready</pre>
+<script src="probe.js"></script>

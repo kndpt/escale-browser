@@ -1,0 +1,536 @@
+#!/usr/bin/env python3
+"""Drive the Escale you already have open, from the shell.
+
+    ./bench tabs                       every tab, yours and the bench's; JSON includes covered/returning/unpainted
+    ./bench panels [add ID TARGET left|right|top|bottom | separate|remove|turn|reverse|close|tools ID]
+                                       test world: groups, preview, entry/page frames and existing page identity
+    ./bench transfer [save PATH PASSPHRASE [passwords]|choose PATH|unlock PASSPHRASE|apply [preferences]|open|logins SPACE|cancel|forget|fail STEPS…]
+                                       test world: save Escale to one file, or bring one in (files, spaces fail as a full disk would)
+    ./bench migration [open|choose PATH [BROWSER folder]|select N|destination N|categories NAMES|preview|confirm|cancel|reset]
+    ./bench migration [automatic BROWSER|pause|step bookmarks|step history|step-export FILE [bookmarks]]
+                                       test world: shared import flow; indices start at zero, no secrets in state
+    ./bench localhost [open ORIGIN|check]  recently visited local endpoints in this space, each with its state and the
+                                       door's count; test run: click one, or read the listening ports as the panel does
+    ./bench alerts                     local developer notification bridge state
+    ./bench open URL                   a bench tab at the end of the row → its id
+    ./bench go ID URL                  send a bench tab somewhere else
+    ./bench history ID back|forward [INDEX]  recent pages, nearest first; choose INDEX in a test world
+    ./bench visual-pick ID [JSON]      test world: targeting state (summary, anchor)/start/stop/more
+    ./bench page-capture ID [JSON]     test world: capture state/take/close, mode, path; {"action":"area","step":"start|stop"}
+    ./bench json-reader ID [JSON]      test world: state or action open/raw, query, node
+    ./bench calls ID|- [JSON]          test world: API Calls panel state, or action open/close/clear/
+                                       filter(all,search)/select(call)/record(on)/step(by,times)/resume/report/curl/
+                                       frontend(js)/pids; full returns whole text bodies
+    ./bench github-data [state [SPACE]|read ID|private URL|connect|refresh URL|shares|disconnect|leave]
+                                       test world: a Space's GitHub cache and owners; read takes
+                                       the state a GitHub tab already shows; connect starts the device
+                                       flow (code only); refresh reads one row through the API; leave closes the surface
+    ./bench site-storage ID [JSON]     test world: state or action open/close/refresh/save/delete
+    ./bench site-data ID [clear|closed]  inspect the WebKit records of this site's domain;
+                                       clear and reload only in a test world; closed
+                                       closes the bench tab first, as a page closing itself would
+    ./bench wait ID [SECONDS]          until the page has loaded
+    ./bench sleep ID                   put a tab to sleep now, or say what keeps it awake
+    ./bench idle [SECONDS|warning|critical]  put idle tabs to sleep now, as the timer does (unlooked at
+                                       for SECONDS, default 0) or as a memory pressure event does — --test runs only
+    ./bench pin ID [on|off]            pin a tab, or unpin it — --test runs only
+    ./bench caches                     what the icon cache and the pictures of sleeping tabs hold
+    ./bench select ID                  bring a tab to the front — --test runs only
+    ./bench crash ID                   end the process behind a tab's page, as memory pressure would — --test runs only
+    ./bench resize W H [STEPS]         take the window to W×H in steps, like a drag — --test runs only
+    ./bench key ID TEXT                press keys on a tab as real key events — --test runs only
+    ./bench press CODE CHARS [MODS…]   press a key on the whole app (cmd shift ctrl opt, let go after it; repeat;
+                                       outside: as the physical keyboard, which a bench world ignores) — --test runs only
+    ./bench tap ID SELECTOR [cmd|shift|middle|double]  a real mouse click on an element (or text=Words) — --test runs only
+    ./bench text ID                    the page's text
+    ./bench eval ID JS                 run JavaScript, print what it returns
+    ./bench click ID SELECTOR
+    ./bench type ID SELECTOR TEXT
+    ./bench submit ID SELECTOR         the form around SELECTOR
+    ./bench shot ID [PATH] [WIDTH]     a PNG of the page → its path
+    ./bench close ID | all             only tabs the bench opened
+    ./bench media [ID [JSON]]          test run: sources/listeners; action pause/play/previous/next/volume/dismiss/return, value 0...1
+    ./bench probe                      the window's own state: panels, pageFrame, active transfers/progress/observers, address results and focus
+    ./bench extensions                 installed extensions, their warnings and live speech state
+    ./bench ext-add ID|LINK [--yes]    install from the Chrome Web Store (--yes only in a --test run)
+    ./bench ext-folder PATH [--yes]    install an unpacked extension
+    ./bench ext-press ID               press its button
+    ./bench ext-page ID [PATH] [--ordinary]  one of its pages; ordinary requires a test world
+    ./bench ext-popup ID JS            run JavaScript in its popup while it is open
+    ./bench ext-reload ID              take it up again (a folder one is copied in afresh)
+    ./bench ext-pin ID [on|off]        keep its button in the row beside the puzzle
+    ./bench ext-menu PATH              the puzzle button's list, drawn to a PNG
+    ./bench ext-shot ID PATH           a picture of its popup while it is open
+    ./bench ext-answer yes|no|ask      test run: answer extensions' questions without asking; lists what was asked
+    ./bench ext-enable ID on|off       switch an extension on or off
+    ./bench ext-remove ID
+    ./bench strip PATH [WIDTH]         the row of tabs across the top, drawn off screen to a PNG
+    ./bench column PATH [HEIGHT]       the column of tabs, drawn off screen to a PNG
+    ./bench bar PATH [WIDTH|card|security]  the address bar over the page, the card its site opens,
+                                       or that card's security page, to a PNG
+    ./bench routes [set JSON|test URL]  test run: edit local link rules or inspect the winner without loading
+    ./bench space [new NAME|duplicate NAME|credentials [USER]|capture HOST TYPE [allow|deny|clear]|oauth URL|go N|delete|swipe DX|hold DX|release|glide DX [STEPS]|move N|transfer ID N]
+                                       test run: independent spaces; duplicate copies organisation only,
+                                       switch to the Nth, delete this one,
+                                       two fingers DX points sideways over the column (hold: not let go yet;
+                                       glide: in STEPS moves, each timed until the window rests, then let go),
+                                       move this one to Nth; transfer ID N moves a tab to that space
+    ./bench hit X Y [double|middle|click|command] [live]  what a press at X Y (points from the window's top left) lands on,
+                                       and whether a drag from there would move the window;
+                                       double: test run, a double-click there (start the probe hidden);
+                                       click: test run, a single click there; command: click with ⌘ held
+    ./bench pointer state|cancel|choose INDEX|move X Y|click X Y|hold X Y  test-only native pointer and tracking-menu inspection
+    ./bench drag X Y TOX TOY [HOLD_MS [ENDX ENDY [PAUSE_MS]]] [live]  test run: move in steps, optionally hold, then let go;
+                                       live routes every event, press included, through AppKit;
+                                       JSON heldSpace is the Space visible before mouse-up
+    ./bench place ID INDEX             put a tab at another place in the row
+    ./bench environments BOOKMARK [edit|set JSON|open NAME]  test run: inspect, edit or open explicit bookmark destinations
+    ./bench shelf [seed|many N|keep|clear|open NAME|close NAME|drop NAME Y|fold|unfold] [rest]  the bookmarks in the column, row by row;
+                                       seed: test run, a few sites and a folder; many N: test run, N sites siteK.localhost;
+                                       rest: answer once the window has rested, with the milliseconds that took;
+                                       keep: test run, put the active tab on the shelf;
+                                       clear: test run, what the Tabs heading's Clear does (clearable counts what it would close);
+                                       open/close a folder by title;
+                                       drop: test run, that row let go Y points down the shelf, as a drag would;
+                                       fold/unfold: the whole section under its heading
+    ./bench github [JSON]             test run: local GitHub fixtures and shared observation state
+    ./bench field TEXT [type] [go]     test run: TEXT pasted into the address field (type: a key at a time),
+                                       each timed until the window has caught up; go: then Return, timed
+                                       until the page is loading
+    ./bench row INDEX                  test run: take that row of Bearings as a click does (its action, not a pointer)
+    ./bench recall [open|close|hunt TEXT|scroll X Y TURNS]  test run: the History panel opened, closed or
+                                       searched, timed until the window rests three times (the last: settled);
+                                       scroll: its list under X Y turned down by the wheel, 40 points TURNS times
+    ./bench menu [open]                test run: the Bookmarks menu as it is about to open, and its first
+                                       folder (open: its first bookmark picked)
+    ./bench bookmark URL [new]         test run: a bookmark picked from the list, timed until it loads
+                                       (new: into a new tab, whose page isn't built yet)
+    ./bench window                     test run: open the browser's window if a hidden probe came up without it
+    ./bench pages on|off               test run: let a hidden probe's pages be painted, off every screen (for picture)
+    ./bench picture PATH [sheet]       test run: window or attached sheet drawn to a PNG (start the probe hidden)
+    ./bench film peek|unpeek|fold PATH [N] [SECS]  the window drawn N times while it animates → PATH-00.png… — --test runs only
+    ./bench update [ready|offered|fetching|none|open|arrival|close|forget|relaunch] [JSON]
+                                       test run: the update's door and panels; ready/offered/fetching stand
+                                       the stage by hand ({"version": "0.3", "notes": "…", "fraction": 0.4}),
+                                       open/arrival show a panel,
+                                       forget makes the next launch an arrival (shown with ESCALE_FEED set),
+                                       relaunch goes through the updater's own relaunch
+    ./bench ui KEY VALUE               settings/passwords/welcome/history/downloads/bookmarks/hidden on|off,
+                                       look light|dark|system, tone neutral|escale,
+                                       size compact|standard|large,
+                                       depth solid|subtle|clear, contrast on|off, copy on|off,
+                                       sidebar on|off, spaces on|off, hides on|off,
+                                       bar on|off, shelf on|off, folded on|off, peek on|off,
+                                       autoscroll on|off, links on|off, reading on|off, saving on|off, filling on|off,
+                                       clearHistory on (test-world history reset)
+
+Needs Settings › Developer › "Let a script drive Escale" switched on in the
+running app. IDs are the first characters of a tab's id, as `tabs` prints
+them. With --test, talks to an ESCALE_PROBE run instead of the real one;
+with --world NAME, to an ESCALE_PROBE=NAME run, the world "Escale (NAME)".
+With --json, print the complete response for scripts.
+"""
+
+import io
+import json
+import os
+import socket
+import sys
+
+def folder(world):
+    name = f"Escale ({world})" if world else "Escale"
+    return os.path.expanduser(f"~/Library/Application Support/{name}")
+
+def ask(path, request, timeout=None):
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+        # A script's deadline covers the whole exchange; the shell waits as long as it takes.
+        s.settimeout(timeout)
+        try:
+            s.connect(path)
+        except (FileNotFoundError, ConnectionRefusedError):
+            sys.exit("Escale isn't listening — is it open, with Settings › Developer › "
+                     "“Let a script drive Escale” on?")
+        s.sendall((json.dumps(request) + "\n").encode())
+        chunks = []
+        while True:
+            chunk = s.recv(1 << 16)
+            if not chunk:
+                break
+            chunks.append(chunk)
+    line = b"".join(chunks).split(b"\n", 1)[0]
+    return json.loads(line or b"{}")
+
+def main(argv, out=None, err=None, timeout=None, cwd=None):
+    out, err = out or sys.stdout, err or sys.stderr
+    def absolute(path):
+        return os.path.abspath(os.path.join(cwd or os.getcwd(), path))
+    json_output = "--json" in argv
+    world = "test" if "--test" in argv else None
+    if "--world" in argv:
+        at = argv.index("--world")
+        if at + 1 >= len(argv): sys.exit("usage: bench --world NAME COMMAND …")
+        world = "".join(c for c in argv[at + 1].lower() if c.isascii() and (c.isalnum() or c == "-"))
+        if world in ("", "1"): world = "test"
+        argv = argv[:at] + argv[at + 2:]
+    yes = "--yes" in argv
+    argv = [a for a in argv if a not in ("--test", "--yes", "--json")]
+    if not argv or argv[0] in ("-h", "--help", "help"):
+        print(__doc__.strip(), file=out)
+        return 0
+    verb, args = argv[0], argv[1:]
+    request = {"do": verb}
+    if verb == "open":
+        if len(args) != 1: sys.exit("usage: bench open URL")
+        request["url"] = args[0]
+    elif verb == "go":
+        if len(args) != 2: sys.exit("usage: bench go ID URL")
+        request["id"], request["url"] = args
+    elif verb == "history":
+        if len(args) not in (2, 3) or args[1] not in ("back", "forward"):
+            sys.exit("usage: bench history ID back|forward [INDEX]")
+        request["id"], request["back"] = args[0], args[1] == "back"
+        if len(args) == 3: request["index"] = int(args[2])
+    elif verb in ("wait",):
+        if not args: sys.exit("usage: bench wait ID [SECONDS]")
+        request["id"] = args[0]
+        if len(args) > 1: request["seconds"] = float(args[1])
+    elif verb in ("text", "close", "sleep", "select", "crash"):
+        if len(args) != 1: sys.exit(f"usage: bench {verb} ID")
+        request["id"] = args[0]
+    elif verb == "panels":
+        if not args: pass
+        elif len(args) == 4 and args[0] == "add":
+            request.update(action="add", id=args[1], target=args[2], edge=args[3])
+        elif len(args) == 2 and args[0] in ("separate", "remove", "turn", "reverse", "close", "tools"):
+            request.update(action=args[0], id=args[1])
+        else: sys.exit("usage: bench panels [add ID TARGET left|right|top|bottom | separate|remove|turn|reverse|close|tools ID]")
+    elif verb == "idle":
+        if len(args) > 1: sys.exit("usage: bench idle [SECONDS|warning|critical]")
+        if args and args[0] in ("warning", "critical"): request["level"] = args[0]
+        elif args: request["seconds"] = float(args[0])
+    elif verb == "pin":
+        if not 1 <= len(args) <= 2: sys.exit("usage: bench pin ID [on|off]")
+        request["id"] = args[0]
+        request["on"] = (args[1] if len(args) > 1 else "on") in ("on", "true", "1", "yes")
+    elif verb == "eval":
+        if len(args) != 2: sys.exit("usage: bench eval ID JS")
+        request["id"], request["js"] = args
+    elif verb == "tap":
+        if len(args) < 2 or any(mod not in ("cmd", "shift", "middle", "double") for mod in args[2:]):
+            sys.exit("usage: bench tap ID SELECTOR [cmd|shift|middle|double]")
+        request["id"], request["selector"] = args[:2]
+        request["mods"] = args[2:]
+    elif verb in ("click", "submit"):
+        if len(args) != 2: sys.exit(f"usage: bench {verb} ID SELECTOR")
+        request["id"], request["selector"] = args
+    elif verb == "type":
+        if len(args) != 3: sys.exit("usage: bench type ID SELECTOR TEXT")
+        request["id"], request["selector"], request["text"] = args
+    elif verb == "shot":
+        if not args: sys.exit("usage: bench shot ID [PATH] [WIDTH]")
+        request["id"] = args[0]
+        if len(args) > 1: request["path"] = absolute(args[1])
+        if len(args) > 2: request["width"] = float(args[2])
+    elif verb == "ui":
+        if len(args) != 2: sys.exit("usage: bench ui KEY VALUE")
+        key, value = args
+        request[key] = value if key in ("look", "tone", "size", "depth", "edittab") else value in ("on", "true", "1", "yes")
+    elif verb in ("ext-add", "ext-press", "ext-remove", "ext-reload"):
+        if len(args) != 1: sys.exit(f"usage: bench {verb} ID")
+        request["id"] = args[0]
+        request["yes"] = yes
+    elif verb == "ext-enable":
+        if len(args) != 2: sys.exit("usage: bench ext-enable ID on|off")
+        request["id"] = args[0]
+        request["on"] = args[1] in ("on", "true", "1", "yes")
+    elif verb == "ext-pin":
+        if not 1 <= len(args) <= 2: sys.exit("usage: bench ext-pin ID [on|off]")
+        request["id"] = args[0]
+        request["on"] = (args[1] if len(args) > 1 else "on") in ("on", "true", "1", "yes")
+    elif verb == "ext-answer":
+        if len(args) != 1 or args[0] not in ("yes", "no", "ask"): sys.exit("usage: bench ext-answer yes|no|ask")
+        request["answer"] = args[0]
+    elif verb == "ext-shot":
+        if len(args) != 2: sys.exit("usage: bench ext-shot ID PATH")
+        request["id"] = args[0]
+        request["path"] = absolute(args[1])
+    elif verb == "ext-menu":
+        if len(args) != 1: sys.exit("usage: bench ext-menu PATH")
+        request["path"] = absolute(args[0])
+    elif verb == "ext-folder":
+        if len(args) != 1: sys.exit("usage: bench ext-folder PATH")
+        request["path"] = absolute(args[0])
+        request["yes"] = yes
+    elif verb == "ext-popup":
+        if len(args) != 2: sys.exit("usage: bench ext-popup ID JS")
+        request["id"], request["js"] = args
+    elif verb == "ext-page":
+        ordinary = "--ordinary" in args
+        parts = [arg for arg in args if arg != "--ordinary"]
+        if not 1 <= len(parts) <= 2: sys.exit("usage: bench ext-page ID [PATH] [--ordinary]")
+        request["id"] = parts[0]
+        request["path"] = parts[1] if len(parts) > 1 else ""
+        request["ordinary"] = ordinary
+    elif verb == "press":
+        if len(args) < 2: sys.exit("usage: bench press KEYCODE CHARS [cmd] [shift] [ctrl] [opt] [repeat] [outside]")
+        request["code"], request["chars"], request["mods"] = int(args[0]), args[1], args[2:]
+    elif verb == "key":
+        if len(args) != 2: sys.exit("usage: bench key ID TEXT")
+        request["id"], request["text"] = args
+    elif verb == "resize":
+        if len(args) not in (2, 3): sys.exit("usage: bench resize WIDTH HEIGHT [STEPS]")
+        request["width"], request["height"] = float(args[0]), float(args[1])
+        if len(args) == 3: request["steps"] = int(args[2])
+    elif verb == "strip":
+        if not 1 <= len(args) <= 2: sys.exit("usage: bench strip PATH [WIDTH]")
+        request["path"] = absolute(args[0])
+        if len(args) == 2: request["width"] = float(args[1])
+    elif verb == "column":
+        if not 1 <= len(args) <= 2: sys.exit("usage: bench column PATH [HEIGHT]")
+        request["path"] = absolute(args[0])
+        if len(args) == 2: request["height"] = float(args[1])
+    elif verb == "bar":
+        if not 1 <= len(args) <= 2: sys.exit("usage: bench bar PATH [WIDTH|card|security]")
+        request["path"] = absolute(args[0])
+        if len(args) == 2:
+            if args[1] in ("card", "security"): request[args[1]] = True
+            else: request["width"] = float(args[1])
+    elif verb == "transfer":
+        request["action"] = args[0] if args else "state"
+        if args and args[0] == "save":
+            if len(args) < 3: sys.exit("usage: bench transfer save PATH PASSPHRASE [passwords]")
+            request["path"] = absolute(args[1]); request["passphrase"] = args[2]
+            request["passwords"] = len(args) > 3 and args[3] == "passwords"
+        elif args and args[0] == "choose":
+            if len(args) != 2: sys.exit("usage: bench transfer choose PATH")
+            request["path"] = absolute(args[1])
+        elif args and args[0] == "unlock":
+            if len(args) != 2: sys.exit("usage: bench transfer unlock PASSPHRASE")
+            request["passphrase"] = args[1]
+        elif args and args[0] == "apply":
+            if len(args) > 1: request["preferences"] = args[1] == "preferences"
+        elif args and args[0] == "fail":
+            request["steps"] = args[1:]
+        elif args and args[0] == "logins":
+            if len(args) != 2: sys.exit("usage: bench transfer logins SPACE_ID")
+            request["space"] = args[1]
+    elif verb == "migration":
+        request["action"] = args[0] if args else "state"
+        if args and args[0] == "choose":
+            if len(args) < 2: sys.exit("usage: bench migration choose PATH [BROWSER folder]")
+            request["path"] = absolute(args[1])
+            if len(args) > 2: request["browser"] = args[2]
+            request["folder"] = len(args) > 3 and args[3] == "folder"
+        elif args and args[0] == "step" and len(args) == 2:
+            request["category"] = args[1]
+        elif args and args[0] == "step-export" and len(args) in (2, 3):
+            request["path"] = absolute(args[1])
+            if len(args) == 3: request["category"] = args[2]
+        elif args and args[0] == "automatic" and len(args) == 2:
+            request["browser"] = args[1]
+        elif args and args[0] in ("select", "destination"):
+            if len(args) != 2: sys.exit("select/destination needs a zero-based index")
+            request["index"] = int(args[1])
+        elif args and args[0] == "password-matches" and len(args) == 2:
+            request["digest"] = args[1]
+        elif args and args[0] == "categories":
+            request["categories"] = args[1:]
+        elif len(args) > 1: sys.exit("unexpected migration arguments")
+    elif verb == "routes":
+        if not args: pass
+        elif len(args) == 2 and args[0] == "set": request["rules"] = args[1]
+        elif len(args) == 2 and args[0] == "test": request["url"] = args[1]
+        else: sys.exit("usage: bench routes [set JSON|test URL]")
+    elif verb == "space":
+        if args and args[0] == "new":
+            fresh = args[-1] == "fresh"
+            request["action"], request["name"] = "new", " ".join(args[1:-1] if fresh else args[1:]) or "Test"
+        elif args and args[0] == "duplicate": request["action"], request["name"] = "duplicate", " ".join(args[1:]) or "Copy"
+        elif args and args[0] == "duplicate-id" and len(args) >= 3:
+            request["action"], request["identifier"], request["name"] = "duplicate", args[1], " ".join(args[2:])
+        elif args and args[0] == "credentials" and len(args) in (1, 2):
+            request["action"] = "credentials"
+            if len(args) == 2: request["user"] = args[1]
+        elif args and args[0] == "capture" and len(args) in (3, 4):
+            request["action"], request["host"], request["type"] = "capture", args[1], int(args[2])
+            if len(args) == 4: request["choice"] = args[3]
+        elif args and args[0] == "oauth" and len(args) == 2:
+            request["action"], request["url"] = "oauth", args[1]
+        elif args and args[0] == "go" and len(args) == 2: request["action"], request["index"] = "go", int(args[1])
+        elif args and args[0] == "delete": request["action"] = "delete"
+        elif args and args[0] == "swipe" and len(args) == 2: request["action"], request["dx"] = "swipe", float(args[1])
+        elif args and args[0] == "hold" and len(args) == 2: request["action"], request["dx"] = "hold", float(args[1])
+        elif args and args[0] == "release": request["action"] = "release"
+        elif args and args[0] == "glide" and len(args) in (2, 3):
+            request["action"], request["dx"] = "glide", float(args[1])
+            if len(args) == 3: request["steps"] = int(args[2])
+        elif args and args[0] == "move" and len(args) == 2: request["action"], request["index"] = "move", int(args[1])
+        elif args and args[0] == "transfer" and len(args) == 3:
+            request["action"], request["id"], request["index"] = "transfer", args[1], int(args[2])
+        elif args: sys.exit("usage: bench space [new NAME | duplicate NAME | go N | delete | swipe DX | hold DX | release | glide DX [STEPS] | move N | transfer ID N]")
+    elif verb == "hit":
+        if args and args[-1] == "live":
+            request["live"] = True
+            args = args[:-1]
+        if len(args) not in (2, 3) or (len(args) == 3 and args[2] not in ("double", "middle", "click", "command")): sys.exit("usage: bench hit X Y [double|middle|click|command] [live]")
+        request["x"], request["y"] = float(args[0]), float(args[1])
+        if len(args) == 3: request[args[2]] = True
+    elif verb == "environments":
+        if not args: sys.exit("usage: bench environments BOOKMARK [edit|set JSON|open NAME]")
+        request["bookmark"] = args[0]
+        if len(args) == 2 and args[1] == "edit": request["edit"] = True
+        elif len(args) == 3 and args[1] in ("set", "open"): request[args[1]] = args[2]
+        elif len(args) != 1: sys.exit("usage: bench environments BOOKMARK [edit|set JSON|open NAME]")
+    elif verb == "shelf":
+        if args and args[-1] == "rest":
+            request["rest"] = True
+            args = args[:-1]
+        if args == ["seed"]: request["seed"] = True
+        elif len(args) == 2 and args[0] == "many" and args[1].isdigit(): request["many"] = int(args[1])
+        elif args == ["keep"]: request["keep"] = True
+        elif args == ["clear"]: request["clear"] = True
+        elif args in (["fold"], ["unfold"]): request["fold"] = args[0] == "fold"
+        elif len(args) >= 3 and args[0] == "drop": request["drop"], request["y"] = " ".join(args[1:-1]), float(args[-1])
+        elif len(args) >= 2 and args[0] in ("open", "close"): request[args[0]] = " ".join(args[1:])
+        elif args: sys.exit("usage: bench shelf [seed | many N | keep | clear | open NAME | close NAME | drop NAME Y | fold | unfold] [rest]")
+    elif verb == "pointer":
+        if not args: args = ["state"]
+        request["action"] = args[0]
+        if len(args) == 3 and args[0] in ("click", "hold", "move"):
+            request["x"], request["y"] = map(float, args[1:])
+        elif len(args) == 2 and args[0] == "choose": request["index"] = int(args[1])
+        elif args not in (["state"], ["cancel"]): sys.exit("usage: bench pointer state|cancel|choose INDEX|move X Y|click X Y|hold X Y")
+    elif verb == "drag":
+        if args and args[-1] == "live":
+            request["live"] = True
+            args = args[:-1]
+        if len(args) not in (4, 5, 7, 8): sys.exit("usage: bench drag X Y TOX TOY [HOLD_MS [ENDX ENDY [PAUSE_MS]]] [live]")
+        request["x"], request["y"], request["toX"], request["toY"] = map(float, args[:4])
+        if len(args) >= 5: request["holdMS"] = int(args[4])
+        if len(args) >= 7: request["endX"], request["endY"] = map(float, args[5:7])
+        if len(args) == 8: request["dropPauseMS"] = int(args[7])
+    elif verb == "place":
+        if len(args) != 2: sys.exit("usage: bench place ID INDEX")
+        request["id"], request["to"] = args[0], int(args[1])
+    elif verb == "github":
+        if len(args) > 1: sys.exit("usage: bench github [JSON]")
+        if args: request.update(json.loads(args[0]))
+        request["do"] = "github"
+    elif verb == "field":
+        if not args or any(a not in ("type", "go") for a in args[1:]): sys.exit("usage: bench field TEXT [type] [go]")
+        request["text"] = args[0]
+        request["type"] = "type" in args[1:]
+        request["go"] = "go" in args[1:]
+    elif verb == "row":
+        if len(args) != 1: sys.exit("usage: bench row INDEX")
+        request["index"] = int(args[0])
+    elif verb == "recall":
+        if args[:1] == ["hunt"]: request["hunt"] = " ".join(args[1:])
+        elif args[:1] == ["scroll"] and len(args) == 4:
+            request["x"], request["y"], request["scroll"] = float(args[1]), float(args[2]), int(args[3])
+        elif args in ([], ["open"], ["close"]): request["open"] = args != ["close"]
+        else: sys.exit("usage: bench recall [open|close|hunt TEXT|scroll X Y TURNS]")
+    elif verb == "bookmark":
+        if len(args) not in (1, 2) or (len(args) == 2 and args[1] != "new"): sys.exit("usage: bench bookmark URL [new]")
+        request["url"] = args[0]
+        request["new"] = len(args) == 2
+    elif verb == "github-data":
+        if args[:1] == ["read"] and len(args) == 2: request["action"], request["id"] = "read", args[1]
+        elif args == ["leave"]: request["action"] = "leave"
+        elif args in (["connect"], ["disconnect"], ["shares"]): request["action"] = args[0]
+        elif args[:1] == ["refresh"] and len(args) == 2: request["action"], request["url"] = "refresh", args[1]
+        elif args[:1] == ["private"] and len(args) == 2: request["action"], request["url"] = "private", args[1]
+        elif args == [] or (args[:1] == ["state"] and len(args) <= 2):
+            if len(args) == 2: request["space"] = args[1]
+        else: sys.exit("usage: bench github-data [state [SPACE]|read ID|private URL|connect|refresh URL|shares|disconnect|leave]")
+    elif verb == "calls":
+        if len(args) not in (1, 2): sys.exit("usage: bench calls ID|- [JSON]")
+        if len(args) == 2: request.update(json.loads(args[1]))
+        request["id"] = args[0]
+    elif verb in ("json-reader", "site-storage", "visual-pick", "page-capture"):
+        if len(args) not in (1, 2): sys.exit("usage: bench " + verb + " ID [JSON]")
+        if len(args) == 2: request.update(json.loads(args[1]))
+        request["id"] = args[0]
+        request["do"] = verb
+    elif verb == "media":
+        if len(args) > 2: sys.exit("usage: bench media [ID [JSON]]")
+        if args: request["id"] = args[0]
+        if len(args) == 2: request.update(json.loads(args[1]))
+    elif verb == "site-data":
+        if len(args) not in (1, 2) or (len(args) == 2 and args[1] not in ("clear", "closed")):
+            sys.exit("usage: bench site-data ID [clear|closed]")
+        request["id"] = args[0]
+        request["clear"] = args[1:] == ["clear"]
+        request["closed"] = args[1:] == ["closed"]
+    elif verb == "menu":
+        if args not in ([], ["open"]): sys.exit("usage: bench menu [open]")
+        request["open"] = args == ["open"]
+    elif verb == "window":
+        pass
+    elif verb == "pages":
+        if len(args) != 1 or args[0] not in ("on", "off"): sys.exit("usage: bench pages on|off")
+        request["on"] = args[0] == "on"
+    elif verb == "picture":
+        if len(args) not in (1, 2) or (len(args) == 2 and args[1] != "sheet"): sys.exit("usage: bench picture PATH [sheet]")
+        request["path"] = absolute(args[0])
+        request["sheet"] = len(args) == 2
+    elif verb == "film":
+        if len(args) not in (2, 3, 4) or args[0] not in ("peek", "unpeek", "fold", "none"):
+            sys.exit("usage: bench film peek|unpeek|fold|none PATH [FRAMES] [EVERY]")
+        request["action"], request["path"] = args[0], absolute(args[1])
+        if len(args) > 2: request["frames"] = int(args[2])
+        if len(args) > 3: request["every"] = float(args[3])
+    elif verb == "update":
+        if len(args) > 2: sys.exit("usage: bench update [ACTION] [JSON]")
+        if args: request["action"] = args[0]
+        if len(args) == 2: request.update(json.loads(args[1]))
+    elif verb == "localhost":
+        if len(args) == 2 and args[0] == "open": request["open"] = args[1]
+        elif args == ["check"]: request["check"] = True
+        elif args: sys.exit("usage: bench localhost [open ORIGIN|check]")
+    elif verb not in ("tabs", "probe", "extensions", "caches", "alerts"):
+        sys.exit(f"unknown command “{verb}” — see bench help")
+
+    answer = ask(os.path.join(folder(world), "bench.sock"), request, timeout)
+    if "error" in answer:
+        sys.exit("error: " + str(answer["error"]))
+    if json_output:
+        print(json.dumps(answer, ensure_ascii=False), file=out)
+        return 0
+    if verb == "text":
+        print(answer.get("text", ""), file=out)
+        if answer.get("truncated"):
+            print("\n[… truncated]", file=err)
+    elif verb == "shot":
+        print(answer["path"], file=out)
+    elif verb in ("open", "ext-page"):
+        print(answer["id"], file=out)
+    elif verb in ("eval", "ext-popup"):
+        value = answer.get("value")
+        print(value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, indent=2), file=out)
+    elif verb == "tabs":
+        for tab in answer.get("tabs", []):
+            mark = "⚗" if tab.get("bench") else ("●" if tab.get("active") else " ")
+            state = " …" if tab.get("loading") else (" z" if tab.get("asleep") else "")
+            print(f"{mark} {tab['id']}  {tab.get('title') or '—'}  {tab.get('url')}{state}", file=out)
+    else:
+        print(json.dumps(answer, ensure_ascii=False, indent=2), file=out)
+    return 0
+
+def run(argv, timeout=None, cwd=None):
+    """One command in the calling process, for a script that sends hundreds:
+    (exit status, stdout, stderr) as the shell would have had them. A socket
+    left without an answer past `timeout` raises TimeoutError."""
+    out, err = io.StringIO(), io.StringIO()
+    try:
+        code = main(argv, out, err, timeout, cwd)
+    except SystemExit as stop:
+        code = stop.code
+    if isinstance(code, str):
+        print(code, file=err)
+        code = 1
+    return code or 0, out.getvalue(), err.getvalue()
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

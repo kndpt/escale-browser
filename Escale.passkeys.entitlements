@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- The hardened runtime refuses the camera and the microphone unless the
+       app says up front that pages may ask for them. -->
+  <key>com.apple.security.device.camera</key><true/>
+  <key>com.apple.security.device.audio-input</key><true/>
+  <!-- Passkeys, for any site. Apple grants this to browsers on request; it
+       only works with the matching Developer ID provisioning profile
+       embedded in the app, which build.sh does when Escale.provisionprofile
+       is next to it. The two identifiers are how macOS ties the app to that
+       profile: without them the restricted entitlement is refused. Both carry
+       the Team ID of the Apple Developer account the profile belongs to
+       (developer.apple.com › Membership); XXXXXXXXXX stands in for it until
+       Escale has one, and only a build with the profile ever reads it. -->
+  <key>com.apple.application-identifier</key><string>XXXXXXXXXX.com.kndpt.escale</string>
+  <key>com.apple.developer.team-identifier</key><string>XXXXXXXXXX</string>
+  <key>com.apple.developer.web-browser.public-key-credential</key><true/>
+</dict>
+</plist>

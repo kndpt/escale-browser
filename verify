@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+"""Run checks for the change, with reusable local results.
+
+The implementation stays beside its tests; this entry point needs only Python's
+standard library and never installs tools or contacts a service.
+"""
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "Tests/Verification"))
+from run import main
+
+if __name__ == "__main__":
+    raise SystemExit(main())
