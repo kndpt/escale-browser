@@ -590,8 +590,16 @@ private struct ShelfRow: View {
     let hides: Bool
 
     @State private var hovering = false
+    @State private var searching = false
+    /// The pointer is on the folder's search, or the keyboard has been.
+    @State private var searchHeld = false
     @FocusState private var nameFocused: Bool
     @SwiftUI.Environment(\.chromeMetrics) private var metrics
+
+    /// A shut folder with at least one site somewhere in it (FolderSearch.swift).
+    private var searchable: Bool {
+        node.isFolder && !isOpen && !naming && Bookmarks.count(node.children ?? []) > 0
+    }
 
     var body: some View {
         HStack(spacing: metrics.length(8)) {
@@ -676,6 +684,26 @@ private struct ShelfRow: View {
         .contentShape(RoundedRectangle(cornerRadius: metrics.length(9), style: .continuous))
         .onTapGesture { if !naming { press() } }
         .onHover { hovering = $0 }
+        // The pointer resting on a shut folder opens its search; leaving
+        // both closes it, unless the keyboard has been used in it. The task
+        // is cancelled as soon as the pointer moves on, so nothing waits idle.
+        .task(id: searchable && hovering) {
+            guard searchable, hovering, !searching else { return }
+            try? await Task.sleep(nanoseconds: UInt64(Motion.folderSearchDwell * 1_000_000_000))
+            // A button held down is a click or a drag starting, not a rest.
+            guard !Task.isCancelled, NSEvent.pressedMouseButtons == 0 else { return }
+            searching = true
+        }
+        .task(id: hovering || searchHeld) {
+            guard searching, !hovering, !searchHeld else { return }
+            try? await Task.sleep(nanoseconds: UInt64(Motion.folderSearchLeave * 1_000_000_000))
+            if !Task.isCancelled { searching = false }
+        }
+        .popover(isPresented: $searching, arrowEdge: .trailing) {
+            FolderSearch(browser: browser, folder: node, held: $searchHeld) { searching = false }
+        }
+        .onChange(of: searching) { _, open in if !open { searchHeld = false } }
+        .accessibilityAction(named: "Search in Folder") { if searchable { searching = true } }
         .contextMenu {
             if let tab {
                 Button { browser.close(tab) } label: { Label("Close Tab", systemImage: "xmark") }
@@ -711,6 +739,7 @@ private struct ShelfRow: View {
     }
 
     private func press() {
+        searching = false
         if node.isFolder {
             withAnimation(reduceMotion ? nil : Motion.settle) {
                 if isOpen { browser.shelfOpen.remove(node.id) } else { browser.shelfOpen.insert(node.id) }
