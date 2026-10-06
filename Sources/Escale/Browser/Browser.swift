@@ -2289,6 +2289,13 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             tab(for: webView)?.stayed()
             return
         }
+        // A video or sound opened on its own goes to WebKit's player, which
+        // ends the navigation with "plug-in handled load" (204) a moment
+        // after it starts playing. The page arrived: it is a finish.
+        if nsError.domain == "WebKitErrorDomain" && code == 204 {
+            self.webView(webView, didFinish: nil)
+            return
+        }
         tab(for: webView)?.uncover()
         tab(for: webView)?.failed(message(for: code), at: nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL)
     }
