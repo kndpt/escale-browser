@@ -51,6 +51,10 @@ extension Browser {
         switch action {
         case .previousSpace, .nextSpace: return prefs.usesSpaces && spaces.count > 1
         case .newSpace, .renameSpace, .duplicateSpace: return prefs.usesSpaces
+        case .moveSpaceUp, .moveSpaceDown:
+            let at = spaces.firstIndex { $0.id == spaceID } ?? 0
+            return prefs.usesSpaces && spaces.indices.contains(at + (action == .moveSpaceUp ? -1 : 1))
+        case .deleteSpace: return prefs.usesSpaces && !space.isFirst
         case .reopenTab: return !ghosts.isEmpty
         case .back: return active?.canGoBack == true
         case .forward: return active?.canGoForward == true
@@ -113,10 +117,11 @@ extension Browser {
             makingSpace = false
             switchSpace(index: (index + (action == .nextSpace ? 1 : -1) + spaces.count) % spaces.count)
         case .newSpace: askForSpace()
-        case .renameSpace:
-            let id = spaceID
-            Ask.name("Rename Space", placeholder: space.name, initial: space.name, confirm: "Rename") { self.renameSpace(id, to: $0) }
+        case .renameSpace: askToRenameSpace(spaceID)
         case .duplicateSpace: askToDuplicateSpace(spaceID)
+        case .moveSpaceUp: moveSpace(spaceID, by: -1)
+        case .moveSpaceDown: moveSpace(spaceID, by: 1)
+        case .deleteSpace: askToDeleteSpace(spaceID)
         case .find: openFind()
         case .findNext: find.look(forward: true)
         case .findPrevious: find.look(forward: false)

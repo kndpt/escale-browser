@@ -2,8 +2,9 @@ import Foundation
 import Testing
 @testable import Escale
 
-// A malformed list must survive a later save, so it can be recovered by hand.
-// This uses only a synthetic file in a fresh temporary folder.
+// A malformed list must survive a later save, so it can be recovered by hand,
+// and a saved order comes back as it was, the first Space included.
+// This uses only synthetic files in a fresh temporary folder.
 
 @Suite struct SpacesReadTests {
     @Test func aMalformedListIsKeptBeforeTheNextSave() throws {
@@ -26,5 +27,21 @@ import Testing
         // A later space edit writes a valid list at the original address.
         try JSONEncoder().encode(fallback).write(to: file, options: .atomic)
         #expect(try saved.first.map { try Data(contentsOf: $0) } == malformed)
+    }
+
+    @Test func aMovedFirstSpaceKeepsItsPlace() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("escale-spaces-order-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = root.appendingPathComponent("spaces.json")
+        let work = Space(id: UUID(), name: "Work", colour: 0)
+        let first = Space(id: Space.firstID, name: "Personal", colour: 0)
+        try JSONEncoder().encode([work, first]).write(to: file)
+        #expect(Spaces.read(from: file).map(\.id) == [work.id, Space.firstID])
+
+        // A list without the first Space still gets it, in front.
+        try JSONEncoder().encode([work]).write(to: file)
+        #expect(Spaces.read(from: file).map(\.id) == [Space.firstID, work.id])
     }
 }

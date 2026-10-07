@@ -240,7 +240,7 @@ struct SideBar: View {
     /// above the scrolling tabs without sharing the creation row.
     private var spaceTitle: some View {
         HStack(spacing: gap) {
-            Button { SpaceMenu.show(for: browser, space: browser.spaceID) } label: {
+            Button { SpaceMenu.show(for: browser) } label: {
                 HStack(spacing: metrics.length(6)) {
                     Text(browser.space.name)
                         .font(.system(size: metrics.length(13), weight: .medium))
