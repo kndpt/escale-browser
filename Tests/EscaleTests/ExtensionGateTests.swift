@@ -17,4 +17,10 @@ import Testing
         #expect(ExtensionShims.needs("history.search") == ["history"])
         #expect(ExtensionShims.needs("tabGroups.get").isEmpty)
     }
+
+    @Test func userScriptsNeedTheirPermission() {
+        guard #available(macOS 15.4, *) else { return }
+        #expect(ExtensionShims.needs("userScripts.file") == ["userScripts"])
+        #expect(ExtensionShims.needs("userScripts.save") == ["userScripts"])
+    }
 }

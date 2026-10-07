@@ -112,4 +112,22 @@ import Testing
         #expect(globs == ["https://example.com/a?b=\"quoted\""])
         #expect(!text.contains("__ESCALE_CODE__"))
     }
+
+    @Test func userScriptFilesStayInTheirPackage() throws {
+        guard #available(macOS 15.4, *) else { return }
+        let outer = try folder()
+        defer { try? FileManager.default.removeItem(at: outer) }
+        let url = outer.appendingPathComponent("extension")
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        let secret = outer.appendingPathComponent("secret.txt")
+        try "outside-canary".write(to: secret, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(at: url.appendingPathComponent("link.js"), withDestinationURL: secret)
+        try "inside-canary".write(to: url.appendingPathComponent("own.js"), atomically: true, encoding: .utf8)
+        let file = try ExtensionShims.userScriptFile(["world": "MAIN", "js": [
+            ["file": "../secret.txt"], ["file": secret.path], ["file": "link.js"], ["file": "/own.js"],
+        ]], in: url)
+        let text = try String(contentsOf: url.appendingPathComponent(file), encoding: .utf8)
+        #expect(!text.contains("outside-canary"))
+        #expect(text.contains("inside-canary"))
+    }
 }
