@@ -314,3 +314,15 @@ func suggestionsRankAsTheFieldExpects(_ ranking: Ranking) {
         #expect(history.suggestions(for: typed).isEmpty)
     }
 }
+
+@MainActor
+@Test func aPageIsAskedForItsLastVisitByItsAddress() throws {
+    let root = folder()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let history = History(file: root.appendingPathComponent("history.json"))
+    let then = Date(timeIntervalSince1970: 1_000_000)
+    history.take(try #require(URL(string: "https://www.docs.example.test/guide")), title: "Guide", count: 1, last: then)
+
+    #expect(history.last(try #require(URL(string: "https://docs.example.test/guide"))) == then)
+    #expect(history.last(try #require(URL(string: "https://docs.example.test/other"))) == nil)
+}

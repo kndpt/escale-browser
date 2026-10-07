@@ -182,6 +182,9 @@ Reuse or extend a component before creating one:
 - **Space rail.** `+` follows the last space in a door of the same size; the
   foot holds the space tools, then Settings. A door wears one `DoorMark` when
   its space uses the microphone, camera, video or sound, in that priority.
+- **Folder search.** Resting `Motion.folderSearchDwell` on a shut folder in
+  the column opens a popover beside it: a flat field over a hairline, then
+  the folder's sites with their mark and last visit. No button reveals it.
 - **Sleep marker.** A `zzz` in `Palette.sleeping` takes Close's place at rest
   and steps left on hover; its space stays reserved. It has no action.
 - **Reading line.** Neutral ink (`readingBody`, `readingTip`),
