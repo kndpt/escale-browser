@@ -1,10 +1,11 @@
 // Welcome pauses, rather than ends, while the GitHub device code is typed on
 // github.com: that tab needs the window Welcome covers. It keeps where it
 // stood and comes back by itself when GitHub answers, on its last step once
-// connected, on the GitHub step to explain a failure. Only that one
-// connection is watched, and only until it answers. Settings shows the same
-// answer, so Welcome never takes its place. Kept in memory only: quitting
-// meanwhile leaves Welcome unfinished, and it starts again next time.
+// connected, on the GitHub step to explain a failure, even over Settings, so
+// setup is never left unfinished. Only that one connection is watched, and
+// only until it answers; only the tab Welcome opened is closed. Kept in
+// memory only: quitting meanwhile leaves Welcome unfinished, and it starts
+// again next time.
 import Combine
 import Foundation
 
@@ -15,18 +16,19 @@ final class WelcomeReturn {
     /// Whether this setup imported anything, for the last step's summary.
     var imported = false
     private var wait: AnyCancellable?
+    /// The tab opened for the code, the only one closed once GitHub agrees.
+    private weak var codeTab: Tab?
 
     /// Hides Welcome, opens GitHub's page and brings Welcome back once GitHub answers.
     func pause(_ browser: Browser, for access: GitHubAccess, at url: URL) {
         step = .github
         browser.welcoming = false
         browser.openGitHub(url)
-        watch(access) { [weak browser] step in
+        codeTab = browser.active
+        watch(access) { [weak self, weak browser] step in
             guard let browser else { return }
-            if step == .done {
-                for tab in browser.tabs where tab.address.map(Self.isCodePage) == true { browser.close(tab) }
-            }
-            if !browser.tuning { browser.welcoming = true }
+            if step == .done, let tab = self?.codeTab, tab.address.map(Self.isCodePage) == true { browser.close(tab) }
+            browser.welcoming = true
         }
     }
 
@@ -49,6 +51,7 @@ final class WelcomeReturn {
         step = nil
         imported = false
         wait = nil
+        codeTab = nil
     }
 
     private func finish(_ next: WelcomePanel.Step, _ answered: (WelcomePanel.Step) -> Void) {
