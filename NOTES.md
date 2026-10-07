@@ -1,3 +1,5 @@
+Escale 0.8: rest the pointer on a bookmark folder to search its sites without opening it. Setup now ends on a summary of your choices, and comes back by itself after you connect GitHub.
+
 Escale 0.7: Escale is now open source, under the GPL, at github.com/kndpt/escale-browser. Clear transparency also lets much more of your desktop show through.
 
 Escale 0.6.1: press Shift–Command–K to find your pull requests and issues, with whether each is open, merged or closed. Private repositories work too: add them in Settings › GitHub.
