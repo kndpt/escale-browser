@@ -11,6 +11,21 @@ Search before that is in
 
 ## Unreleased
 
+## 0.8 — 2026-10-07
+
+### Highlights
+
+- **Setup ends on what is set up.** The first-launch tour closes on a summary of your choices, and comes back by itself after you connect GitHub.
+- **Search a bookmark folder without opening it.** Rest the pointer on a folder of saved sites to search through them.
+
+### What changed
+
+- Welcome now ends on a last step that sums up what is set up, whether or not GitHub is connected. Connecting GitHub no longer ends setup: it steps aside for GitHub's page and comes back once the code is approved.
+- Resting the pointer on a shut bookmark folder in the sidebar opens a search beside it, listing its sites in the folder's order with when each was last visited; type to narrow them, then pick one with a click or Return.
+- A video or sound file opened on its own keeps playing instead of turning into "The page didn't load" a second after it starts.
+- An extension can no longer read files outside its own package through user scripts, and needs the `userScripts` permission to use them.
+- An extension now needs the `downloads.open` permission, and your approval, to open a downloaded file in another app.
+
 ## 0.7 — 2026-10-05
 
 ### Highlights
