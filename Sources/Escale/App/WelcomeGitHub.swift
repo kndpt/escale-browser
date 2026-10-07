@@ -45,7 +45,7 @@ struct WelcomeGitHub: View {
                     .buttonStyle(MigrationButton(kind: .secondary))
             }
         case .authorizing(let code, _):
-            GitHubCode(code: code, note: "Setup ends here: GitHub opens in a tab, where you paste the code. Once you approve, Bearings and Settings → GitHub show you’re connected.")
+            GitHubCode(code: code, note: "Setup ends here: GitHub opens in a tab, where you paste the code. Once you approve, Settings → GitHub shows you’re connected.")
             GitHubButtons {
                 Button("Copy Code and Open GitHub") {
                     NSPasteboard.general.clearContents()
