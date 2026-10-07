@@ -9,7 +9,8 @@ import SwiftUI
 // gets interesting, and the address only shows behind ⌘L. Someone working on
 // a site reads the host all day, so here it sits in a bar across the top of
 // the page: back, forward and reload, moved out of the column's corner to the
-// head of the bar, then the site, then the page's own title.
+// head of the bar, then the site — led by its environment when the tab came
+// from a bookmark that has one — then the page's own title.
 //
 // The bar is lower than the strip (Metrics.bar): one line of text and three
 // doors, not a row of tabs. The traffic lights come up to its line, and the
@@ -103,7 +104,7 @@ struct AddressBar: View {
             } else if browser.showsBar, let tab = browser.active {
                 // Its width before the drag area gets any, down to nothing:
                 // the doors and the site are what must stay whole.
-                Where(browser: browser, tab: tab)
+                Where(browser: browser, tab: tab, bookmark: browser.shelfTabs[tab.id])
                     .layoutPriority(1)
             }
             // What is left is title bar: the window is dragged by it, and a
@@ -145,14 +146,17 @@ struct CopyDoor: View {
     }
 }
 
-/// The site and the page's title. Watched here, not from the bar: a tab is a
-/// class, and a title arriving changes nothing the bar can see (see Page).
+/// The page's environment, the site and the page's title. Watched here, not
+/// from the bar: a tab is a class, and a title arriving changes nothing the
+/// bar can see (see Page).
 ///
 /// With the pointer over the title's side, Copy Address comes in at its head,
 /// between the rule and the title, and the title steps right to make room.
 private struct Where: View {
     let browser: Browser
     @ObservedObject var tab: Tab
+    /// The bookmark the tab was opened from, whose environment leads the line.
+    let bookmark: Bookmark.ID?
 
     @State private var open = false
     @State private var onSite = false
@@ -164,6 +168,11 @@ private struct Where: View {
     var body: some View {
         HStack(spacing: 0) {
             if let url = tab.address {
+                if let bookmark {
+                    EnvironmentChip(bookmarks: browser.bookmarks, tab: tab, bookmark: bookmark) {
+                        browser.openEnvironment($0, bookmark: bookmark, space: browser.spaceID)
+                    }
+                }
                 Button { open.toggle() } label: {
                     Text(AddressBar.site(url))
                         .font(.system(size: metrics.length(12.5), weight: .regular))

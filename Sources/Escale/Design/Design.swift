@@ -115,6 +115,17 @@ enum Palette {
     /// Shared user palette (Swatch.swift): soft dots, readable text on chrome.
     static func swatch(_ choice: Swatch) -> Color { Color(nsColor: swatchColour(choice, ink: false)) }
     static func swatchInk(_ choice: Swatch) -> Color { Color(nsColor: swatchColour(choice, ink: true)) }
+    /// A chip's ground under `swatchInk`: the dot at a low alpha, so the glass
+    /// still shows through. Neutral is `wash`.
+    static func swatchWash(_ choice: Swatch?) -> Color {
+        guard let choice else { return wash }
+        return Color(nsColor: NSColor(name: nil) { appearance in
+            let dim = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            // The dot is one colour in both looks; only its alpha differs.
+            let dot = swatchColour(choice, ink: false).usingColorSpace(.sRGB) ?? .gray
+            return dot.withAlphaComponent(dim ? 0.22 : 0.45)
+        })
+    }
 
     static func swatchColour(_ choice: Swatch, ink: Bool) -> NSColor {
         let soft: (CGFloat, CGFloat, CGFloat)
@@ -635,6 +646,11 @@ enum Metrics {
     static let environmentInset: CGFloat = 18
     static let environmentFont: CGFloat = 12
     static let environmentBadgeFont: CGFloat = 9
+    /// The page's environment in the address bar, before the host.
+    static let environmentChipHeight: CGFloat = 18
+    static let environmentChipInset: CGFloat = 6
+    static let environmentChipRadius: CGFloat = 5
+    static let environmentChipFont: CGFloat = 10
 
     /// The tab strip. The window's title bar is grown to match it so the
     /// traffic lights come down with the tabs — otherwise giving the row room
