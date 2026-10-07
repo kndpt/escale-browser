@@ -674,6 +674,9 @@ enum Metrics {
     static let tabTitled: CGFloat = 80
     static let tabMinWidth: CGFloat = 36
     static let tabGap: CGFloat = 2
+    /// A tab's title in the strip: smaller than the sidebar's 12.5, which
+    /// reads as a heading in a row this low.
+    static let tabTitle: CGFloat = 12
     /// A pinned tab is a square the height of the row, holding one letter.
     static let pinWidth: CGFloat = 30
     /// Favicons, pins and bookmark marks share one optical box in both tab
