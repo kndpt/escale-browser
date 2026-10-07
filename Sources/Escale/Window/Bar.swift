@@ -104,7 +104,9 @@ struct AddressBar: View {
             } else if browser.showsBar, let tab = browser.active {
                 // Its width before the drag area gets any, down to nothing:
                 // the doors and the site are what must stay whole.
-                Where(browser: browser, tab: tab, bookmark: browser.shelfTabs[tab.id])
+                // A pinned tab keeps its link but is never the one a destination
+                // opens in (Browser.openEnvironment), so it offers none.
+                Where(browser: browser, tab: tab, bookmark: tab.pin == nil ? browser.shelfTabs[tab.id] : nil)
                     .layoutPriority(1)
             }
             // What is left is title bar: the window is dragged by it, and a
