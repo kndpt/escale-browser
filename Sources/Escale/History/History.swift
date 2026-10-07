@@ -284,6 +284,11 @@ final class History: ObservableObject {
 
     // MARK: - reading
 
+    /// When this page was last opened, while it is still remembered.
+    func last(_ url: URL) -> Date? {
+        visits[Address.pretty(url).lowercased()]?.last
+    }
+
     /// Domain matches lead; titles and paths also recover a visited page,
     /// as typed first, then by their words (`Terms`). Frequency and recency
     /// distinguish visits within each match category. Places under a key in
