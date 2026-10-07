@@ -102,4 +102,25 @@ import Testing
         #expect(commits == 1)
         hover.cancel()
     }
+
+    @Test func aFolderSearchListsItsSitesInTheFolderOrder() {
+        let first = site("Zeta")
+        let deep = site("Alpha")
+        let last = site("Beta")
+        let sites = FolderSearch.sites([first, .folder("Inner", [deep, .folder("Empty", [])]), last])
+        #expect(sites.map(\.id) == [first.id, deep.id, last.id])
+        #expect(FolderSearch.matching(sites, "  ").map(\.id) == sites.map(\.id))
+    }
+
+    @Test func aFolderSearchPutsCloserMatchesFirstAndKeepsOrderWithin() {
+        let words = Bookmark(title: "Handlers of the orchestrator", url: "https://one.example.test/", children: nil)
+        let typed = Bookmark(title: "Orchestrator handlers", url: "https://two.example.test/", children: nil)
+        let path = Bookmark(title: "Docs", url: "https://www.three.example.test/orchestrator-handlers", children: nil)
+        let other = site("Elsewhere")
+        let found = FolderSearch.matching([words, typed, path, other], "orchestrator handlers")
+        #expect(found.map(\.id) == [typed.id, path.id, words.id])
+        // The address is read without its scheme, so "https" finds nothing.
+        #expect(FolderSearch.matching([words, other], "https").isEmpty)
+        #expect(FolderSearch.matching([words, path], "three").map(\.id) == [path.id])
+    }
 }

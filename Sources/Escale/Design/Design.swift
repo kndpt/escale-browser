@@ -702,6 +702,11 @@ enum Metrics {
     /// Bearings' field sits at this share of the page's height, top edge fixed:
     /// results grow below it (at most half the height), so it never jumps.
     static let searchTop: CGFloat = 0.28
+    /// A folder's search (FolderSearch.swift): rows of a title and a line
+    /// under it, eight in view before the list scrolls.
+    static let folderSearchWidth: CGFloat = 280
+    static let folderSearchRow: CGFloat = 38
+    static let folderSearchRows = 8
     /// The mode capsule (Modes.swift): round symbols, the one in use unfolded with its name.
     static let modeHeight: CGFloat = 22
     static let modeGlyph: CGFloat = 11
@@ -876,6 +881,11 @@ enum Motion {
     static let bookmarkPending: TimeInterval = 0.48
     static let bookmarkReady: TimeInterval = 0.72
     static let bookmarkPulse = Animation.easeInOut(duration: 0.12)
+    /// A shut folder's search opens once the pointer has rested on it this
+    /// long, and closes this long after the pointer has left both
+    /// (FolderSearch.swift): a pass over the column opens nothing.
+    static let folderSearchDwell: TimeInterval = 0.375
+    static let folderSearchLeave: TimeInterval = 0.3
     /// How long a copied value keeps its check mark (CopyButton.swift).
     static let copiedHold: TimeInterval = 1.2
     /// The copy symbol's swap to that check, as a multiple of the system's
