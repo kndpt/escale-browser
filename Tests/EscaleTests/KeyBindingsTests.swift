@@ -16,6 +16,15 @@ import Testing
             #expect(command.defaults.allSatisfy { $0.shortcut != nil })
         }
     }
+    @Test func spaceOrderAndDeleteCommandsStartUnbound() {
+        for action in [KeyAction.moveSpaceUp, .moveSpaceDown, .deleteSpace] {
+            #expect(action.command.group == .spaces)
+            #expect(action.command.defaults.isEmpty)
+            #expect(action.index == nil)
+            #expect(KeyBindings().keys(action).isEmpty)
+        }
+        #expect(KeyBindings().matches(KeyAction.moveSpaceDown.command, query: "move space down"))
+    }
     @Test func reassignmentAndRemovalSurviveReload() {
         var bindings = KeyBindings()
         let custom = KeyStroke("t", [.command, .option])

@@ -62,8 +62,8 @@ enum Spaces {
 
     private static var file: URL { Store.file("spaces.json") }
 
-    /// Every space, the first one first — made on the spot if there is no
-    /// list yet.
+    /// Every space in its saved order, with the first one made on the spot
+    /// if the list has none.
     static func read() -> [Space] {
         read(from: file)
     }
@@ -78,7 +78,7 @@ enum Spaces {
             Store.quarantine(file)
             return [first]
         }
-        return [saved.first(where: \.isFirst) ?? first] + saved.filter { !$0.isFirst }
+        return saved.contains(where: \.isFirst) ? saved : [first] + saved
     }
 
     @discardableResult
@@ -282,6 +282,12 @@ extension Browser {
         Spaces.write(spaces)
     }
 
+    /// "Move Up" and "Move Down": one step along the rail.
+    func moveSpace(_ id: UUID, by step: Int) {
+        guard let at = spaces.firstIndex(where: { $0.id == id }) else { return }
+        moveSpace(id, to: at + step)
+    }
+
     /// "New Space…": the card for a new space, in the column or the bar.
     func askForSpace() {
         // In place, where the next space would come in, in the column or the
@@ -293,6 +299,11 @@ extension Browser {
         } else {
             Ask.newSpace { name in self.addSpace(named: name) }
         }
+    }
+
+    func askToRenameSpace(_ id: UUID) {
+        guard let here = spaces.first(where: { $0.id == id }) else { return }
+        Ask.name("Rename Space", placeholder: here.name, initial: here.name, confirm: "Rename") { self.renameSpace(id, to: $0) }
     }
 
     func renameSpace(_ id: UUID, to name: String) {
@@ -311,6 +322,14 @@ extension Browser {
         guard let at = spaces.firstIndex(where: { $0.id == id }) else { return }
         spaces[at].downloads = folder?.path
         Spaces.write(spaces)
+    }
+
+    /// Deleting always asks first, from a menu or a key.
+    func askToDeleteSpace(_ id: UUID) {
+        guard let here = spaces.first(where: { $0.id == id }), !here.isFirst else { return }
+        Ask.sure("Delete “\(here.name)”?", detail: "Its tabs close. Link rules pointing here, bookmarks, history and saved passwords are deleted. Its sites and extensions are removed from this Space. Downloaded files stay in their folder.", confirm: "Delete") {
+            self.deleteSpace(id)
+        }
     }
 
     /// A space, its tabs, and its cookies and sign-ins, gone. The first one
@@ -464,7 +483,7 @@ struct SpaceRail: View {
         .help(spaceHelp(space) + (presence.map { " — " + $0.spoken } ?? ""))
         .accessibilityLabel(space.name)
         .accessibilityValue(presence?.spoken ?? "")
-        .contextMenu { Button("Space Options…") { SpaceMenu.show(for: browser, space: space.id) } }
+        .contextMenu { SpaceActions(browser: browser, space: space) }
         .background(GeometryReader { proxy in
             Color.clear.preference(key: SpaceIconFrames.self, value: [space.id: proxy.frame(in: .global)])
         })
@@ -551,8 +570,7 @@ enum SpaceMenu {
         return item
     }
 
-    /// `space`: the one whose icon was right-clicked; the active one otherwise.
-    static func show(for browser: Browser, space id: UUID? = nil) {
+    static func show(for browser: Browser) {
         actions = []
         let menu = NSMenu()
         for (index, space) in browser.spaces.enumerated() {
@@ -570,10 +588,8 @@ enum SpaceMenu {
         menu.addItem(.separator())
         menu.addItem(item("New Space…") { browser.askForSpace() })
         menu.addItem(.separator())
-        let here = browser.spaces.first { $0.id == id } ?? browser.space
-        menu.addItem(item("Rename “\(here.name)”…") {
-            Ask.name("Rename Space", placeholder: here.name, initial: here.name, confirm: "Rename") { browser.renameSpace(here.id, to: $0) }
-        })
+        let here = browser.space
+        menu.addItem(item("Rename “\(here.name)”…") { browser.askToRenameSpace(here.id) })
         // The copy workflow owns its own value snapshot and dialogue (see SpaceCopy.swift).
         menu.addItem(item("Duplicate “\(here.name)”…") { browser.askToDuplicateSpace(here.id) })
         let icons = NSMenu()
@@ -585,10 +601,10 @@ enum SpaceMenu {
         let icon = NSMenuItem(title: "Icon", action: nil, keyEquivalent: "")
         icon.submenu = icons
         menu.addItem(icon)
-        // The order is the swipe's, and ⌃1–⌃9's.
+        // The order is the rail's, the swipe's, and ⌃1–⌃9's.
         if let at = browser.spaces.firstIndex(where: { $0.id == here.id }) {
-            if at > 0 { menu.addItem(item("Move Left") { browser.moveSpace(here.id, to: at - 1) }) }
-            if at < browser.spaces.count - 1 { menu.addItem(item("Move Right") { browser.moveSpace(here.id, to: at + 1) }) }
+            if at > 0 { menu.addItem(item("Move Up") { browser.moveSpace(here.id, by: -1) }) }
+            if at < browser.spaces.count - 1 { menu.addItem(item("Move Down") { browser.moveSpace(here.id, by: 1) }) }
         }
         let folder = here.downloads.map { URL(fileURLWithPath: $0).lastPathComponent }
         menu.addItem(item(folder.map { "Downloads to “\($0)”…" } ?? "Downloads Folder…") {
@@ -599,13 +615,40 @@ enum SpaceMenu {
         }
         if !here.isFirst {
             menu.addItem(.separator())
-            menu.addItem(item("Delete “\(here.name)”…") {
-                Ask.sure("Delete “\(here.name)”?", detail: "Its tabs close. Link rules pointing here, bookmarks, history and saved passwords are deleted. Its sites and extensions are removed from this Space. Downloaded files stay in their folder.", confirm: "Delete") {
-                    browser.deleteSpace(here.id)
-                }
-            })
+            menu.addItem(item("Delete “\(here.name)”…") { browser.askToDeleteSpace(here.id) })
         }
         menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+    }
+}
+
+/// A right-click on a rail icon: that Space's actions, in the order of the
+/// dot's menu, without the list of Spaces the rail already shows.
+struct SpaceActions: View {
+    @ObservedObject var browser: Browser
+    let space: Space
+
+    var body: some View {
+        let at = browser.spaces.firstIndex { $0.id == space.id } ?? 0
+        Button("Rename “\(space.name)”…") { browser.askToRenameSpace(space.id) }
+        Button("Duplicate “\(space.name)”…") { browser.askToDuplicateSpace(space.id) }
+        Picker("Icon", selection: Binding(get: { space.symbol }, set: { browser.setSpaceIcon(space.id, to: $0) })) {
+            ForEach(Array(zip(Spaces.icons, Spaces.iconNames)), id: \.0) { symbol, name in
+                Label(name, systemImage: symbol).tag(symbol)
+            }
+        }
+        if at > 0 { Button("Move Up") { browser.moveSpace(space.id, by: -1) } }
+        if at < browser.spaces.count - 1 { Button("Move Down") { browser.moveSpace(space.id, by: 1) } }
+        let folder = space.downloads.map { URL(fileURLWithPath: $0).lastPathComponent }
+        Button(folder.map { "Downloads to “\($0)”…" } ?? "Downloads Folder…") {
+            Ask.folder { browser.setSpaceDownloads(space.id, to: $0) }
+        }
+        if folder != nil {
+            Button("Downloads to the Folder in Settings") { browser.setSpaceDownloads(space.id, to: nil) }
+        }
+        if !space.isFirst {
+            Divider()
+            Button("Delete “\(space.name)”…") { browser.askToDeleteSpace(space.id) }
+        }
     }
 }
 

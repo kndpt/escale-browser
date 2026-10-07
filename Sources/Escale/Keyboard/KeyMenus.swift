@@ -64,7 +64,9 @@ struct KeyMenus: Commands {
                 }
             }
             Divider()
-            items([.newSpace, .renameSpace, .duplicateSpace])
+            items([.newSpace, .renameSpace, .duplicateSpace, .moveSpaceUp, .moveSpaceDown])
+            Divider()
+            items([.deleteSpace])
         }
         CommandMenu("Bookmarks") { items([.addBookmark, .bookmarks]) }
         CommandMenu("Page Tools") { items([.visual, .capture, .captureArea, .captureFull, .developer]) }
