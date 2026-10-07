@@ -884,7 +884,7 @@ enum Motion {
     /// A shut folder's search opens once the pointer has rested on it this
     /// long, and closes this long after the pointer has left both
     /// (FolderSearch.swift): a pass over the column opens nothing.
-    static let folderSearchDwell: TimeInterval = 0.5
+    static let folderSearchDwell: TimeInterval = 0.375
     static let folderSearchLeave: TimeInterval = 0.3
     /// How long a copied value keeps its check mark (CopyButton.swift).
     static let copiedHold: TimeInterval = 1.2

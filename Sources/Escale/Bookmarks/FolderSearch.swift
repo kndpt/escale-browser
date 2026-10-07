@@ -1,7 +1,7 @@
 import SwiftUI
 
 // A folder in the column can be searched without opening it, as in Arc.
-// The pointer resting half a second on a shut folder that holds sites opens
+// The pointer resting a moment on a shut folder that holds sites opens
 // a popover beside it, with a field and every site in the folder, its
 // subfolders' included, in the folder's own order. It closes when the
 // pointer has left both the row and the popover, unless the keyboard has
