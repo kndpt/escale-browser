@@ -1,12 +1,14 @@
-// Arrival is three short steps, not a prerequisite. First the choices that
+// Arrival is four short steps, not a prerequisite. First the choices that
 // change what the very next window looks like — theme, where tabs go, which
 // browser opens links — because they are seen at once and cost nothing to
 // undo. Then the offer to bring bookmarks, history and passwords along, which
 // can be skipped and done later from Settings. Choosing to import embeds the
 // same interaction as Settings. No profile discovery runs before selection.
-// Last, Bearings GitHub (WelcomeGitHub.swift): it works without an account, so
-// connecting and staying local are offered side by side. It comes last because
-// the device code is typed on github.com, in a tab that ends the arrival.
+// Then Bearings GitHub (WelcomeGitHub.swift): it works without an account, so
+// connecting and staying local are offered side by side. It comes late because
+// the device code is typed on github.com, in a tab Welcome steps aside for
+// (WelcomeReturn.swift). Last, every path lands on what is now set up
+// (WelcomeDone.swift), and only its button ends the arrival.
 //
 // Every control here is drawn by Escale (MigrationButton, ArrivalChoice) rather
 // than taken from AppKit, so the first screen already looks like the browser
@@ -22,19 +24,21 @@ struct WelcomePanel: View {
     @SwiftUI.Environment(\.chromeMetrics) private var metrics
     @SwiftUI.Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var advancing = true
-    @State private var step = Step.personalise
+    @State private var step: Step
     @State private var isDefault = Links.isDefault
     @State private var defaultResult: String?
-    @State private var importedDuringSetup = false
+    @State private var importedDuringSetup: Bool
     @State private var confirmingSkip = false
 
-    private enum Step: Int { case personalise, bring, importing, github }
+    enum Step: Int { case personalise, bring, importing, github, done }
 
     init(browser: Browser, prefs: Preferences) {
         self.browser = browser
         self.prefs = prefs
         migration = browser.migration
         importWork = browser.migration.migration
+        _step = State(initialValue: browser.welcomeReturn.step ?? .personalise)
+        _importedDuringSetup = State(initialValue: browser.welcomeReturn.imported)
     }
 
     var body: some View {
@@ -51,6 +55,7 @@ struct WelcomePanel: View {
                                 case .bring: bring
                                 case .importing: importing
                                 case .github: github
+                                case .done: done
                                 }
                             }
                             .id(step)
@@ -94,7 +99,10 @@ struct WelcomePanel: View {
 
     private var header: some View {
         HStack(alignment: .center) {
-            Logomark().fill(Palette.ink, style: FillStyle(eoFill: true))
+            Group {
+                if step == .done { LandingMark() }
+                else { Logomark().fill(Palette.ink, style: FillStyle(eoFill: true)) }
+            }
                 .aspectRatio(Logomark.canvas.width / Logomark.canvas.height, contentMode: .fit)
                 .frame(height: metrics.length(Metrics.arrivalMark))
                 .accessibilityHidden(true)
@@ -103,12 +111,12 @@ struct WelcomePanel: View {
         }
     }
 
-    /// Where you are in the three steps: the current one drawn long, those
+    /// Where you are in the four steps: the current one drawn long, those
     /// done in ink, those ahead faint.
     private var progress: some View {
-        let position = switch step { case .personalise: 0; case .bring, .importing: 1; case .github: 2 }
+        let position = switch step { case .personalise: 0; case .bring, .importing: 1; case .github: 2; case .done: 3 }
         return HStack(spacing: metrics.length(Metrics.arrivalDot)) {
-            ForEach(0..<3, id: \.self) { index in
+            ForEach(0..<4, id: \.self) { index in
                 Capsule()
                     .fill(index <= position ? Palette.ink : Palette.faint)
                     .frame(width: metrics.length(index == position ? Metrics.arrivalDotWide : Metrics.arrivalDot),
@@ -117,7 +125,7 @@ struct WelcomePanel: View {
         }
         .animation(reduceMotion ? nil : Motion.arrival, value: position)
         .accessibilityElement()
-        .accessibilityLabel("Step \(position + 1) of 3")
+        .accessibilityLabel("Step \(position + 1) of 4")
     }
 
     // MARK: - step one: make it yours
@@ -244,8 +252,9 @@ struct WelcomePanel: View {
                     "Bearings finds the pull requests and issues you visit, by a few words or a number, and takes you back to their tab.")
             WelcomeGitHub(access: access,
                           stroke: prefs.keyBindings.keys(.searchGitHub).first) { address in
-                finish()
-                if let address { browser.openGitHub(address) }
+                guard let address else { go(.done); return }
+                browser.welcomeReturn.imported = importedDuringSetup
+                browser.welcomeReturn.pause(browser, for: access, at: address)
             }
             HStack(alignment: .firstTextBaseline) {
                 Button { go(.bring) } label: { Label("Back", systemImage: "chevron.left") }
@@ -253,6 +262,29 @@ struct WelcomePanel: View {
                     .padding(.leading, -metrics.length(Metrics.arrivalRowGap))
                 Spacer()
                 if access.canConnect { note("You can connect later in Settings → GitHub.") }
+            }
+        }
+    }
+
+    // MARK: - step five: all set
+
+    private var done: some View {
+        VStack(alignment: .leading, spacing: metrics.length(Metrics.arrivalGap)) {
+            heading("You’re all set.",
+                    "Escale is ready, the way you chose. All of it can change in Settings.")
+            WelcomeDone(prefs: prefs, access: browser.github.owner(for: browser.spaceID).access,
+                        imported: importedDuringSetup, isDefault: isDefault,
+                        stroke: prefs.keyBindings.keys(.searchGitHub).first)
+            Button("Start Browsing") { finish() }
+                .buttonStyle(MigrationButton())
+                .keyboardShortcut(.defaultAction)
+                .padding(.top, metrics.length(Metrics.arrivalRowGap))
+            HStack(alignment: .firstTextBaseline) {
+                Button { go(.github) } label: { Label("Back", systemImage: "chevron.left") }
+                    .buttonStyle(MigrationButton(kind: .quiet))
+                    .padding(.leading, -metrics.length(Metrics.arrivalRowGap))
+                Spacer()
+                note("Welcome stays in the Escale menu.")
             }
         }
     }
@@ -299,6 +331,7 @@ struct WelcomePanel: View {
     }
 
     private func finish() {
+        browser.welcomeReturn.end()
         browser.migration.leave()
         prefs.welcomed = true
         browser.welcoming = false
@@ -399,7 +432,7 @@ struct ArrivalChoice: View {
     }
 }
 
-private extension Look {
+extension Look {
     /// The symbol on its arrival choice: the Mac's half-and-half for System.
     var symbol: String {
         switch self {

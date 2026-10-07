@@ -859,6 +859,10 @@ enum Motion {
     /// Arrival's plane coming in once over the pass and slowing to land.
     static let gateFlight = Animation.timingCurve(0.20, 0.70, 0.20, 1, duration: 0.9)
     static let gateFlightDelay: TimeInterval = 0.12
+    /// Welcome's last step: the mark's dots light up to the next stop once,
+    /// and the summary's rows follow one after another.
+    static let landing = Animation.timingCurve(0.35, 0.05, 0.25, 1, duration: 1.1).delay(0.15)
+    static let landingRow: TimeInterval = 0.07
     /// The rows of a folder as it opens or shuts. They come in once the rows
     /// below have started to make room, so a new row is never drawn over a
     /// neighbour still on its way down, and they leave before the rest closes
