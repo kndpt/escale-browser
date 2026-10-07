@@ -80,6 +80,8 @@ final class Browser: NSObject, ObservableObject {
             if oldValue && !welcoming { migration.leave(); transfer.leave() }
         }
     }
+    /// Where an unfinished Welcome picks up, after a pause for GitHub.
+    let welcomeReturn = WelcomeReturn()
 
     // MARK: - bookmarks
 

@@ -164,13 +164,14 @@ extension GitHubConnection {
 /// The device code as separate tiles, with where it is typed.
 struct GitHubCode: View {
     let code: String
+    var note = "Escale opens github.com/login/device in a tab and waits there. Status appears in Bearings once you approve."
     @SwiftUI.Environment(\.chromeMetrics) private var metrics
 
     var body: some View {
         VStack(alignment: .leading, spacing: metrics.length(Metrics.arrivalDetailGap)) {
             Text("Enter this code on GitHub")
             tiles
-            ArrivalNote(text: "Escale opens github.com/login/device in a tab and waits there. Status appears in Bearings once you approve.")
+            ArrivalNote(text: note)
         }
     }
 
