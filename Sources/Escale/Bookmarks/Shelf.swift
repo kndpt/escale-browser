@@ -703,7 +703,10 @@ private struct ShelfRow: View {
             FolderSearch(browser: browser, folder: node, held: $searchHeld) { searching = false }
         }
         .onChange(of: searching) { _, open in if !open { searchHeld = false } }
-        .accessibilityAction(named: "Search in Folder") { if searchable { searching = true } }
+        // Offered only where it does something.
+        .accessibilityActions {
+            if searchable { Button("Search in Folder") { searching = true } }
+        }
         .contextMenu {
             if let tab {
                 Button { browser.close(tab) } label: { Label("Close Tab", systemImage: "xmark") }
