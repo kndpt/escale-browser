@@ -4,8 +4,10 @@
 // explicit act; the skip beside it is just as visible and never asks again.
 //
 // The device code is shown here, but it is typed on github.com in a tab, so
-// "Copy code and open GitHub" ends the arrival and opens that tab. The Space's
-// GitHubAccess keeps polling after the panel closes, as it does for Settings.
+// "Copy code and open GitHub" ends the arrival and opens that tab. The code's
+// note says so first, and where the connection shows once approved, since the
+// panel that would have confirmed it is gone. The Space's GitHubAccess keeps polling after
+// the panel closes, as it does for Settings.
 import AppKit
 import SwiftUI
 
@@ -43,7 +45,7 @@ struct WelcomeGitHub: View {
                     .buttonStyle(MigrationButton(kind: .secondary))
             }
         case .authorizing(let code, _):
-            GitHubCode(code: code)
+            GitHubCode(code: code, note: "Setup ends here: GitHub opens in a tab, where you paste the code. Once you approve, Bearings and Settings → GitHub show you’re connected.")
             GitHubButtons {
                 Button("Copy Code and Open GitHub") {
                     NSPasteboard.general.clearContents()
