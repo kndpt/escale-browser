@@ -213,6 +213,44 @@ struct EnvironmentPicker: View {
     }
 }
 
+/// The page's environment at the head of the address bar, in its colour, with
+/// the column's menu. Watched here: an edit or a navigation changes the match.
+struct EnvironmentChip: View {
+    @ObservedObject var bookmarks: Bookmarks
+    @ObservedObject var tab: Tab
+    let bookmark: Bookmark.ID
+    let open: (BookmarkEnvironment) -> Void
+    @SwiftUI.Environment(\.chromeMetrics) private var metrics
+
+    var body: some View {
+        if let node = bookmarks.find(bookmark),
+           let current = BookmarkEnvironment.current(in: node.destinations, at: tab.address) {
+            Text(current.badge)
+                .font(.system(size: metrics.length(Metrics.environmentChipFont), weight: .semibold))
+                .foregroundStyle(current.colour?.ink ?? Palette.muted)
+                .lineLimit(1)
+                .padding(.horizontal, metrics.length(Metrics.environmentChipInset))
+                .frame(height: metrics.length(Metrics.environmentChipHeight))
+                .background(RoundedRectangle(cornerRadius: metrics.length(Metrics.environmentChipRadius), style: .continuous)
+                    .fill(Palette.swatchWash(current.colour)))
+                .fixedSize()
+                // As in EnvironmentPicker: a native Menu flattens a styled label.
+                .overlay {
+                    Menu {
+                        ForEach(node.destinations) { item in
+                            Button("\(item.name) — \(item.url)") { open(item) }
+                        }
+                    } label: { Color.clear }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                }
+                .help("\(current.name) — \(current.url)")
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Environment: \(current.name). Choose destination")
+        }
+    }
+}
+
 struct OpenEnvironmentPicker: View {
     let node: Bookmark
     @ObservedObject var tab: Tab

@@ -1,0 +1,1 @@
+With tabs at the top, the row starts at the left edge in full screen, tab titles are a little smaller, a title runs to the end of its tab until the pointer brings the close button, and the new-tab plus stays in view (#79).
