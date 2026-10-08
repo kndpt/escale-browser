@@ -115,6 +115,17 @@ enum Palette {
     /// Shared user palette (Swatch.swift): soft dots, readable text on chrome.
     static func swatch(_ choice: Swatch) -> Color { Color(nsColor: swatchColour(choice, ink: false)) }
     static func swatchInk(_ choice: Swatch) -> Color { Color(nsColor: swatchColour(choice, ink: true)) }
+    /// A chip's ground under `swatchInk`: the dot at a low alpha, so the glass
+    /// still shows through. Neutral is `wash`.
+    static func swatchWash(_ choice: Swatch?) -> Color {
+        guard let choice else { return wash }
+        return Color(nsColor: NSColor(name: nil) { appearance in
+            let dim = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            // The dot is one colour in both looks; only its alpha differs.
+            let dot = swatchColour(choice, ink: false).usingColorSpace(.sRGB) ?? .gray
+            return dot.withAlphaComponent(dim ? 0.22 : 0.45)
+        })
+    }
 
     static func swatchColour(_ choice: Swatch, ink: Bool) -> NSColor {
         let soft: (CGFloat, CGFloat, CGFloat)
@@ -635,6 +646,11 @@ enum Metrics {
     static let environmentInset: CGFloat = 18
     static let environmentFont: CGFloat = 12
     static let environmentBadgeFont: CGFloat = 9
+    /// The page's environment in the address bar, before the host.
+    static let environmentChipHeight: CGFloat = 18
+    static let environmentChipInset: CGFloat = 6
+    static let environmentChipRadius: CGFloat = 5
+    static let environmentChipFont: CGFloat = 11
 
     /// The tab strip. The window's title bar is grown to match it so the
     /// traffic lights come down with the tabs — otherwise giving the row room
@@ -674,6 +690,9 @@ enum Metrics {
     static let tabTitled: CGFloat = 80
     static let tabMinWidth: CGFloat = 36
     static let tabGap: CGFloat = 2
+    /// A tab's title in the strip: smaller than the sidebar's 12.5, which
+    /// reads as a heading in a row this low.
+    static let tabTitle: CGFloat = 12
     /// A pinned tab is a square the height of the row, holding one letter.
     static let pinWidth: CGFloat = 30
     /// Favicons, pins and bookmark marks share one optical box in both tab
