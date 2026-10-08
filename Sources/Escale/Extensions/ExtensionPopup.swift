@@ -109,16 +109,16 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
     /// The page, moved into the popover at its size, and the popover shown.
     private func reveal() {
         guard !shown, let web, let popover, let stage = popover.contentViewController?.view else { return }
+        // Its window gone while it was measured: nothing to hang from.
+        guard let spot, spot.window?.isVisible == true else { close(); return }
         shown = true
         web.frame = NSRect(origin: .zero, size: popover.contentSize)
         web.autoresizingMask = [.width, .height]
         stage.addSubview(web)
-        if let spot, spot.window != nil {
-            if spot === spot.window?.contentView {
-                popover.show(relativeTo: NSRect(x: spot.bounds.maxX - 60, y: spot.bounds.maxY - 40, width: 1, height: 1), of: spot, preferredEdge: .minY)
-            } else {
-                popover.show(relativeTo: spot.bounds, of: spot, preferredEdge: .maxY)
-            }
+        if spot === spot.window?.contentView {
+            popover.show(relativeTo: NSRect(x: spot.bounds.maxX - 60, y: spot.bounds.maxY - 40, width: 1, height: 1), of: spot, preferredEdge: .minY)
+        } else {
+            popover.show(relativeTo: spot.bounds, of: spot, preferredEdge: .maxY)
         }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.12
