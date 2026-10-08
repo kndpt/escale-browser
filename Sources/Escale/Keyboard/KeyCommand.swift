@@ -4,7 +4,7 @@
 import SwiftUI
 
 enum KeyAction: String, CaseIterable, Codable {
-    case closeWindow, newTab, privateTab, reopenTab, closeTab, searchTabs, searchGitHub, nextTab, previousTab, duplicateTab, renameTab, pinTab, changeLetter, closeOthers, clearTabs, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, lastTab, splitRight, splitLeft, splitTop, splitBottom, openAddress, back, forward, reload, stopLoading, copyAddress, copyMarkdown, pasteGo, history, clearHistory, addBookmark, bookmarks, previousSpace, nextSpace, newSpace, renameSpace, duplicateSpace, find, findNext, findPrevious, zoomIn, zoomOut, resetZoom, print, reader, floatVideo, stopSound, hideElements, hiddenElements, resetSite, siteData, inspector, console, inspectElement, visual, capture, captureArea, captureFull, developer, localhost, settings, fold, sidebar, downloads, passwords, welcome, feedback, space1, space2, space3, space4, space5, space6, space7, space8, space9
+    case closeWindow, newTab, privateTab, reopenTab, closeTab, searchTabs, searchGitHub, nextTab, previousTab, duplicateTab, renameTab, pinTab, changeLetter, closeOthers, clearTabs, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, lastTab, splitRight, splitLeft, splitTop, splitBottom, openAddress, back, forward, reload, stopLoading, copyAddress, copyMarkdown, pasteGo, history, clearHistory, addBookmark, bookmarks, previousSpace, nextSpace, newSpace, renameSpace, duplicateSpace, moveSpaceUp, moveSpaceDown, deleteSpace, find, findNext, findPrevious, zoomIn, zoomOut, resetZoom, print, reader, floatVideo, stopSound, hideElements, hiddenElements, resetSite, siteData, inspector, console, inspectElement, visual, capture, captureArea, captureFull, developer, localhost, settings, fold, sidebar, downloads, passwords, welcome, feedback, space1, space2, space3, space4, space5, space6, space7, space8, space9
 
     var command: KeyCommand { KeyCommand.catalog[self] ?? KeyCommand(self, rawValue, .app) }
     var index: Int? { Int(rawValue.dropFirst(rawValue.hasPrefix("space") ? 5 : 3)) }
@@ -71,6 +71,9 @@ struct KeyCommand: Identifiable {
         .init(.newSpace, "New Space", .spaces, "", []),
         .init(.renameSpace, "Rename Space", .spaces, "", []),
         .init(.duplicateSpace, "Duplicate Space", .spaces, "", []),
+        .init(.moveSpaceUp, "Move Space Up", .spaces, "One step up the rail; ⌃1–⌃9 follow.", []),
+        .init(.moveSpaceDown, "Move Space Down", .spaces, "One step down the rail; ⌃1–⌃9 follow.", []),
+        .init(.deleteSpace, "Delete Space…", .spaces, "Asks first. The first Space cannot be deleted.", []),
         .init(.find, "Find on Page", .page, "", [.init("f", [.command])]),
         .init(.findNext, "Find Next", .page, "", [.init("g", [.command])]),
         .init(.findPrevious, "Find Previous", .page, "", [.init("g", [.command, .shift])]),
