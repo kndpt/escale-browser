@@ -108,6 +108,12 @@ enum Spaces {
         return made
     }
 
+    /// The stores this run has made, the first's always: where its session
+    /// cookies are (see Jar.swift). A deleted space's is no longer among them.
+    @MainActor static var made: [UUID: WKWebsiteDataStore] {
+        stores.merging([Space.firstID: Store.websites]) { made, _ in made }
+    }
+
     /// A space's store and everything in it, gone. What it holds — cookies,
     /// sign-ins, storage, caches — is emptied at once. The store itself
     /// WebKit won't remove while this run still holds on to it, however

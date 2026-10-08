@@ -96,6 +96,8 @@ except (OSError,ValueError,KeyError,TypeError): pass' "$spaces_file")
   # Vault's items carry the world's label; one goes per call.
   while security delete-internet-password -l "Escale ($WORLD)" >/dev/null 2>&1; do :; done
   github_secrets 00000000-0000-0000-0000-000000000001
+  # The key of the session cookies sealed on quit (Jar.swift).
+  security delete-generic-password -s "com.kndpt.escale.cookies.test-$WORLD" >/dev/null 2>&1 || true
   echo "world \"$WORLD\" wiped"
 }
 

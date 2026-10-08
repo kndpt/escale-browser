@@ -9,6 +9,10 @@ read this instead of guessing; [SECURITY](../SECURITY.md) says how to report.
   (`Passwords/Vault.swift`, `Passwords/Passkeys.swift`).
 - **GitHub authorisation**: a keychain item per connected space
   (`GitHub/GitHubSecrets.swift`).
+- **Session cookies across a quit**: sign-ins WebKit keeps in memory only,
+  sealed on quit (AES-GCM) in `cookies.sealed` with a new key in a keychain
+  item, both deleted when the next launch puts them back (`Spaces/Jar.swift`).
+  Never a private tab's or a deleted space's.
 - **The app bundle itself**: whatever the updater swaps in runs with the
   user's rights and opens the keychain items above.
 - **Browsing data**: history, bookmarks, sessions and per-space WebKit stores,
