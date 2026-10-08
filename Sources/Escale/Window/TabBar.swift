@@ -20,12 +20,14 @@ struct TabBar: View {
     @State private var from = 0
     @State private var travel: CGFloat = 0
     @State private var landing = false
-    /// The plus only comes out when the pointer is in the row.
-    @State private var nearby = false
     @State private var plussed = false
     /// How wide the doors at the far end are, extension buttons included.
     @State private var doors: CGFloat = 0
     @StateObject private var panelDrag = SpaceDrag()
+    /// In full screen the traffic lights leave the strip for the title bar
+    /// macOS slides down over it, so their corner goes to the row.
+    @State private var window: NSWindow?
+    @State private var fullScreen = false
 
     init(browser: Browser) { self.browser = browser; self.panels = browser.panels }
 
@@ -39,11 +41,11 @@ struct TabBar: View {
             ZStack(alignment: .leading) {
                 // The empty half of the strip is what you grab to move the
                 // window; the tabs keep the run they sit on.
-                DragStrip(reserved: metrics.lights + helm + dot + (making ? min(metrics.length(540), room(in: geo.size.width)) : run(in: geo.size.width)) + metrics.tabGap + metrics.plusWidth + searchWidth, trailing: max(metrics.length(26), doors) + metrics.length(24))
+                DragStrip(reserved: lead + helm + dot + (making ? min(metrics.length(540), room(in: geo.size.width)) : run(in: geo.size.width)) + metrics.tabGap + metrics.plusWidth + searchWidth, trailing: max(metrics.length(26), doors) + metrics.length(24))
                 // And the corner the lights sit in, which is title bar too —
                 // the one stretch left to take hold of when tabs fill the row.
                 DragStrip()
-                    .frame(width: metrics.lights)
+                    .frame(width: lead)
 
                 HStack(spacing: metrics.tabGap) {
                     // Back, forward, reload, first after the lights — where
@@ -89,7 +91,7 @@ struct TabBar: View {
                                                 tab: tab,
                                                 live: tab.id == browser.activeID && !browser.tuning,
                                                 width: width(in: geo.size.width),
-                                                room: geo.size.width - metrics.lights - metrics.length(12),
+                                                room: geo.size.width - lead - metrics.length(12),
                                                 pill: pill,
                                                 close: { browser.close(tab) }
                                             )
@@ -141,7 +143,7 @@ struct TabBar: View {
 
                     // The way to a new page, right after the tabs rather than
                     // at the end of their run, so it is there however far the
-                    // run has scrolled. Out of sight until the pointer is up here.
+                    // run has scrolled.
                     Button { browser.newTab() } label: {
                         Image(systemName: "plus")
                             .font(.system(size: metrics.length(10), weight: .regular))
@@ -157,9 +159,6 @@ struct TabBar: View {
                     }
                     .buttonStyle(.plain)
                     .onHover { plussed = $0 }
-                    .opacity(nearby ? 1 : 0)
-                    .allowsHitTesting(nearby)
-                    .animation(Motion.settle, value: nearby)
 
                     TabSearchDoor(prefs: browser.prefs) { browser.summon() }
 
@@ -192,19 +191,28 @@ struct TabBar: View {
                         }
                     }
                 }
-                // The traffic lights are the system's. The row starts after
-                // them and stays there — nothing here moves to get out of
-                // their way, because nothing here was ever in it.
-                .padding(.leading, metrics.lights)
+                // The traffic lights are the system's. In a window the row
+                // starts after them and stays there — nothing here moves to
+                // get out of their way, because nothing here was ever in it.
+                .padding(.leading, lead)
                 .padding(.trailing, metrics.length(12))
                 .coordinateSpace(name: "strip")
             }
             .frame(width: geo.size.width, height: geo.size.height)
         }
         .frame(height: metrics.strip)
-        .onHover { nearby = $0 }
         .onAppear { SpaceSwipe.shared.start(for: browser) }
         .onDisappear { panelDrag.cancel() }
+        .background(WindowSetup { window in
+            self.window = window
+            fullScreen = window.styleMask.contains(.fullScreen)
+        })
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willEnterFullScreenNotification)) { note in
+            if note.object as? NSWindow === window { fullScreen = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willExitFullScreenNotification)) { note in
+            if note.object as? NSWindow === window { fullScreen = false }
+        }
         // A link dragged onto the row opens there.
         .onDrop(of: [.url, .text], isTargeted: $landing) { providers in
             browser.take(providers)
@@ -255,7 +263,7 @@ struct TabBar: View {
                         tab: tab,
                         live: tab.id == row.active,
                         width: each,
-                        room: strip - metrics.lights - metrics.length(12),
+                        room: strip - lead - metrics.length(12),
                         pill: pill,
                         close: {}
                     )
@@ -344,7 +352,7 @@ struct TabBar: View {
         var total = pinned * metrics.pinWidth + loose * each
             + CGFloat(max(0, browser.tabEntries.count - 1)) * metrics.tabGap
         if let id = browser.editingTab, let tab = browser.tabs.first(where: { $0.id == id }) {
-            total += min(metrics.length(340), strip - metrics.lights - metrics.length(12)) - (tab.pin != nil ? metrics.pinWidth : each)
+            total += min(metrics.length(340), strip - lead - metrics.length(12)) - (tab.pin != nil ? metrics.pinWidth : each)
         }
         return total
     }
@@ -354,8 +362,12 @@ struct TabBar: View {
     /// been, the bookmarks stand in for them.
     private func room(in strip: CGFloat) -> CGFloat {
         let far = doors > 0 ? doors : metrics.length(26)
-        return max(0, strip - metrics.lights - helm - dot - metrics.length(12) - metrics.plusWidth - searchWidth - far - 3 * metrics.tabGap)
+        return max(0, strip - lead - helm - dot - metrics.length(12) - metrics.plusWidth - searchWidth - far - 3 * metrics.tabGap)
     }
+
+    /// Where the row starts: past the traffic lights in a window, at the same
+    /// air as its far end in full screen.
+    private var lead: CGFloat { fullScreen ? metrics.length(12) : metrics.lights }
 
     private var searchWidth: CGFloat { metrics.length(Metrics.tabSearchSide) + metrics.tabGap }
 
@@ -463,6 +475,8 @@ private struct TabPill: View {
     /// tooltip, and ⌘W or the menu to close it — a cross on something this
     /// small would be what a click to pick the tab lands on.
     private var compact: Bool { !editing && !pinned && width < metrics.tabTitled }
+    /// The right-hand end holds the cross, the ring or the sleep mark.
+    private var marked: Bool { !editing && (hovering || tab.loading || tab.sleeping) }
 
     /// A pinned tab is a square, an edited one is a field, everything else is
     /// its share of what is left.
@@ -590,7 +604,7 @@ private struct TabPill: View {
                         .foregroundStyle(colour.opacity(0.7))
                 }
                 Text(tab.label)
-                    .font(.system(size: metrics.length(12.5)))
+                    .font(.system(size: metrics.length(Metrics.tabTitle)))
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .foregroundStyle(colour)
@@ -598,42 +612,41 @@ private struct TabPill: View {
 
             Spacer(minLength: metrics.length(2))
 
-            // Pinned to the right-hand end of the pill, not trailing the title.
-            // Sleeping keeps room beside Close even before hover, so only the
-            // mark moves when the pointer arrives, never the title.
-            ZStack {
-                SleepMark(tab: tab)
-                    .offset(x: hovering ? -metrics.length(Metrics.sleepStatusTravel) : 0)
-                if hovering {
-                    Image(systemName: "xmark")
-                        .font(.system(size: metrics.length(8), weight: .medium))
-                        .foregroundStyle(Palette.muted)
-                        .frame(width: metrics.length(15), height: metrics.length(15))
-                        .background(Palette.ink.opacity(0.07), in: Circle())
-                        .transition(.opacity)
-                } else if tab.loading {
-                    Ring().transition(.opacity)
+            // Pinned to the right-hand end of the pill, not trailing the title,
+            // and there only while it holds something: the title runs to the
+            // end of an awake tab, to the mark of a sleeping one, and gives
+            // way to the cross when the pointer comes.
+            if marked {
+                ZStack {
+                    SleepMark(tab: tab)
+                        .offset(x: hovering ? -metrics.length(Metrics.sleepStatusTravel) : 0)
+                    if hovering {
+                        Image(systemName: "xmark")
+                            .font(.system(size: metrics.length(8), weight: .medium))
+                            .foregroundStyle(Palette.muted)
+                            .frame(width: metrics.length(15), height: metrics.length(15))
+                            .background(Palette.ink.opacity(0.07), in: Circle())
+                            .transition(.opacity)
+                    } else if tab.loading {
+                        Ring().transition(.opacity)
+                    }
                 }
-            }
-            .frame(width: editing ? 0 : metrics.length(15), height: metrics.length(15))
-            .opacity(editing ? 0 : 1)
-            // The cross is 15 points across because that is how big it should
-            // look. What you have to hit is the whole right-hand end of the
-            // tab: an overlay is not laid out, so it can reach past its own
-            // frame without moving anything that is.
-            .overlay {
-                if !editing {
+                .frame(width: metrics.length(15), height: metrics.length(15))
+                // The cross is 15 points across because that is how big it should
+                // look. What you have to hit is the whole right-hand end of the
+                // tab: an overlay is not laid out, so it can reach past its own
+                // frame without moving anything that is.
+                .overlay {
                     Color.clear
                         .frame(width: metrics.length(30), height: metrics.length(28))
                         .contentShape(Rectangle())
                         .onTapGesture { if hovering { close() } }
                 }
+                .padding(.leading, hovering && tab.sleeping ? metrics.length(Metrics.sleepStatusTravel) : 0)
+                .transition(.opacity)
             }
-            .padding(.leading, tab.sleeping && !editing ? metrics.length(Metrics.sleepStatusTravel) : 0)
-            .animation(Motion.quick, value: hovering)
-            .animation(Motion.quick, value: tab.loading)
-            .animation(Motion.quick, value: tab.noisy)
         }
+        .animation(Motion.quick, value: tab.loading)
         .padding(.leading, metrics.length(11))
         .padding(.trailing, metrics.length(editing ? 11 : 7))
         .padding(.vertical, metrics.length(6))
