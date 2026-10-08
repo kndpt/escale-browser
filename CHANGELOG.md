@@ -11,6 +11,21 @@ Search before that is in
 
 ## Unreleased
 
+## 0.8.1 — 2026-10-08
+
+### Highlights
+
+- **Sites stay signed in after a quit.** Close and reopen the browser and the sites you were signed into still know you.
+- **The environment before the address.** With the address above the page, you see at a glance whether you are on staging or production, and switch with a click.
+
+### What changed
+
+- Sites stay signed in after a quit: sign-ins kept only for the session, such as SSO, now come back with the tabs they belong to, in their own space and never in a private tab (#83).
+- An extension popup opens at its final size instead of opening at one size and then resizing to fit its content (#76).
+- With tabs at the top, the row starts at the left edge in full screen, tab titles are a little smaller, a title runs to the end of its tab until the pointer brings the close button, and the new-tab plus stays in view (#79).
+- With the address above the page, a tab opened from a bookmark with environments now shows the page's environment, in its colour, before the site; clicking it switches environment (#80).
+- Right-clicking a Space in the rail shows its actions directly, with Move Up and Move Down, and Move Space Up, Move Space Down and Delete Space… join the Spaces menu and the shortcut settings. A Space moved above the first one keeps its place after a relaunch (#52).
+
 ## 0.8 — 2026-10-07
 
 ### Highlights

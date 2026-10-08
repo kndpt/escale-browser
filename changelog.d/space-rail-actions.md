@@ -1,1 +1,0 @@
-Right-clicking a Space in the rail shows its actions directly, with Move Up and Move Down, and Move Space Up, Move Space Down and Delete Space… join the Spaces menu and the shortcut settings. A Space moved above the first one keeps its place after a relaunch (#52).
