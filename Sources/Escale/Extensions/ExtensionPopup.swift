@@ -269,7 +269,9 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
             }
             return
         }
-        web.evaluateJavaScript("[\(ExtensionPopup.reach)('width'), (() => { const d = document.documentElement; return d && d.scrollHeight > d.clientHeight ? d.scrollHeight : 0; })()]") { value, _ in
+        // Height against the view: the root's clientHeight follows a page
+        // taller than the view in WebKit, and would never let it grow.
+        web.evaluateJavaScript("[\(ExtensionPopup.reach)('width'), (() => { const d = document.documentElement; return d && d.scrollHeight > innerHeight ? d.scrollHeight : 0; })()]") { value, _ in
             MainActor.assumeIsolated {
                 guard let pair = value as? [Double], pair.count == 2 else { return }
                 let now = popover.contentSize
