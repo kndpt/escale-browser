@@ -811,6 +811,8 @@ final class Browser: NSObject, ObservableObject {
 
         // What a deleted space left behind, if WebKit wouldn't let it go then.
         Spaces.sweep()
+        // Last session's sign-ins, before any page can ask for them (see Jar.swift).
+        Jar.restore(into: spaces.map(\.id))
         // The space you were in, when there are spaces (see Spaces.swift).
         if prefs.usesSpaces, let last = Store.settings.string(forKey: "space.current").flatMap(UUID.init),
            spaces.contains(where: { $0.id == last }) {
@@ -1999,6 +2001,8 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         decidePolicyFor action: WKNavigationAction,
         decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
     ) {
+        // Nothing loads before last session's cookies are back (see Jar.swift).
+        if Jar.hold({ self.webView(webView, decidePolicyFor: action, decisionHandler: decisionHandler) }) { return }
         // "Download Image", "Download Linked File" from the page's own
         // context menu, and a link with the `download` attribute all arrive
         // as an ordinary-looking action with this one flag set. Answered

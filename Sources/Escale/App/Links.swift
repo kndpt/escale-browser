@@ -23,6 +23,13 @@ final class Links: NSObject, NSApplicationDelegate {
     /// writing it down on their own.
     private static var flush: (() -> Void)?
 
+    /// Session cookies go with the session (see Jar.swift). WebKit hands them
+    /// over asynchronously, so the quit waits for them, a second at most.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        Jar.keep(Spaces.made) { sender.reply(toApplicationShouldTerminate: true) }
+        return .terminateLater
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         ExtensionSpeech.shared.stop() // Audio must end before the process (see ExtensionSpeech.swift).
         Links.flush?()
