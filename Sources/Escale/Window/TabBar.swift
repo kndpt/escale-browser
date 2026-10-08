@@ -20,8 +20,6 @@ struct TabBar: View {
     @State private var from = 0
     @State private var travel: CGFloat = 0
     @State private var landing = false
-    /// The plus only comes out when the pointer is in the row.
-    @State private var nearby = false
     @State private var plussed = false
     /// How wide the doors at the far end are, extension buttons included.
     @State private var doors: CGFloat = 0
@@ -145,7 +143,7 @@ struct TabBar: View {
 
                     // The way to a new page, right after the tabs rather than
                     // at the end of their run, so it is there however far the
-                    // run has scrolled. Out of sight until the pointer is up here.
+                    // run has scrolled.
                     Button { browser.newTab() } label: {
                         Image(systemName: "plus")
                             .font(.system(size: metrics.length(10), weight: .regular))
@@ -161,9 +159,6 @@ struct TabBar: View {
                     }
                     .buttonStyle(.plain)
                     .onHover { plussed = $0 }
-                    .opacity(nearby ? 1 : 0)
-                    .allowsHitTesting(nearby)
-                    .animation(Motion.settle, value: nearby)
 
                     TabSearchDoor(prefs: browser.prefs) { browser.summon() }
 
@@ -206,7 +201,6 @@ struct TabBar: View {
             .frame(width: geo.size.width, height: geo.size.height)
         }
         .frame(height: metrics.strip)
-        .onHover { nearby = $0 }
         .onAppear { SpaceSwipe.shared.start(for: browser) }
         .onDisappear { panelDrag.cancel() }
         .background(WindowSetup { window in
