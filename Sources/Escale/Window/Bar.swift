@@ -170,31 +170,35 @@ private struct Where: View {
     var body: some View {
         HStack(spacing: 0) {
             if let url = tab.address {
-                if let bookmark {
-                    EnvironmentChip(bookmarks: browser.bookmarks, tab: tab, bookmark: bookmark) {
-                        browser.openEnvironment($0, bookmark: bookmark, space: browser.spaceID)
+                // The chip's smaller capitals sit on the host's baseline, so
+                // they read as one line rather than two centred boxes.
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    if let bookmark {
+                        EnvironmentChip(bookmarks: browser.bookmarks, tab: tab, bookmark: bookmark) {
+                            browser.openEnvironment($0, bookmark: bookmark, space: browser.spaceID)
+                        }
                     }
+                    Button { open.toggle() } label: {
+                        Text(AddressBar.site(url))
+                            .font(.system(size: metrics.length(12.5), weight: .regular))
+                            .foregroundStyle(Palette.ink)
+                            .lineLimit(1)
+                            .padding(.horizontal, metrics.length(8))
+                            .frame(height: metrics.length(26))
+                            .background(
+                                RoundedRectangle(cornerRadius: metrics.length(8), style: .continuous)
+                                    .fill(open ? Palette.wash : (onSite ? Palette.hover : .clear))
+                            )
+                            .contentShape(RoundedRectangle(cornerRadius: metrics.length(8), style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .onHover { onSite = $0 }
+                    .help("About this site")
+                    .popover(isPresented: $open, arrowEdge: .bottom) {
+                        SiteCard(browser: browser, tab: tab) { open = false }
+                    }
+                    .fixedSize()
                 }
-                Button { open.toggle() } label: {
-                    Text(AddressBar.site(url))
-                        .font(.system(size: metrics.length(12.5), weight: .regular))
-                        .foregroundStyle(Palette.ink)
-                        .lineLimit(1)
-                        .padding(.horizontal, metrics.length(8))
-                        .frame(height: metrics.length(26))
-                        .background(
-                            RoundedRectangle(cornerRadius: metrics.length(8), style: .continuous)
-                                .fill(open ? Palette.wash : (onSite ? Palette.hover : .clear))
-                        )
-                        .contentShape(RoundedRectangle(cornerRadius: metrics.length(8), style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .onHover { onSite = $0 }
-                .help("About this site")
-                .popover(isPresented: $open, arrowEdge: .bottom) {
-                    SiteCard(browser: browser, tab: tab) { open = false }
-                }
-                .fixedSize()
 
                 Rectangle()
                     .fill(Palette.hairline)

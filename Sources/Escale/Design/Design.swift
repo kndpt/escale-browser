@@ -650,7 +650,7 @@ enum Metrics {
     static let environmentChipHeight: CGFloat = 18
     static let environmentChipInset: CGFloat = 6
     static let environmentChipRadius: CGFloat = 5
-    static let environmentChipFont: CGFloat = 10
+    static let environmentChipFont: CGFloat = 11
 
     /// The tab strip. The window's title bar is grown to match it so the
     /// traffic lights come down with the tabs — otherwise giving the row room
