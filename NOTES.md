@@ -1,3 +1,5 @@
+Escale 0.8.1: sites you were signed into stay signed in after a quit, and with the address above the page its environment shows before the site. Right-click a Space in the rail for its actions.
+
 Escale 0.8: rest the pointer on a bookmark folder to search its sites without opening it. Setup now ends on a summary of your choices, and comes back by itself after you connect GitHub.
 
 Escale 0.7: Escale is now open source, under the GPL, at github.com/kndpt/escale-browser. Clear transparency also lets much more of your desktop show through.
