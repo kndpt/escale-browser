@@ -113,7 +113,7 @@ final class Browser: NSObject, ObservableObject {
     func bookmarkCurrent() {
         guard let tab = active, let url = tab.address else { return }
         guard !bookmarks.contains(url) else {
-            if !prefs.sidebar, !folded, !tab.immersed { bookmarksOpen = true } else { announce("Already a bookmark") }
+            if !prefs.sidebar, !folded || peeking, !tab.immersed { bookmarksOpen = true } else { announce("Already a bookmark") }
             return
         }
         bookmarks.add(url, title: tab.title)

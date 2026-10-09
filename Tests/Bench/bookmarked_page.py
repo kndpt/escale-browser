@@ -68,6 +68,17 @@ def main():
         h.wait_for("its own Space", state, {"bookmarked": "Suite a"})
         print("ok: only this Space's bookmarks mark the page")
 
+        # Folded, the strip has no door until the pointer brings it down.
+        bench("ui", "folded", "on")
+        bench("press", *B, "cmd", "shift")
+        h.require("no door, no actions", state(), {"bookmarked": "Suite a", "dropdown": False, "rows": ["Suite a"]})
+        bench("ui", "peek", "on")
+        bench("press", *B, "cmd", "shift")
+        h.wait_for("actions from the peeking strip", state, {"dropdown": True, "rows": ["Suite a"]})
+        bench("ui", "peek", "off")
+        bench("ui", "folded", "off")
+        print("ok: a folded strip opens the actions only while it is out")
+
         bench("press", *B, "cmd", "shift")
         h.wait_for("actions open", state, {"bookmarked": "Suite a", "dropdown": True, "rows": ["Suite a"]})
         click(RENAME)
