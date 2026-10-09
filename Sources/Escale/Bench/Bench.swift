@@ -661,6 +661,7 @@ final class Bench {
                 "history": browser.recalling,
                 "downloads": browser.hoarding,
                 "keptDownloads": browser.loot.kept.map(\.name),
+                "handedDownloads": Loot.handed,
                 "bookmarks": browser.bookmarking,
                 "field": browser.editing,
                 "suggesting": browser.logins.suggesting != nil,
