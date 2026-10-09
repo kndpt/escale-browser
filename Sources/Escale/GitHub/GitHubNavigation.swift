@@ -1,6 +1,7 @@
-// Navigation is committed only after a local GitHub result is confirmed. An
+// Navigation is committed only after a GitHub result is confirmed. An
 // existing tab is selected intact, including its panel group and subpage; a
-// historical destination opens in the search's Space without link routing.
+// historical destination, or an offered reference, opens in the search's
+// Space without link routing.
 // This is the small Browser hook; the search owns ordering and selection.
 import Foundation
 
@@ -48,15 +49,20 @@ extension Browser {
         guard let search = field.github, search.space == spaceID else { return }
         let typed = field.typed
         search.refresh()
-        guard let row = search.results.first(where: { $0.id == id }) else { return }
-        if case .tab(let tabID) = row.item.destination.source {
-            guard let tab = tabs.first(where: { $0.id == tabID && $0.shy == search.shy && !$0.bench }) else { return }
-            select(tab)
+        if let offer = search.offer, offer.id == id {
+            // Nothing is learned before the page is actually visited.
+            openGitHub(offer.url)
         } else {
-            guard !search.shy else { return }
-            openGitHub(row.item.destination.url)
+            guard let row = search.results.first(where: { $0.id == id }) else { return }
+            if case .tab(let tabID) = row.item.destination.source {
+                guard let tab = tabs.first(where: { $0.id == tabID && $0.shy == search.shy && !$0.bench }) else { return }
+                select(tab)
+            } else {
+                guard !search.shy else { return }
+                openGitHub(row.item.destination.url)
+            }
+            if !search.shy { habits(for: search.space).learn(typed, chose: GitHubSearch.destination(id)) }
         }
-        if !search.shy { habits(for: search.space).learn(typed, chose: GitHubSearch.destination(id)) }
         field.stopGitHub()
         editing = false
         field.typed = ""

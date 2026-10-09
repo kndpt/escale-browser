@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Local GitHub Bearings with real keys and shared-memory observations.
 
-Fixtures stamp failed-navigation metadata over built loopback pages. No GitHub
-page is fetched; assertions about live status extraction/auth remain separate.
+Fixtures stamp failed-navigation metadata over built loopback pages. Only the
+offered owner/repo#N is opened on github.com, and closed at once; assertions
+about live status extraction/auth remain separate.
 """
 import json
 from http.server import ThreadingHTTPServer
@@ -91,6 +92,22 @@ def main():
         s.require('no web-search fallback', snapshot()['github']['open'], True)
         press(53, '\x1b')
         s.require('one Escape closes GitHub', snapshot()['fieldShowing'], False)
+        press(40, 'k', 'cmd', 'shift')
+        bench('field', 'fixture/browser#1')
+        state = github()
+        s.require('known reference is the only offer', (state['offer'], state['rows'][0]['number']), ('', 1))
+        bench('field', 'Octo/Never#42')
+        state = github()
+        offer = 'https://github.com/Octo/Never/issues/42'
+        s.require('unknown reference offered and picked', (state['offer'], state['picked']),
+                  (offer, 'page:github.com/octo/never/issues/42'))
+        s.require('offer opens nothing before Return', len(s.tabs()), count)
+        press(36, '\r')
+        opened = next(t for t in s.tabs() if t['active'])
+        s.require('Return opens the reference on github.com', opened['url'], offer)
+        s.require('in a new tab of the Space', len(s.tabs()), count + 1)
+        press(13, 'w', 'cmd')
+        bench('select', first)
         press(17, 't', 'cmd')
         press(40, 'k', 'cmd', 'shift')
         press(13, 'w', 'cmd')
@@ -115,7 +132,7 @@ def main():
         s.require('Space change cancels search', github()['open'], False)
         press(40, 'k', 'cmd', 'shift')
         s.require('other Space has no leaked results', github()['rows'], [])
-        print('PASS GitHub local search, grouping, native keys, shared reply, stable selection, tab reuse, cancellation and privacy')
+        print('PASS GitHub local search, grouping, native keys, shared reply, stable selection, tab reuse, reference offer, cancellation and privacy')
 
 
 if __name__ == '__main__':

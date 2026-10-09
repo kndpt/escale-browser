@@ -179,4 +179,38 @@ import Testing
         #expect(GitHubSearch.rank(try [visit("webkit/webkit", time: now)], typed: "WebKit #7", active: nil).first?.exact == true)
     }
 
+    @Test func exactReferenceNobodyVisitedIsOffered() throws {
+        let offer = try #require(GitHubSearch.offer(" Octo-Org/My.Repo_2#42 ", space: space))
+        #expect(offer.url.absoluteString == "https://github.com/Octo-Org/My.Repo_2/issues/42")
+        #expect(offer.name == "Octo-Org/My.Repo_2#42")
+        #expect(offer.id.owner == "octo-org" && offer.id.repository == "my.repo_2" && offer.id.number == 42)
+        #expect(GitHubSearch.offer("a/b#007", space: space)?.url.absoluteString == "https://github.com/a/b/issues/7")
+    }
+
+    @Test(arguments: ["octo/repo#0", "octo/repo#", "octo/repo", "octo repo#1", "octo/re po#1", "octo/repo #1",
+                      "octo/re$po#1", "oc_to/repo#1", "-octo/repo#1", "octo/repo#1#2", "octo/repo/x#1",
+                      "octo/repo#1a", "octo/..#1", "octo/repo#99999999999999999999", "/repo#1", "octo/#1"])
+    func invalidReferencesAreRefused(typed: String) {
+        #expect(GitHubSearch.offer(typed, space: space) == nil)
+    }
+
+    @Test func knownReferenceStaysTheOnlyRowAndUnknownLeads() throws {
+        let values = try [candidate(1), candidate(30, title: "fixture/browser#30 follow-up")]
+        let search = GitHubSearch(space: space, shy: false, sources: { values }, active: { nil })
+        search.ask("fixture/browser#1")
+        #expect(search.offer == nil)
+        #expect(search.results.first?.id.number == 1)
+        #expect(search.picked == search.results.first?.id)
+        search.ask("fixture/browser#3")
+        let offer = try #require(search.offer)
+        #expect(search.picked == offer.id)
+        #expect(search.results.map(\.id.number) == [30])
+        search.walk(1)
+        #expect(search.picked == search.results.first?.id)
+        search.walk(-1)
+        #expect(search.picked == offer.id)
+        let shy = GitHubSearch(space: space, shy: true, sources: { [] }, active: { nil })
+        shy.ask("fixture/browser#3")
+        #expect(shy.offer == nil)
+    }
 }

@@ -128,7 +128,7 @@ CHECKS = {
               foreground=True),
         Check("github-search", ("python3", "Tests/Bench/github_search.py"),
               BENCH + ("Tests/Bench/github_search.py",),
-              "GitHub local grouping, native keys, shared replies, stable selection, tab reuse and private search",
+              "GitHub local grouping, native keys, shared replies, stable selection, tab reuse, reference offer and private search",
               "app", ("bundle",), paths=("Sources/Escale/GitHub/**", "Sources/Escale/Address/Field.swift",
               "Sources/Escale/Address/Omnibox.swift", "Sources/Escale/Keyboard/**", "Tests/Bench/github_search.py")),
         Check("keyboard", ("python3", "Tests/Bench/new_tab_search.py"),
