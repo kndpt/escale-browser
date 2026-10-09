@@ -24,7 +24,7 @@ otherwise.
 
 ## Supported versions
 
-Only the latest release receives fixes. The app checks for updates once a day
+Only the latest release receives fixes. The app checks for updates every 2 hours
 and installs a new version only after you choose to relaunch.
 
 ## Areas of particular interest

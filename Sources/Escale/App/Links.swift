@@ -17,8 +17,8 @@ final class Links: NSObject, NSApplicationDelegate {
     /// Whether the window has been asked for on a link's behalf (summon).
     private static var summoned = false
     /// The session and the rest, written now rather than whenever their
-    /// debounces were going to get to them (see Browser.flush). ⌘Q, the red
-    /// button and an update's relaunch all end the process the same way, and
+    /// debounces were going to get to them (see Browser.flush). ⌘Q, the Dock's
+    /// Quit and an update's relaunch all end the process the same way, and
     /// none of them owed the last 1.2 seconds of typing anywhere to finish
     /// writing it down on their own.
     private static var flush: (() -> Void)?
@@ -109,6 +109,11 @@ final class Links: NSObject, NSApplicationDelegate {
             Links.take(url)
         }
     }
+
+    /// Closing the window closes the window, as in Safari or Chrome: the app
+    /// stays. Left to SwiftUI, an app whose one scene is a `Window` quits
+    /// with it.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     /// The Dock icon clicked with the window closed: bring the window back
     /// rather than doing nothing, which is what a hidden-title-bar SwiftUI

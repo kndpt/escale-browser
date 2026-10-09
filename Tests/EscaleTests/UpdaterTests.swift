@@ -1,6 +1,7 @@
 // What an update's signature must satisfy before the updater swaps it in: a
 // Developer ID certificate from Apple, for this team. Checked against
 // requirement text and a binary Apple signed itself, which is not Developer ID.
+// And how often the feed is read on its own, against the hourly clock.
 import Foundation
 import Security
 import Testing
@@ -24,5 +25,14 @@ import Testing
         let binary = try #require(code)
         #expect(SecStaticCodeCheckValidity(binary, [], nil) == errSecSuccess)
         #expect(SecStaticCodeCheckValidity(binary, [], requirement) != errSecSuccess)
+    }
+
+    @Test func theFeedIsReadEverySecondHourlyTick() {
+        let start = Date()
+        // A tick five minutes late, and a fetch that took a few seconds.
+        let last = start.addingTimeInterval(5 * 60 + 10)
+        #expect(!Updater.due(since: last, now: start.addingTimeInterval(60 * 60)))
+        #expect(Updater.due(since: last, now: start.addingTimeInterval(2 * 60 * 60)))
+        #expect(Updater.due(since: .distantPast))
     }
 }
