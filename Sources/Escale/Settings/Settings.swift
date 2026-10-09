@@ -750,8 +750,8 @@ struct SettingsPanel: View {
     private var versionDetail: String {
         switch updater.stage {
         case .none:
-            return updater.lastChecked.map { "Checked \($0.formatted(.relative(presentation: .named))) — once a day on its own" }
-                ?? "Checked once a day on its own"
+            return updater.lastChecked.map { "Checked \($0.formatted(.relative(presentation: .named))) — every 2 hours on its own" }
+                ?? "Checked every 2 hours on its own"
         case .fetching(let next):
             return next.notes ?? "Quietly, in the background — nothing you have set is touched"
         case .ready(let next):
