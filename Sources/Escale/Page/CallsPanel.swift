@@ -206,22 +206,28 @@ private struct CallsList: View {
         .accessibilityElement(children: .contain)
     }
 
-    /// Under All, one resource type or every one.
+    /// Under All, one resource type or every one: plain items in the
+    /// system's menu, under a label drawn here.
     private var kinds: some View {
         Menu {
-            Picker("", selection: $calls.kind) {
-                Text("Any type").tag(CallList.Kind?.none)
-                ForEach(CallList.Kind.allCases) { Text($0.title).tag(Optional($0)) }
-            }
-            .pickerStyle(.inline)
-            .labelsHidden()
+            kind(nil, "Any type")
+            ForEach(CallList.Kind.allCases) { kind($0, $0.title) }
         } label: {
-            Text("· " + (calls.kind?.title ?? "Any type"))
+            // One text: a native menu flattens its label and would move an
+            // image of its own before the words.
+            Text("· \(calls.kind?.title ?? "Any type") \(Image(systemName: "chevron.down"))")
+                .foregroundStyle(Palette.ink)
         }
         .menuStyle(.borderlessButton)
-        .menuIndicator(.visible)
+        .menuIndicator(.hidden)
         .fixedSize()
         .accessibilityLabel("Resource type")
+    }
+
+    private func kind(_ kind: CallList.Kind?, _ title: String) -> some View {
+        Button { calls.kind = kind } label: {
+            if calls.kind == kind { Label(title, systemImage: "checkmark") } else { Text(title) }
+        }
     }
 
     /// Said only when it matters: a search running, one that could not
