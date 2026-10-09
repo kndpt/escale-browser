@@ -135,10 +135,14 @@ final class Preferences: ObservableObject {
     @Published var customEngine: String {
         didSet { store.set(customEngine, forKey: "search.custom") }
     }
-    /// Tabs nobody has looked at for half an hour give their page back and
+    /// Tabs nobody has looked at for a while give their page back and
     /// keep where they were. On unless turned off.
     @Published var sleepsTabs: Bool {
         didSet { store.set(sleepsTabs, forKey: "tabs.sleep") }
+    }
+    /// How long that while is (see Sleep.swift). Half an hour unless chosen.
+    @Published var sleepDelay: SleepDelay {
+        didSet { store.set(sleepDelay.rawValue, forKey: "tabs.sleep.after") }
     }
     @Published var showsReading: Bool {
         didSet { store.set(showsReading, forKey: "tabs.reading") }
@@ -264,6 +268,7 @@ final class Preferences: ObservableObject {
         engine = store.string(forKey: "search.engine").flatMap(Engine.init) ?? .standard
         customEngine = store.string(forKey: "search.custom") ?? ""
         sleepsTabs = store.object(forKey: "tabs.sleep") as? Bool ?? true
+        sleepDelay = SleepDelay.stored(store.string(forKey: "tabs.sleep.after"))
         showsReading = store.object(forKey: "tabs.reading") as? Bool ?? true
         shielded = store.object(forKey: "shield") as? Bool ?? true
         extensionsInPrivate = store.bool(forKey: "extensions.private")

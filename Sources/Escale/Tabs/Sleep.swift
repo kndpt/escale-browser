@@ -6,8 +6,8 @@ import WebKit
 // A page open in a tab keeps its whole content process — a hundred to three
 // hundred megabytes, running its timers, holding its sockets — for as long as
 // the tab exists. Twenty tabs is two or three gigabytes spent on the nineteen
-// nobody is looking at. So a tab left alone for half an hour gives its page
-// back, and keeps what it takes to come back exactly where it was: its
+// nobody is looking at. So a tab left alone for half an hour, or the delay
+// chosen in Settings, gives its page back, and keeps what it takes to come back exactly where it was: its
 // history, its scroll position, and a picture to show while the page is
 // rebuilt underneath (see Tab.sleep).
 //
@@ -16,24 +16,64 @@ import WebKit
 // with ⌘W), a tab playing sound, on a call, sending a download, holding its
 // video out in the little window, or holding something typed and not sent.
 //
-// When macOS says memory is short, the half hour shrinks: to five minutes on
+// When macOS says memory is short, the delay shrinks: to five minutes on
 // a warning, to nothing when it is critical — and then the pages go without
 // a picture, since each would cost an image before anything is let go.
 //
 // The pictures are taken one at a time and kept within a budget, by
 // `Pictures` (see Pictures.swift).
 
-extension Browser {
-    /// How long a tab has to go without being looked at. Half an hour, or
-    /// `sleep.after` in seconds — for the bench and the measurements.
-    static var sleepAfter: TimeInterval {
-        let set = Store.settings.double(forKey: "sleep.after")
-        return set > 0 ? set : 30 * 60
+/// How long a tab waits before it sleeps, chosen in Settings. Stored as its
+/// name; absent or unknown reads as half an hour, the delay before the choice.
+enum SleepDelay: String, CaseIterable, Identifiable {
+    case quarter, half, hour, twoHours
+
+    var id: String { rawValue }
+
+    var seconds: TimeInterval {
+        switch self {
+        case .quarter: return 15 * 60
+        case .half: return 30 * 60
+        case .hour: return 60 * 60
+        case .twoHours: return 2 * 60 * 60
+        }
     }
 
-    /// Started once, at launch.
+    var title: String {
+        switch self {
+        case .quarter: return "15 min"
+        case .half: return "30 min"
+        case .hour: return "1 h"
+        case .twoHours: return "2 h"
+        }
+    }
+
+    /// As the Settings help reads it: "After half an hour away".
+    var phrase: String {
+        switch self {
+        case .quarter: return "15 minutes"
+        case .half: return "half an hour"
+        case .hour: return "an hour"
+        case .twoHours: return "two hours"
+        }
+    }
+
+    static func stored(_ rawValue: String?) -> SleepDelay {
+        rawValue.flatMap(SleepDelay.init) ?? .half
+    }
+}
+
+extension Browser {
+    /// How long a tab has to go without being looked at: the chosen delay, or
+    /// `sleep.after` in seconds — for the bench and the measurements.
+    static func sleepAfter(_ chosen: SleepDelay, bench: Double = Store.settings.double(forKey: "sleep.after")) -> TimeInterval {
+        bench > 0 ? bench : chosen.seconds
+    }
+
+    /// Started once, at launch. Every choice is long enough for a pass a
+    /// minute, so changing it leaves the timer as it is.
     func watchForSleep() {
-        let every = min(60, max(5, Browser.sleepAfter / 4))
+        let every = min(60, max(5, Browser.sleepAfter(prefs.sleepDelay) / 4))
         let timer = Timer(timeInterval: every, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.sleepIdle() }
         }
@@ -69,7 +109,7 @@ extension Browser {
     /// left longest first. `pictured` false: without taking their picture.
     func sleepIdle(within given: TimeInterval? = nil, pictured: Bool = true) {
         guard prefs.sleepsTabs else { return }
-        let wait = given ?? Browser.sleepAfter
+        let wait = given ?? Browser.sleepAfter(prefs.sleepDelay)
         let now = Date()
         // The rows of the other spaces too: parked is not the same as used.
         let idle = (tabs + parkedTabs)

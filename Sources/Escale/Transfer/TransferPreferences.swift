@@ -47,7 +47,8 @@ enum TransferPreferences {
             if prefs.customEngine != text { prefs.customEngine = text }
             return true
         }),
-        flag("tabs.sleep", \.sleepsTabs), flag("tabs.reading", \.showsReading), flag("shield", \.shielded),
+        flag("tabs.sleep", \.sleepsTabs), choice("tabs.sleep.after", \.sleepDelay),
+        flag("tabs.reading", \.showsReading), flag("shield", \.shielded),
         flag("extensions.private", \.extensionsInPrivate), flag("downloads.ask", \.asksWhereToSave),
         flag("passwords.save", \.savesPasswords), flag("passwords.fill", \.fillsPasswords),
         flag("autoscroll", \.autoScroll), flag("links.show", \.showsLinks), flag("selection.menu", \.selectionMenu),
