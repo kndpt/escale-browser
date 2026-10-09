@@ -175,7 +175,8 @@ import Testing
     }
 
     @Test func preferencesAreAClosedList() {
-        let known = TransferPreferences.known(["look": .word("dark"), "bench": .flag(true), "downloads": .word("/tmp"), "sidebar": .flag(false)])
-        #expect(known == 2)
+        let known = TransferPreferences.known(["look": .word("dark"), "bench": .flag(true), "downloads": .word("/tmp"), "sidebar": .flag(false),
+                                                  "tabs.sleep.after": .number(15)])
+        #expect(known == 3)
     }
 }
