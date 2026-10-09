@@ -81,8 +81,10 @@ extension Browser {
     /// Why a tab has to stay awake — nil when nothing keeps it. The clock is
     /// the caller's business; this is everything else.
     func awake(because tab: Tab) -> String? {
-        if panelTabs.contains(where: { $0.id == tab.id }) { return "on screen" }
-        if tab.pin != nil { return "pinned" }
+        // With the window closed nothing is on screen (see Away.swift).
+        let shown = !away
+        if shown, panelTabs.contains(where: { $0.id == tab.id }) { return "on screen" }
+        if shown, tab.pin != nil { return "pinned" }
         if tab.bench { return "a bench tab" }
         if tab.isBlank { return "blank" }
         if tab.asleep { return "already asleep" }
@@ -95,7 +97,7 @@ extension Browser {
         if web.cameraCaptureState != .none || web.microphoneCaptureState != .none { return "on a call" }
         if downloads.isActive(on: web) { return "downloading" }
         // A sign-in window hands its answer back to the page that opened it.
-        if active?.opener == tab.id { return "the page on screen came from it" }
+        if shown, active?.opener == tab.id { return "the page on screen came from it" }
         return nil
     }
 

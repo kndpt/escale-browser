@@ -800,6 +800,7 @@ final class Browser: NSObject, ObservableObject {
         defer {
             follow()
             watchForSleep()
+            watchWindow()
         }
 
         // A file that stopped saving is said out loud, once (see Writer.swift).
