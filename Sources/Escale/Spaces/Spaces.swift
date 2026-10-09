@@ -421,6 +421,8 @@ struct SpaceRail: View {
     /// Redraws the doors when a Space starts or stops playing or listening.
     @ObservedObject var presences: Presences
     @StateObject private var reorder = SpaceReorder()
+    /// The rail's own size, the region a held icon may be dropped in.
+    @State private var size: CGSize = .zero
     @SwiftUI.Environment(\.chromeMetrics) private var metrics
     @SwiftUI.Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -471,6 +473,7 @@ struct SpaceRail: View {
         .frame(width: metrics.spaceRailWidth)
         .frame(maxHeight: .infinity)
         .coordinateSpace(name: SpaceRail.coordinates)
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
         .onDisappear { _ = reorder.cancel() }
     }
 
@@ -492,7 +495,7 @@ struct SpaceRail: View {
         DragGesture(minimumDistance: 5, coordinateSpace: .named(SpaceRail.coordinates))
             .onChanged { reorder.carry(space.id, travel: $0.translation.height) }
             .onEnded { value in
-                let inside = (0...metrics.spaceRailWidth).contains(value.location.x)
+                let inside = CGRect(origin: .zero, size: size).contains(value.location)
                 withAnimation(reduceMotion ? nil : Motion.settle) {
                     guard let travel = reorder.end(), inside,
                           let from = browser.spaces.firstIndex(where: { $0.id == space.id }) else { return }

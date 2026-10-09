@@ -165,7 +165,7 @@ class WorkflowTests(unittest.TestCase):
 
     def test_rail_code_selects_the_space_reorder_scenario(self):
         for path in ('Sources/Escale/Spaces/Spaces.swift', 'Sources/Escale/Spaces/SpaceReorder.swift',
-                     'Tests/Bench/space_reorder.py'):
+                     'Sources/Escale/App/App.swift', 'Tests/Bench/space_reorder.py'):
             with self.subTest(path=path):
                 selected = plan([path])
                 self.assertIn('space-reorder', selected['checks'])

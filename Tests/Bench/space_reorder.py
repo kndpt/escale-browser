@@ -2,11 +2,13 @@
 """Spaces reorder by dragging their icons in the rail.
 
 A live pointer drag carries the third icon to the top without switching
-Space; Escape or a release beyond the rail leaves the order alone; a plain
-click still switches. After ⌘Q and a relaunch, the order holds and ⌃1 opens
+Space; Escape (even over Select Area) or a release beside, above or below the
+rail leaves the order alone; a plain click still switches. After ⌘Q and a relaunch, the order holds and ⌃1 opens
 the moved Space. Run after ./build.sh debug, in an owned world. Not covered:
 Reduce Motion (only an animation is dropped) and the drawn landing preview.
 """
+from http.server import ThreadingHTTPServer
+from threading import Thread
 import json
 import suite as h
 
@@ -32,7 +34,9 @@ def current():
 
 
 def main():
-    with h.world(None):
+    server = ThreadingHTTPServer(("127.0.0.1", 0), h.Page)
+    Thread(target=server.serve_forever, daemon=True).start()
+    with h.world(server):
         h.launch()
         bench("ui", "sidebar", "on")
         bench("space", "new", "Two")
@@ -51,6 +55,16 @@ def main():
         h.require("Escape cancels", (names(), current()), (["Three", "Personal", "Two"], "Two"))
         bench("drag", X, door(0), 220, door(2), 300, "live")
         h.require("a drop beyond the rail cancels", (names(), current()), (["Three", "Personal", "Two"], "Two"))
+        bench("drag", X, door(2), X, -30, 300, "live")
+        h.require("a drop above the rail cancels", (names(), current()), (["Three", "Personal", "Two"], "Two"))
+
+        # Escape cancels the held icon before an open Select Area takes it.
+        tab = h.open_ordinary(f"http://127.0.0.1:{server.server_port}/area")
+        bench("page-capture", tab, json.dumps({"action": "area", "step": "start"}))
+        bench("drag", X, door(2), X, door(0) - 4, 300, "escape", "live")
+        h.require("Escape over Select Area cancels the drag",
+                  (names(), bench("page-capture", tab)["area"]["active"]), (["Three", "Personal", "Two"], True))
+        bench("page-capture", tab, json.dumps({"action": "area", "step": "stop"}))
 
         try:
             bench("press", 12, "q", "cmd")

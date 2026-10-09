@@ -666,6 +666,9 @@ struct ContentView: View {
         if browser.environmentEditor.request != nil || Links.window?.attachedSheet != nil || NSApp.modalWindow != nil { return false }
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
 
+        // A Space icon held in the rail lets go first, whatever else is open.
+        if event.keyCode == 53, SpaceReorder.current?.cancel() == true { return true }
+
         // An area being chosen keeps Escape for itself.
         if flags.isEmpty, event.keyCode == 53, let area = browser.active?.area, area.active {
             area.stop()
@@ -675,7 +678,6 @@ struct ContentView: View {
         // Escape puts the page back. On a blank tab there is no page to put
         // back, so it belongs to whatever else wants it.
         if event.keyCode == 53 {
-            if SpaceReorder.current?.cancel() == true { return true }
             if browser.panels.source != nil { browser.panels.cancel(); return true }
             if InfoTip.dismiss() { return true }
             if browser.editingTab != nil {

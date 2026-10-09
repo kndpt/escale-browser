@@ -239,7 +239,7 @@ CHECKS = {
               "a rail icon dragged to the top, Escape and an outside drop cancel, order and ⌃1 after relaunch",
               "app", ("bundle",),
               paths=("Sources/Escale/Spaces/Spaces.swift", "Sources/Escale/Spaces/SpaceReorder.swift",
-                     "Tests/EscaleTests/SpaceRailTests.swift"),
+                     "Sources/Escale/App/App.swift", "Tests/EscaleTests/SpaceRailTests.swift"),
               foreground=True),
         Check("call-float", ("python3", "Tests/Bench/call_float.py"),
               BENCH + ("Tests/Bench/call_float.py", "Tests/Bench/calls.py", "Tests/Bench/media_player.py",
