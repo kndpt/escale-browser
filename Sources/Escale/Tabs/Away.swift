@@ -8,8 +8,9 @@ import AppKit
 // window puts every tab to sleep at once, as the sleep policy does after half
 // an hour (Sleep.swift), without the pictures nobody would look at. What a
 // wake couldn't give back stays awake, as always: sound, a call, a download,
-// a draft. Nothing is on screen then, so neither the tab that was nor a pin
-// is kept for it. The window back, the pages it shows wake, as after a launch.
+// a draft, until the sleep timer finds it free. Nothing is on screen then, so
+// neither the tab that was nor a pin is kept for it. The window back, the
+// pages it shows wake, as after a launch.
 
 extension Browser {
     /// Closed, not minimised: AppKit keeps the window, out of sight.
@@ -27,8 +28,8 @@ extension Browser {
             // Once AppKit has taken it off screen, `away` says so.
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
-                    guard let self, self.away, self.prefs.sleepsTabs else { return }
-                    for tab in self.tabs + self.parkedTabs { self.sleep(tab, pictured: false) }
+                    guard let self, self.away else { return }
+                    self.sleepIdle()
                 }
             }
         }

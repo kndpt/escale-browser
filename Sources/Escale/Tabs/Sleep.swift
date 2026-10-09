@@ -69,7 +69,11 @@ extension Browser {
     /// left longest first. `pictured` false: without taking their picture.
     func sleepIdle(within given: TimeInterval? = nil, pictured: Bool = true) {
         guard prefs.sleepsTabs else { return }
-        let wait = given ?? Browser.sleepAfter
+        // With the window closed, no wait and no picture: nobody is looking
+        // (see Away.swift). A tab kept awake then, still loading or playing,
+        // goes at the next tick once it no longer is.
+        let wait = away ? 0 : given ?? Browser.sleepAfter
+        let pictured = pictured && !away
         let now = Date()
         // The rows of the other spaces too: parked is not the same as used.
         let idle = (tabs + parkedTabs)
