@@ -48,6 +48,8 @@ final class Calls: NSObject, ObservableObject, WKScriptMessageHandler {
     @Published private(set) var tab: Tab.ID?
     @Published private(set) var list = CallList()
     @Published var filter: CallList.Filter = .api { didSet { if filter != oldValue { found.typed() } } }
+    /// Under All, one resource type only; nil for every type.
+    @Published var kind: CallList.Kind? { didSet { if kind != oldValue { found.typed() } } }
     @Published var search = "" { didSet { if search != oldValue { found.typed() } } }
     /// Off while paused by hand: new calls are not listed.
     @Published private(set) var recording = true
@@ -214,7 +216,7 @@ final class Calls: NSObject, ObservableObject, WKScriptMessageHandler {
     /// The list as shown, newest first: the filter, then the search in
     /// addresses, methods and statuses, or in responses.
     var shown: [Call] {
-        Array(list.shown(filter, matching: search, bodies: Set(found.current(search).keys)).reversed())
+        Array(list.shown(filter, kind: kind, matching: search, bodies: Set(found.current(search).keys)).reversed())
     }
 
     /// The call `step` rows below the one open in the list as shown (up is
