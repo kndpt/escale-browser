@@ -163,7 +163,8 @@ final class GitHubSearch: ObservableObject {
     static func offer(_ typed: String, space: UUID) -> Offer? {
         let name = typed.trimmingCharacters(in: .whitespaces)
         let parts = name.split(separator: "#", omittingEmptySubsequences: false)
-        guard parts.count == 2 else { return nil }
+        // Digits only: anything after them would reach the URL as a query or a fragment.
+        guard parts.count == 2, !parts[1].isEmpty, parts[1].utf8.allSatisfy({ (48...57).contains($0) }) else { return nil }
         let path = parts[0].split(separator: "/", omittingEmptySubsequences: false)
         guard path.count == 2, let url = URL(string: "https://github.com/\(path[0])/\(path[1])/issues/\(parts[1])"),
               let id = GitHubItem.ID(url: url, space: space),

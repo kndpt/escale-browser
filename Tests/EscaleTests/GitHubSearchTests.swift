@@ -189,7 +189,7 @@ import Testing
 
     @Test(arguments: ["octo/repo#0", "octo/repo#", "octo/repo", "octo repo#1", "octo/re po#1", "octo/repo #1",
                       "octo/re$po#1", "oc_to/repo#1", "-octo/repo#1", "octo/repo#1#2", "octo/repo/x#1",
-                      "octo/repo#1a", "octo/..#1", "octo/repo#99999999999999999999", "/repo#1", "octo/#1"])
+                      "octo/repo#1a", "octo/repo#42?x", "octo/repo#42%20", "octo/repo#42/files", "octo/..#1", "octo/repo#99999999999999999999", "/repo#1", "octo/#1"])
     func invalidReferencesAreRefused(typed: String) {
         #expect(GitHubSearch.offer(typed, space: space) == nil)
     }
