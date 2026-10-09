@@ -11,6 +11,7 @@ enum GitHubBench {
         guard let search = browser.field.github else { return ["open": false, "rows": []] }
         return ["open": true, "private": search.shy,
                 "picked": search.picked.map(GitHubSearch.destination) ?? "",
+                "offer": search.offer?.url.absoluteString ?? "",
                 "rows": search.results.map { result -> [String: Any] in
                     let reading = search.memory?.reading(result.id)
                     return ["id": GitHubSearch.destination(result.id), "number": result.id.number,
