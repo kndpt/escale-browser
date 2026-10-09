@@ -121,7 +121,7 @@ own:
 
 | Request | When | Where | What it sends |
 |---|---|---|---|
-| Update check | At most once every 20 hours, and on **Check now** in Settings | `escalebrowser.com/appcast.json`, redirected to the latest release here | A plain GET whose User-Agent carries the build and Darwin version. The site counts these per day; no IP, cookie or identifier is kept. |
+| Update check | At most once every 2 hours, and on **Check now** in Settings | `escalebrowser.com/appcast.json`, redirected to the latest release here | A plain GET whose User-Agent carries the build and Darwin version. The site counts these per day; no IP, cookie or identifier is kept. |
 | Update download | When a newer version exists | GitHub Releases | A plain GET for the ZIP, installed only if its hash and bundle id match and Apple's Developer ID signed it for the same team. Nothing restarts on its own. |
 | Site icons | After a page loads | The icon the page declares, or `/favicon.ico` | A GET without cookies or cache, private tabs included. |
 | Extensions | When you add one, and its update check at most every 20 hours | Chrome Web Store (`clients2.google.com`) | The extension's id and version, and a fixed Chrome version (`prodversion=140.0.0.0`), the same for everyone. |
