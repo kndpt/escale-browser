@@ -388,6 +388,8 @@ final class Bookmarks: ObservableObject {
 struct BookmarkOutline: View {
     let browser: Browser
     @ObservedObject var bookmarks: Bookmarks
+    /// The scroll view it is in, to keep the chosen row in sight.
+    let list: ScrollViewProxy
     let open: (URL) -> Void
 
     @SwiftUI.Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -397,31 +399,24 @@ struct BookmarkOutline: View {
     @StateObject private var mergeHover = HoverDwell()
     @State private var naming: Bookmark.ID?
     @State private var folderName = ""
-    @FocusState private var focused: Bool
     /// None until the arrows choose one.
     @State private var chosen: Bookmark.ID?
 
     var body: some View {
-        ScrollViewReader { list in
-            VStack(alignment: .leading, spacing: 1) {
-                rows(bookmarks.roots, depth: 0)
-            }
-            .onChange(of: chosen) { _, id in if let id { list.scrollTo(id) } }
+        VStack(alignment: .leading, spacing: 1) {
+            rows(bookmarks.roots, depth: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(overRoot ? Palette.wash : .clear)
         .onDrop(of: [.text], isTargeted: $overRoot) { providers in drop(providers, into: nil) }
         .onDisappear { mergeHover.cancel() }
-        .focusable()
-        .focused($focused)
-        .focusEffectDisabled()
+        .onChange(of: chosen) { _, id in if let id { list.scrollTo(id) } }
         // A name being typed keeps every key.
         .walking(move: move, open: { _ in chosenNode.map(act) }, remove: { chosenNode.map(remove) },
                  fold: { open in
                      guard let node = chosenNode, node.isFolder, expanded.contains(node.id) != open else { return }
                      toggle(node.id)
-                 }, while: naming == nil)
-        .onAppear { DispatchQueue.main.async { focused = true } }
+                 }, while: { naming == nil && !browser.tuning })
     }
 
     /// The rows on show, top to bottom: a folder's own only while it is open.
@@ -710,11 +705,13 @@ struct BookmarksDropdown: View {
                     .foregroundStyle(Palette.muted)
                     .padding(14)
             } else {
-                ScrollView {
-                    BookmarkOutline(browser: browser, bookmarks: bookmarks) { url in
-                        browser.pickBookmark(url)
+                ScrollViewReader { list in
+                    ScrollView {
+                        BookmarkOutline(browser: browser, bookmarks: bookmarks, list: list) { url in
+                            browser.pickBookmark(url)
+                        }
+                        .padding(6)
                     }
-                    .padding(6)
                 }
                 .frame(maxHeight: 360)
             }
@@ -772,15 +769,17 @@ struct BookmarksPanel: View {
             if bookmarks.isEmpty {
                 Card { Nothing("Nothing kept yet. Add this page from the Bookmarks menu, or bring yours in below.") }
             } else {
-                ScrollView(showsIndicators: false) {
-                    Card {
-                        BookmarkOutline(browser: browser, bookmarks: bookmarks) { url in
-                            browser.pickBookmark(url)
+                ScrollViewReader { list in
+                    ScrollView(showsIndicators: false) {
+                        Card {
+                            BookmarkOutline(browser: browser, bookmarks: bookmarks, list: list) { url in
+                                browser.pickBookmark(url)
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 6)
                         }
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 6)
+                        .padding(.bottom, 2)
                     }
-                    .padding(.bottom, 2)
                 }
                 .frame(maxHeight: 440)
             }

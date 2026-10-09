@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Bookmark folders: real sidebar drags, folder persistence and visible open
 pages; then the Bookmarks panel by real key presses: ↑ and ↓ over the rows on
-show, Return and ⌘Return on a site, → and ← on a folder, ⌫ on a row, Escape.
+show, Return and ⌘Return on a site, → and ← on a folder, ⌫ on a row, Escape,
+also once the page under the panel has taken the keyboard back.
 
 Run after ./build.sh debug. The world is unique to this scenario and wiped in
 finally. Pages use a data URL, so the test makes no network request.
@@ -17,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 WORLD = "issue76-folders-regression"
 DOWN, UP, LEFT, RIGHT = ("125", "\uf701"), ("126", "\uf700"), ("123", "\uf702"), ("124", "\uf703")
 RETURN, DELETE, ESCAPE = ("36", "\r"), ("51", "\x7f"), ("53", "\x1b")
-KEYMARK = "data:text/html,<title>KeyMark</title>"
+KEYMARK = "data:text/html,<title>KeyMark</title><textarea></textarea>"
 ELSEWHERE = "data:text/html,<title>Elsewhere</title>"
 
 
@@ -110,9 +111,12 @@ def keyboard():
     until("KeyMark in a new tab", lambda: len(bench("tabs")["tabs"]) == tabs + 1)
     assert "KeyMark" in active()["url"], active()
 
-    # → opens Reading, ↓ steps into it, ⌫ takes its first row.
+    # The page under the panel takes the keyboard back with a real click:
+    # the panel's keys still walk its list. → opens Reading, ↓ steps into it,
+    # ⌫ takes its first row.
     inside = reading()
     panel()
+    bench("tap", active()["id"], "textarea")
     press(UP, len(top) + 1)
     press(DOWN, folder)
     press(RIGHT)

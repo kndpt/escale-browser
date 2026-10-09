@@ -58,7 +58,8 @@ struct HistoryPanel: View {
             VStack(alignment: .leading, spacing: 14) {
                 Hunt(text: $browser.recallHunt, prompt: "Search everywhere you have been", focus: $hunting)
                     .walking(move: move, open: { apart in traces.first { $0.id == chosen }.map { go($0, apart: apart) } },
-                             remove: walked ? { traces.first { $0.id == chosen }.map(forget) } : nil)
+                             remove: walked ? { traces.first { $0.id == chosen }.map(forget) } : nil,
+                             while: { !browser.tuning })
 
                 if days.isEmpty {
                     Card { Nothing(browser.recallHunt.isEmpty ? "Nothing yet." : "Nothing matches.") }
@@ -258,7 +259,6 @@ struct DownloadsPanel: View {
     @ObservedObject var browser: Browser
     @ObservedObject var loot: Loot
 
-    @FocusState private var focused: Bool
     /// None until the arrows choose one: the panel opens with nothing chosen.
     @State private var chosen: Keep.ID?
 
@@ -286,18 +286,14 @@ struct DownloadsPanel: View {
                     .frame(maxHeight: 420)
                     .onChange(of: chosen) { _, id in if let id { list.scrollTo(id) } }
                 }
-                .focusable()
-                .focused($focused)
-                .focusEffectDisabled()
                 // A file is not a page: ⌘Return shows it in the Finder,
                 // where a tab would download a copy of what it can't show.
                 .walking(move: move, open: { apart in
                     guard let keep = loot.kept.first(where: { $0.id == chosen }), keep.stillThere else { return }
                     if apart { loot.reveal(keep) } else { loot.open(keep) }
-                }, remove: { loot.kept.first { $0.id == chosen }.map(forget) })
-                .onAppear(perform: start)
-                // As History: shown again before it has gone, nothing appears.
-                .onChange(of: browser.hoarding) { _, open in if open { start() } }
+                }, remove: { loot.kept.first { $0.id == chosen }.map(forget) }, while: { !browser.tuning })
+                // As History: shown again before it has gone, it keeps its state.
+                .onChange(of: browser.hoarding) { _, open in if open { chosen = nil } }
             }
         } foot: {
             HStack {
@@ -311,13 +307,6 @@ struct DownloadsPanel: View {
                 }
             }
         }
-    }
-
-    private func start() {
-        chosen = nil
-        // A turn later, once the panel is in the window: asked sooner, the
-        // focus does not hold.
-        DispatchQueue.main.async { focused = true }
     }
 
     private func move(_ by: Int) {
