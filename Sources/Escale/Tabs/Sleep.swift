@@ -6,8 +6,8 @@ import WebKit
 // A page open in a tab keeps its whole content process — a hundred to three
 // hundred megabytes, running its timers, holding its sockets — for as long as
 // the tab exists. Twenty tabs is two or three gigabytes spent on the nineteen
-// nobody is looking at. So a tab left alone for half an hour gives its page
-// back, and keeps what it takes to come back exactly where it was: its
+// nobody is looking at. So a tab left alone for half an hour (or the delay
+// chosen in Settings) gives its page back, and keeps what it takes to come back exactly where it was: its
 // history, its scroll position, and a picture to show while the page is
 // rebuilt underneath (see Tab.sleep).
 //
@@ -16,24 +16,62 @@ import WebKit
 // with ⌘W), a tab playing sound, on a call, sending a download, holding its
 // video out in the little window, or holding something typed and not sent.
 //
-// When macOS says memory is short, the half hour shrinks: to five minutes on
+// When macOS says memory is short, the delay shrinks: to five minutes on
 // a warning, to nothing when it is critical — and then the pages go without
 // a picture, since each would cost an image before anything is let go.
 //
 // The pictures are taken one at a time and kept within a budget, by
 // `Pictures` (see Pictures.swift).
 
-extension Browser {
-    /// How long a tab has to go without being looked at. Half an hour, or
-    /// `sleep.after` in seconds — for the bench and the measurements.
-    static var sleepAfter: TimeInterval {
-        let set = Store.settings.double(forKey: "sleep.after")
-        return set > 0 ? set : 30 * 60
+/// How long a tab waits before it sleeps, as offered in Settings.
+enum SleepDelay: Int, CaseIterable, Identifiable {
+    case quarter = 15, half = 30, hour = 60, twoHours = 120
+
+    var id: Int { rawValue }
+    var seconds: TimeInterval { TimeInterval(rawValue * 60) }
+
+    var title: String {
+        switch self {
+        case .quarter: return "15 min"
+        case .half: return "30 min"
+        case .hour: return "1 h"
+        case .twoHours: return "2 h"
+        }
     }
 
-    /// Started once, at launch.
+    /// As the help text says it.
+    var phrase: String {
+        switch self {
+        case .quarter: return "a quarter of an hour"
+        case .half: return "half an hour"
+        case .hour: return "an hour"
+        case .twoHours: return "two hours"
+        }
+    }
+
+    /// Unset or unknown, half an hour, as before there was a choice.
+    static func stored(_ minutes: Int?) -> SleepDelay {
+        minutes.flatMap(SleepDelay.init) ?? .half
+    }
+}
+
+extension Browser {
+    /// How long a tab has to go without being looked at: the delay chosen in
+    /// Settings, unless `sleep.after` in seconds says otherwise — for the
+    /// bench and the measurements.
+    static func sleepAfter(_ chosen: SleepDelay, bench: Double) -> TimeInterval {
+        bench > 0 ? bench : chosen.seconds
+    }
+
+    /// Read on every tick, so a new choice applies without relaunching.
+    var sleepAfter: TimeInterval {
+        Browser.sleepAfter(prefs.sleepDelay, bench: Store.settings.double(forKey: "sleep.after"))
+    }
+
+    /// Started once, at launch. Every choice in Settings ticks once a
+    /// minute; only the bench's short delays tick faster.
     func watchForSleep() {
-        let every = min(60, max(5, Browser.sleepAfter / 4))
+        let every = min(60, max(5, sleepAfter / 4))
         let timer = Timer(timeInterval: every, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.sleepIdle() }
         }
@@ -72,7 +110,7 @@ extension Browser {
         // With the window closed, no wait and no picture: nobody is looking
         // (see Away.swift). A tab kept awake then, still loading or playing,
         // goes at the next tick once it no longer is.
-        let wait = away ? 0 : given ?? Browser.sleepAfter
+        let wait = away ? 0 : given ?? sleepAfter
         let pictured = pictured && !away
         let now = Date()
         // The rows of the other spaces too: parked is not the same as used.

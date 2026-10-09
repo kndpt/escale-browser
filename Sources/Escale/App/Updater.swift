@@ -6,7 +6,7 @@ import Security
 // Knowing when there is a newer one, and having it ready.
 //
 // No framework, no background daemon: one small JSON file next to the
-// download, read at most every 20 hours and whenever asked. If it names a build newer
+// download, read about every 2 hours and whenever asked. If it names a build newer
 // than this one, the ZIP it points at is fetched quietly, checked, and put
 // where this bundle is — so the next time the app opens, it is the new one.
 // Chrome's way, without Chrome's machinery. Nothing relaunches on its own; a
@@ -123,8 +123,8 @@ final class Updater: ObservableObject {
         ) { _ in Swap.sweep() }
     }
 
-    /// At launch: once a day, quietly. A test run, pointed at its own feed,
-    /// checks every time.
+    /// At launch, once the last check is 2 hours old, quietly. A test run,
+    /// pointed at its own feed, checks every time.
     func checkIfDue(then say: @escaping (String) -> Void) {
         self.say = say
         Swap.sweep()
@@ -143,8 +143,15 @@ final class Updater: ObservableObject {
 
     private func checkIfDue() {
         let last = Store.settings.object(forKey: lastKey) as? Date ?? .distantPast
-        guard Updater.overridden || Date().timeIntervalSince(last) > 60 * 60 * 20 else { return }
+        guard Updater.overridden || Updater.due(since: last) else { return }
         check { _ in }
+    }
+
+    /// Two hours since the last read, less a few minutes: the clock can tick
+    /// up to five late and the date is kept once the fetch is back, so a
+    /// strict two hours would often wait for the third tick.
+    nonisolated static func due(since last: Date, now: Date = Date()) -> Bool {
+        now.timeIntervalSince(last) > 60 * 60 * 2 - 60 * 10
     }
 
     /// Now, because somebody asked. `done` gets the newer build the feed

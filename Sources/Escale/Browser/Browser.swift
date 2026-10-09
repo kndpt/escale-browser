@@ -705,7 +705,7 @@ final class Browser: NSObject, ObservableObject {
         gate = Arrival.take(returning: prefs.welcomed).map(Gate.arrived)
         // Asked to stay out of the way: it starts that way (see Fold.swift).
         folded = prefs.sidebar && prefs.sideHides
-        // Once a day, quietly: is there a newer one?
+        // Every 2 hours, quietly: is there a newer one?
         Updater.shared.checkIfDue { [weak self] line in self?.announce(line) }
         FormRelay.passkeysOffered = prefs.passkeys
         ScrollRelay.on = prefs.showsReading
