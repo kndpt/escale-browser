@@ -91,6 +91,8 @@ struct BookmarkSleepMark: View {
                 .frame(width: metrics.length(30), height: rowHeight)
                 .contentShape(Rectangle())
                 .onTapGesture(perform: close)
+                // The cross closes the tab, not the bookmark; say so.
+                .help("Close Tab")
         }
         // The hover actions share this reservation with the travelling mark.
         .padding(.leading, metrics.length(max(reserved, tab.sleeping ? travel : 0)))
