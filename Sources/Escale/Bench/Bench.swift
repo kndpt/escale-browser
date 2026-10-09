@@ -239,6 +239,9 @@ final class Bench {
             answer(GitHubBench.run(request, browser: browser))
         case "panels":
             answer(PanelBench.run(request, browser: browser))
+        case "popover":
+            // The open popover, and a click in it (PopoverBench.swift).
+            PopoverBench.run(request, answer: answer)
         case "update":
             // The update's door and panels (UpdateBench.swift).
             answer(UpdateBench.run(request, browser: browser))
@@ -662,6 +665,9 @@ final class Bench {
                 "downloads": browser.hoarding,
                 "keptDownloads": browser.loot.kept.map(\.name),
                 "bookmarks": browser.bookmarking,
+                "bookmarksDropdown": browser.bookmarksOpen,
+                // The page on screen's bookmark in this Space, as its door finds it.
+                "bookmarked": browser.active?.address.flatMap(browser.bookmarks.bookmark(for:))?.title ?? "",
                 "field": browser.editing,
                 "suggesting": browser.logins.suggesting != nil,
                 "offering": browser.logins.offering != nil,
