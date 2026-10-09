@@ -7,6 +7,8 @@
 // beside tab search, every open tab comes first; beside New Tab, the tabs
 // visited this session do, at most three, as New Tab itself shows them, and
 // a typed query keeps open tabs ahead only between equally good matches.
+// An exact owner/repo#N that nothing local knows becomes an offer to open it
+// on github.com: a row only, with no request and no memory until Return.
 import Foundation
 import Combine
 
@@ -90,7 +92,16 @@ final class GitHubSearch: ObservableObject {
         }
     }
 
+    /// An exact reference nothing here knows. Its URL keeps the typed
+    /// spelling; GitHub sends an issue's address on to a pull request.
+    struct Offer {
+        let id: GitHubItem.ID
+        let name: String
+        let url: URL
+    }
+
     @Published private(set) var results: [Result] = []
+    @Published private(set) var offer: Offer?
     @Published private(set) var picked: GitHubItem.ID?
 
     init(space: UUID, shy: Bool, memory: GitHubMemory? = nil, lead: Lead? = nil,
@@ -115,7 +126,8 @@ final class GitHubSearch: ObservableObject {
     func ask(_ typed: String) {
         query = typed
         results = Array(ranked().prefix(Field.room))
-        picked = results.first?.id
+        offer = unknown()
+        picked = offer?.id ?? results.first?.id
     }
 
     /// Refresh membership, keeping surviving identities in their captured order.
@@ -126,13 +138,38 @@ final class GitHubSearch: ObservableObject {
         let kept = results.compactMap { available[$0.id] }
         let identities = Set(kept.map(\.id))
         results = Array((kept + candidates.filter { !identities.contains($0.id) }).prefix(Field.room))
-        if !results.contains(where: { $0.id == picked }) { picked = results.first?.id }
+        offer = unknown()
+        if picked != offer?.id, !results.contains(where: { $0.id == picked }) { picked = offer?.id ?? results.first?.id }
     }
 
     func walk(_ step: Int) {
-        guard !results.isEmpty else { return }
-        let index = picked.flatMap { id in results.firstIndex { $0.id == id } } ?? 0
-        picked = results[min(results.count - 1, max(0, index + step))].id
+        let rows = (offer.map { [$0.id] } ?? []) + results.map(\.id)
+        guard !rows.isEmpty else { return }
+        let index = picked.flatMap { rows.firstIndex(of: $0) } ?? 0
+        picked = rows[min(rows.count - 1, max(0, index + step))]
+    }
+
+    /// The offer for what is typed, unless a row already is that object. A
+    /// private search has none: it opens nothing outside its own tabs.
+    private func unknown() -> Offer? {
+        guard !shy, let offer = Self.offer(query, space: space) else { return nil }
+        let known = results.contains {
+            $0.id.owner == offer.id.owner && $0.id.repository == offer.id.repository && $0.id.number == offer.id.number
+        }
+        return known ? nil : offer
+    }
+
+    /// Exactly `owner/repo#N`, checked as GitHub names are, or nil.
+    static func offer(_ typed: String, space: UUID) -> Offer? {
+        let name = typed.trimmingCharacters(in: .whitespaces)
+        let parts = name.split(separator: "#", omittingEmptySubsequences: false)
+        // Digits only: anything after them would reach the URL as a query or a fragment.
+        guard parts.count == 2, !parts[1].isEmpty, parts[1].utf8.allSatisfy({ (48...57).contains($0) }) else { return nil }
+        let path = parts[0].split(separator: "/", omittingEmptySubsequences: false)
+        guard path.count == 2, let url = URL(string: "https://github.com/\(path[0])/\(path[1])/issues/\(parts[1])"),
+              let id = GitHubItem.ID(url: url, space: space),
+              let canonical = URL(string: "https://github.com/\(path[0])/\(path[1])/issues/\(id.number)") else { return nil }
+        return Offer(id: id, name: name, url: canonical)
     }
 
     private func ranked() -> [Result] {

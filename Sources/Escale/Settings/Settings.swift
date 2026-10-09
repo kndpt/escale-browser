@@ -67,7 +67,7 @@ struct SettingsPanel: View {
             case .appearance: return "theme light dark colours colors tone escale warm transparency contrast interface size faster shortcut animations motion"
             case .github: return "github bearings pull requests issues local search repository"
             case .routing: return "link routing route rules links open site host domain url space spaces meet routage liens"
-            case .tabs: return "tabs spaces sidebar folded address bookmarks copy icons reading sleep"
+            case .tabs: return "tabs spaces sidebar folded address bookmarks copy icons reading sleep delay idle"
             case .pages: return "web pages links scroll middle button"
             case .migration: return "import migration bookmarks history passwords browser profiles safari firefox chrome arc zen orion aside"
             case .passwords: return "passwords passkeys keychain sign in import accounts"
@@ -540,8 +540,14 @@ struct SettingsPanel: View {
                 Switch(on: $prefs.showsReading)
             }
             Rule()
-            Line("Sleep tabs you aren't using", "After half an hour away they come back where you left them. Pinned tabs, sound, calls and anything typed stay awake.") {
+            Line("Sleep tabs you aren't using", "After \(prefs.sleepDelay.phrase) away they come back where you left them. Pinned tabs, sound, calls and anything typed stay awake.") {
                 Switch(on: $prefs.sleepsTabs)
+            }
+            if prefs.sleepsTabs {
+                Rule()
+                Line("Sleep after", "How long a tab waits once you leave it") {
+                    Segmented(options: SleepDelay.allCases.map { ($0, $0.title) }, selection: $prefs.sleepDelay)
+                }
             }
             Rule()
             Line("Spaces", "Independent workspaces with their own sites and accounts. Switch from the Spaces menu, the rail or a swipe. Set your shortcuts in Keyboard.") {
@@ -744,8 +750,8 @@ struct SettingsPanel: View {
     private var versionDetail: String {
         switch updater.stage {
         case .none:
-            return updater.lastChecked.map { "Checked \($0.formatted(.relative(presentation: .named))) — once a day on its own" }
-                ?? "Checked once a day on its own"
+            return updater.lastChecked.map { "Checked \($0.formatted(.relative(presentation: .named))) — every 2 hours on its own" }
+                ?? "Checked every 2 hours on its own"
         case .fetching(let next):
             return next.notes ?? "Quietly, in the background — nothing you have set is touched"
         case .ready(let next):

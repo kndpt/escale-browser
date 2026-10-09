@@ -3,6 +3,7 @@
 // same stable identity drives the pointer, selection highlight and Return.
 // When GitHub refuses a row to a connected Space, as it does for a private
 // repository not shared with the app, the foot of the list leads to sharing it.
+// An offered reference (GitHubSearch.Offer) leads the list as one more row.
 import SwiftUI
 
 struct GitHubResults: View {
@@ -13,7 +14,7 @@ struct GitHubResults: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if search.results.isEmpty {
+            if search.results.isEmpty && search.offer == nil {
                 Text(browser.field.typed.isEmpty
                      ? (search.shy ? "Open a pull request or issue in a private tab to find it here." : "Visit a pull request or issue to find it here.")
                      : "No local pull requests or issues match this search.")
@@ -24,6 +25,13 @@ struct GitHubResults: View {
                 ScrollViewReader { scroll in
                     ScrollView {
                         VStack(spacing: 0) {
+                            if let offer = search.offer {
+                                GitHubResult(title: "Open \(offer.name) on github.com", repository: String(offer.name.prefix { $0 != "#" }),
+                                             number: "#\(offer.id.number)", symbol: .issueUnknown, old: false, age: "",
+                                             observation: "Not visited in this Space", open: false,
+                                             selected: search.picked == offer.id) { browser.takeGitHub(offer.id) }
+                                    .id(offer.id)
+                            }
                             ForEach(search.results) { result in
                                 if let memory = search.memory {
                                     ObservedResult(memory: memory, result: result, selected: search.picked == result.id) {
@@ -38,7 +46,8 @@ struct GitHubResults: View {
                         }
                         .padding([.horizontal, .top], metrics.length(Metrics.searchGap))
                     }
-                    .frame(height: min(maxHeight, metrics.length(CGFloat(search.results.count) * Metrics.githubRowHeight + Metrics.searchGap)))
+                    .frame(height: min(maxHeight, metrics.length(CGFloat(search.results.count + (search.offer == nil ? 0 : 1))
+                        * Metrics.githubRowHeight + Metrics.searchGap)))
                     .onChange(of: search.picked) { _, id in if let id { scroll.scrollTo(id) } }
                 }
             }
