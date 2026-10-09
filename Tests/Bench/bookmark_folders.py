@@ -3,7 +3,7 @@
 pages; then each right-click action of the column and the Bookmarks panel,
 chosen from the real context menu: Open in New Tab, Copy Link, Edit… (an
 empty or invalid address refused), New Folder named in place, and Open All in
-Tabs, asked first above its threshold.
+Tabs, asked first above its threshold and private from a private tab.
 
 Run after ./build.sh debug, in front: the menus need the pointer. The world is
 unique to this scenario (ESCALE_WORLD) and wiped in finally. Pages use a data
@@ -260,6 +260,18 @@ def column(x="120"):
     rest = row_tabs[row_tabs.index(lead) + 1]
     assert lead["url"] == "http://site0.localhost/a" and not lead["asleep"], lead
     assert rest["url"] == "http://site1.localhost/" and rest["asleep"] and not rest["view"], rest
+
+    # From a private tab, every one of them private, the waiting one too.
+    keys((45, "n", "cmd", "shift"))
+    bench("field", "data:text/html,<title>Private</title>", "go")
+    wait_for(lambda: (active() or {}).get("shy"), "a private tab")
+    before = len(tabs())
+    choose(x, column_y("Bench"), "Open All in Tabs")
+    wait_for(lambda: len(tabs()) == before + 2, "two private tabs")
+    row_tabs = tabs()
+    lead = active()
+    rest = row_tabs[row_tabs.index(lead) + 1]
+    assert lead["shy"] and rest["shy"] and rest["asleep"], (lead, rest)
 
     # Past the threshold it asks: Cancel opens nothing, Open All every one.
     bench("shelf", "many", "16")

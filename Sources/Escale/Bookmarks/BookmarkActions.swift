@@ -52,7 +52,9 @@ extension Browser {
         guard let first = sites.first else { return }
         bookmarking = false
         bookmarksOpen = false
-        openWaiting(Array(sites.dropFirst()), after: open(first.url, foreground: true))
+        // From a private tab, all of them private, as Open in New Tab is.
+        let source = active
+        openWaiting(Array(sites.dropFirst()), after: open(first.url, foreground: true, from: source), from: source)
     }
 
     /// `title` and `address` are what was typed last time, when the address

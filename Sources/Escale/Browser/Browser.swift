@@ -1407,16 +1407,7 @@ final class Browser: NSObject, ObservableObject {
     /// in the same store, as a link that asks for a new window already does.
     @discardableResult
     func open(_ url: URL, foreground: Bool, atEnd: Bool = false, from source: Tab? = nil, shy: Bool = false) -> Tab {
-        // An extension's own page is served only to a view built from that
-        // extension's configuration.
-        let url = Browser.page(url)
-        let page = Browser.extensionConfiguration(for: url)
-        let tab = if let source, source.shy, page == nil {
-            Tab(shy: true, configuration: Web.configuration(shy: true, store: source.store))
-        } else {
-            Tab(shy: shy, configuration: page)
-        }
-        prepare(tab)
+        let (tab, url) = made(for: url, from: source, shy: shy)
         let here = atEnd ? nil : tabs.firstIndex { $0.id == activeID }
         tabs.insert(tab, at: here.map { $0 + 1 } ?? tabs.count)
         tab.go(to: url)
@@ -1429,14 +1420,28 @@ final class Browser: NSObject, ObservableObject {
         return tab
     }
 
+    /// A tab for `url`, made as `open` makes one. An extension's own page is
+    /// served only to a view built from that extension's configuration.
+    private func made(for url: URL, from source: Tab?, shy: Bool) -> (Tab, URL) {
+        let url = Browser.page(url)
+        let page = Browser.extensionConfiguration(for: url)
+        let tab = if let source, source.shy, page == nil {
+            Tab(shy: true, configuration: Web.configuration(shy: true, store: source.store))
+        } else {
+            Tab(shy: shy, configuration: page)
+        }
+        prepare(tab)
+        return (tab, url)
+    }
+
     /// Tabs after `tab` that hold an address and a title, and no page until
     /// one is looked at, as a restored session's do: a folder opened in tabs
-    /// (BookmarkActions.swift). Put in at once, so the row redraws once.
-    func openWaiting(_ pages: [(title: String, url: URL)], after tab: Tab) {
+    /// (BookmarkActions.swift). Made as `open` makes them, private from a
+    /// private `source`. Put in at once, so the row redraws once.
+    func openWaiting(_ pages: [(title: String, url: URL)], after tab: Tab, from source: Tab?) {
         let waiting = pages.map { page -> Tab in
-            let made = Tab(space: spaceID)
-            prepare(made)
-            made.restore(url: page.url, title: page.title)
+            let (made, url) = made(for: page.url, from: source, shy: false)
+            made.restore(url: url, title: page.title)
             return made
         }
         tabs.insert(contentsOf: waiting, at: tabs.firstIndex { $0 === tab }.map { $0 + 1 } ?? tabs.count)
