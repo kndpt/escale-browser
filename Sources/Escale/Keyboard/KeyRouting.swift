@@ -147,6 +147,7 @@ extension Browser {
         case .localhost: localhostOpen.toggle()
         case .settings: tuning.toggle()
         case .fold: toggleFold()
+        case .focus: toggleFocus()
         case .sidebar: toggleSidebar()
         case .downloads: hoarding.toggle()
         case .passwords: managing.toggle()

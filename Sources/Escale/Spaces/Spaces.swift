@@ -298,7 +298,7 @@ extension Browser {
     func askForSpace() {
         // In place, where the next space would come in, in the column or the
         // bar alike; a question only while the tabs are folded out of sight.
-        if !folded || peeking {
+        if tabsInSight {
             let here = spaces.firstIndex { $0.id == spaceID } ?? 0
             SpaceSwipe.shared.start(for: self)
             SpaceSwipe.shared.slide(self, to: spaces.count, from: here)
