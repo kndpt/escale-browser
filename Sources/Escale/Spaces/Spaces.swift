@@ -281,7 +281,7 @@ extension Browser {
         switchSpace(to: made.id)
     }
 
-    /// Dragged to another place among the dots. ⌃1–⌃9 follow the order.
+    /// Dragged to another place along the rail. ⌃1–⌃9 follow the order.
     func moveSpace(_ id: UUID, to index: Int) {
         guard let from = spaces.firstIndex(where: { $0.id == id }), spaces.indices.contains(index), from != index else { return }
         spaces.move(fromOffsets: IndexSet(integer: from), toOffset: index > from ? index + 1 : index)
@@ -420,7 +420,9 @@ struct SpaceRail: View {
     @ObservedObject var hover: HoverDwell
     /// Redraws the doors when a Space starts or stops playing or listening.
     @ObservedObject var presences: Presences
+    @StateObject private var reorder = SpaceReorder()
     @SwiftUI.Environment(\.chromeMetrics) private var metrics
+    @SwiftUI.Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// An icon, or the new-space button: the same square as every door.
     static let icon: CGFloat = Metrics.spaceRailIcon
@@ -433,7 +435,15 @@ struct SpaceRail: View {
         VStack(spacing: 0) {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: metrics.length(SpaceRail.gap)) {
-                    ForEach(browser.spaces) { space in spaceDoor(space) }
+                    ForEach(Array(browser.spaces.enumerated()), id: \.element.id) { index, space in
+                        let held = reorder.held == space.id
+                        spaceDoor(space)
+                            .offset(y: offset(index))
+                            .zIndex(held ? 1 : 0)
+                            // Under the hand exactly; the others glide aside.
+                            .animation(held || reduceMotion ? nil : Motion.settle, value: offset(index))
+                            .highPriorityGesture(reorderGesture(space))
+                    }
                     // The next space's place, right after the last one: a
                     // door as large as theirs, so it reads as part of the
                     // list.
@@ -460,6 +470,36 @@ struct SpaceRail: View {
         .padding(.top, browser.corner)
         .frame(width: metrics.spaceRailWidth)
         .frame(maxHeight: .infinity)
+        .coordinateSpace(name: SpaceRail.coordinates)
+        .onDisappear { _ = reorder.cancel() }
+    }
+
+    private static let coordinates = "rail"
+    private var step: CGFloat { metrics.length(SpaceRail.icon + SpaceRail.gap) }
+
+    /// Where a door is drawn while one is held: the held one under the hand,
+    /// those it passes a place aside.
+    private func offset(_ index: Int) -> CGFloat {
+        guard let held = reorder.held, let from = browser.spaces.firstIndex(where: { $0.id == held }) else { return 0 }
+        if index == from { return reorder.travel }
+        let to = SpaceReorder.landing(from: from, travel: reorder.travel, step: step, count: browser.spaces.count)
+        return CGFloat(SpaceReorder.shift(index, from: from, to: to)) * step
+    }
+
+    /// A press that moves becomes a hold; a click stays the Button's. A tab
+    /// held over a door never starts this gesture: it began in the column.
+    private func reorderGesture(_ space: Space) -> some Gesture {
+        DragGesture(minimumDistance: 5, coordinateSpace: .named(SpaceRail.coordinates))
+            .onChanged { reorder.carry(space.id, travel: $0.translation.height) }
+            .onEnded { value in
+                let inside = (0...metrics.spaceRailWidth).contains(value.location.x)
+                withAnimation(reduceMotion ? nil : Motion.settle) {
+                    guard let travel = reorder.end(), inside,
+                          let from = browser.spaces.firstIndex(where: { $0.id == space.id }) else { return }
+                    browser.moveSpace(space.id, to: SpaceReorder.landing(from: from, travel: travel, step: step,
+                                                                         count: browser.spaces.count))
+                }
+            }
     }
 
     private func spaceDoor(_ space: Space) -> some View {

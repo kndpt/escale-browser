@@ -675,6 +675,7 @@ struct ContentView: View {
         // Escape puts the page back. On a blank tab there is no page to put
         // back, so it belongs to whatever else wants it.
         if event.keyCode == 53 {
+            if SpaceReorder.current?.cancel() == true { return true }
             if browser.panels.source != nil { browser.panels.cancel(); return true }
             if InfoTip.dismiss() { return true }
             if browser.editingTab != nil {
