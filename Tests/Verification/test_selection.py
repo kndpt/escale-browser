@@ -112,7 +112,8 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(CHECKS['habits'].command, ('python3', 'Tests/Bench/bearings_habits.py'))
 
     def test_bearings_commands_route_their_scenario(self):
-        for path in ('Sources/Escale/Address/Field.swift', 'Sources/Escale/Keyboard/KeyRouting.swift'):
+        for path in ('Sources/Escale/Address/Field.swift', 'Sources/Escale/Browser/Browser.swift',
+                     'Sources/Escale/Keyboard/KeyRouting.swift'):
             with self.subTest(path=path):
                 selected = plan([path])
                 self.assertFalse(selected['unknown'])

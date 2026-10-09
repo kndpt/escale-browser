@@ -1885,12 +1885,14 @@ final class Browser: NSObject, ObservableObject {
     /// same question but must not share an answer: a list that appears under a
     /// resting cursor would otherwise rewrite the field before you had moved.
     func take(_ offer: Suggestion) {
-        // A command runs as its shortcut would, once Bearings has closed, so
-        // what it opens is not closed with it and no tab is made.
+        // A command runs as its shortcut would here, with this New Tab's
+        // context (privacy, what ⌘W closes); then Bearings closes and no tab
+        // is made, unless the command asked for the field (⌘L, ⌘K, GitHub).
         if let action = offer.action {
-            editing = false
+            let asked = field.focusRequest
             field.typed = ""
             performKeyAction(action)
+            if field.focusRequest == asked { editing = false }
             return
         }
         let choice = Choice(of: self)
