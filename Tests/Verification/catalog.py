@@ -187,8 +187,8 @@ CHECKS = {
               BENCH + ("Tests/Bench/search_keywords.py",),
               "a keyword's row first, nothing sent while typing, Return opens its loopback template; "
               "unknown or bare keywords stay searches", "app", ("bundle",),
-              paths=("Sources/Escale/Address/Engine.swift", "Sources/Escale/Address/Field.swift",
-                     "Tests/EscaleTests/KeywordTests.swift")),
+              paths=("Sources/Escale/Address/Keyword.swift", "Sources/Escale/Address/Engine.swift",
+                     "Sources/Escale/Address/Field.swift", "Tests/EscaleTests/KeywordTests.swift")),
         Check("chrome", ("python3", "Tests/Bench/glass_frame.py"),
               BENCH + ("Tests/Bench/glass_frame.py",),
               "page preservation, hit boundaries, Settings and appearance persistence; not visual approval",

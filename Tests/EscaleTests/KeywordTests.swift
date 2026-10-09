@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Escale
 
-// Search keywords (Keyword in Engine.swift): `npm react` searches the site
+// Search keywords (Keyword.swift): `npm react` searches the site
 // written for `npm`, and anything else keeps the meaning it had. Synthetic
 // templates on example.test; nothing is fetched.
 @MainActor
@@ -49,6 +49,10 @@ import Testing
         #expect(Keyword.refused(text) == 5)
         #expect(Keyword.refused(written) == 0)
         #expect(Keyword.search("plain words", in: text) == nil)
+        // A lookup reads only the lines of its word, and agrees with the list.
+        #expect(Keyword.search("ok words", in: text)?.url.absoluteString == "https://ok.example.test/?q=words")
+        #expect(Keyword.search("OK words", in: "ok nothing\nok https://ok.example.test/?q=%s")?.keyword.template
+                == "https://ok.example.test/?q=%s")
     }
 
     @Test func theRowNamesTheSite() {

@@ -136,7 +136,7 @@ final class Preferences: ObservableObject {
         didSet { store.set(customEngine, forKey: "search.custom") }
     }
     /// Sites searched by a keyword typed first, one `word template` per line
-    /// (Keyword in Engine.swift). Empty unless written.
+    /// (Keyword.swift). Empty unless written.
     @Published var searchKeywords: String {
         didSet { store.set(searchKeywords, forKey: "search.keywords") }
     }
