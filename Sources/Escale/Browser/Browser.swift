@@ -1429,6 +1429,19 @@ final class Browser: NSObject, ObservableObject {
         return tab
     }
 
+    /// Tabs after `tab` that hold an address and a title, and no page until
+    /// one is looked at, as a restored session's do: a folder opened in tabs
+    /// (BookmarkActions.swift). Put in at once, so the row redraws once.
+    func openWaiting(_ pages: [(title: String, url: URL)], after tab: Tab) {
+        let waiting = pages.map { page -> Tab in
+            let made = Tab(space: spaceID)
+            prepare(made)
+            made.restore(url: page.url, title: page.title)
+            return made
+        }
+        tabs.insert(contentsOf: waiting, at: tabs.firstIndex { $0 === tab }.map { $0 + 1 } ?? tabs.count)
+    }
+
     /// An extension's page sending its own tab to a website — 1Password's
     /// "Sign in" does, when its Mac app isn't connected. The page's view was
     /// built from the extension's configuration, which WebKit keeps to that

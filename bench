@@ -79,7 +79,8 @@
                                        and whether a drag from there would move the window;
                                        double: test run, a double-click there (start the probe hidden);
                                        click: test run, a single click there; command: click with ⌘ held
-    ./bench pointer state|cancel|choose INDEX|move X Y|click X Y|hold X Y  test-only native pointer and tracking-menu inspection
+    ./bench pointer state|cancel|choose INDEX|move X Y|click X Y|hold X Y|menu X Y  test-only native pointer and tracking-menu
+                                       inspection; menu: a right press, for a context menu
     ./bench drag X Y TOX TOY [HOLD_MS [ENDX ENDY [PAUSE_MS]]] [live]  test run: move in steps, optionally hold, then let go;
                                        live routes every event, press included, through AppKit;
                                        JSON heldSpace is the Space visible before mouse-up
@@ -396,10 +397,10 @@ def main(argv, out=None, err=None, timeout=None, cwd=None):
     elif verb == "pointer":
         if not args: args = ["state"]
         request["action"] = args[0]
-        if len(args) == 3 and args[0] in ("click", "hold", "move"):
+        if len(args) == 3 and args[0] in ("click", "hold", "move", "menu"):
             request["x"], request["y"] = map(float, args[1:])
         elif len(args) == 2 and args[0] == "choose": request["index"] = int(args[1])
-        elif args not in (["state"], ["cancel"]): sys.exit("usage: bench pointer state|cancel|choose INDEX|move X Y|click X Y|hold X Y")
+        elif args not in (["state"], ["cancel"]): sys.exit("usage: bench pointer state|cancel|choose INDEX|move X Y|click X Y|hold X Y|menu X Y")
     elif verb == "drag":
         if args and args[-1] == "live":
             request["live"] = True
