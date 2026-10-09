@@ -16,9 +16,9 @@ import SwiftUI
 // place it was let go. With nothing kept yet the section still stands, one
 // quiet row inviting a tab. The other way, a bookmark dragged down among the
 // tabs stops being one: its tab, or a new one when it was shut, joins the
-// tabs where it is let go. A shut folder keeps its open bookmarks visible
-// and hides only inactive sites; its dot signals that one is open. The whole
-// section folds under its heading, whose chevron shows under the pointer;
+// tabs where it is let go. A shut folder keeps its open bookmarks visible,
+// each with its dot, and hides only inactive sites. The whole section folds
+// under its heading, whose chevron shows under the pointer;
 // folded, the heading takes a dropped tab at the end of the bookmarks, and
 // wears the dot when one of them is open.
 //
@@ -168,9 +168,7 @@ struct Shelf: View {
                              mergeReady: mergeHover.ready && mergeHover.target == line.node.id,
                              naming: browser.shelfNaming == line.node.id, folderName: $folderName,
                              finishName: finishNaming, rename: { startNaming(line.node) },
-                             tab: tab, live: tab != nil && tab?.id == browser.activeID && !browser.tuning,
-                             hides: line.node.isFolder && !browser.shelfOpen.contains(line.node.id)
-                                && Shelf.holds(any: active, line.node.children ?? []))
+                             tab: tab, live: tab != nil && tab?.id == browser.activeID && !browser.tuning)
                         .offset(y: held ? travel : 0)
                         // Under the hand exactly, as a tab is (see SideBar.loose).
                         .transaction { if held { $0.animation = nil } }
@@ -586,8 +584,6 @@ private struct ShelfRow: View {
     /// The bookmark's own tab, while it is open; `live` while it is on screen.
     let tab: Tab?
     let live: Bool
-    /// A shut folder with an open bookmark somewhere in it.
-    let hides: Bool
 
     @State private var hovering = false
     @State private var searching = false
@@ -649,12 +645,6 @@ private struct ShelfRow: View {
             if let tab {
                 dot(tab)
             }
-            if hides {
-                Circle()
-                    .fill(Palette.muted)
-                    .frame(width: metrics.length(5), height: metrics.length(5))
-                    .frame(width: metrics.length(15), height: metrics.length(15))
-            }
             if node.isFolder {
                 Image(systemName: "chevron.down")
                     .font(.system(size: metrics.length(9), weight: .medium))
@@ -706,6 +696,7 @@ private struct ShelfRow: View {
         // Offered only where it does something.
         .accessibilityActions {
             if searchable { Button("Search in Folder") { searching = true } }
+            if let tab { Button("Close Tab") { browser.close(tab) } }
         }
         .contextMenu {
             if let tab {
