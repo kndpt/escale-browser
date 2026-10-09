@@ -135,6 +135,11 @@ final class Preferences: ObservableObject {
     @Published var customEngine: String {
         didSet { store.set(customEngine, forKey: "search.custom") }
     }
+    /// Sites searched by a keyword typed first, one `word template` per line
+    /// (Keyword in Engine.swift). Empty unless written.
+    @Published var searchKeywords: String {
+        didSet { store.set(searchKeywords, forKey: "search.keywords") }
+    }
     /// Tabs nobody has looked at for `sleepDelay` give their page back and
     /// keep where they were. On unless turned off.
     @Published var sleepsTabs: Bool {
@@ -267,6 +272,7 @@ final class Preferences: ObservableObject {
         glyph = store.string(forKey: "glyph").flatMap(Glyph.init) ?? .letters
         engine = store.string(forKey: "search.engine").flatMap(Engine.init) ?? .standard
         customEngine = store.string(forKey: "search.custom") ?? ""
+        searchKeywords = store.string(forKey: "search.keywords") ?? ""
         sleepsTabs = store.object(forKey: "tabs.sleep") as? Bool ?? true
         sleepDelay = SleepDelay.stored(store.object(forKey: "tabs.sleep.after") as? Int)
         showsReading = store.object(forKey: "tabs.reading") as? Bool ?? true

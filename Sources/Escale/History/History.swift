@@ -48,6 +48,8 @@ struct Suggestion: Identifiable, Equatable {
         case known
         /// Not a place at all — words, and an engine to ask.
         case search
+        /// Words, and the site whose keyword was typed before them.
+        case keyword
     }
 
     var id: String { tab?.uuidString ?? bookmark?.uuidString ?? "\(kind):\(url.absoluteString)" }

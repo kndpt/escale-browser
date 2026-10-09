@@ -128,8 +128,9 @@ final class Browser: NSObject, ObservableObject {
         Engine.url(for: text, template: prefs.engine.template(custom: prefs.customEngine))
     }
 
+    /// An address stays an address; then a site's keyword, then the engine.
     func destination(for typed: String) -> URL? {
-        Address.url(from: typed) ?? searchURL(for: typed)
+        Address.url(from: typed) ?? Keyword.search(typed, in: prefs.searchKeywords)?.url ?? searchURL(for: typed)
     }
 
     /// ⌘S: the column folded away, and slid out over the page for a look
@@ -177,6 +178,7 @@ final class Browser: NSObject, ObservableObject {
         history: { [weak self] in self?.history ?? History() },
         search: { [weak self] in self?.searchURL(for: $0) },
         engine: { [weak self] in self.map { $0.prefs.engine.name(custom: $0.prefs.customEngine) } ?? "" },
+        keyword: { [weak self] typed in self.flatMap { Keyword.search(typed, in: $0.prefs.searchKeywords) } },
         others: { [weak self] in self.map { browser in browser.tabs.filter { ($0.id != browser.activeID || browser.field.opening != nil) && !$0.bench && $0.shy == browser.searchIsPrivate } } ?? [] },
         newTab: { [weak self] in self?.searchingNewTab == true },
         bookmarks: { [weak self] in self?.bookmarks.roots ?? [] },

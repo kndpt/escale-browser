@@ -99,6 +99,8 @@ final class Field: ObservableObject {
     private let search: (String) -> URL?
     /// The name of the engine that search goes to, for its row.
     private let engine: () -> String
+    /// A site's search, when the first word typed is its keyword.
+    private let keyword: (String) -> (keyword: Keyword, words: String, url: URL)?
     /// Eligible tabs; a pending New Tab also offers the page underneath.
     private let others: () -> [Tab]
     private let newTab: () -> Bool
@@ -111,6 +113,7 @@ final class Field: ObservableObject {
         history: @escaping () -> History,
         search: @escaping (String) -> URL?,
         engine: @escaping () -> String,
+        keyword: @escaping (String) -> (keyword: Keyword, words: String, url: URL)? = { _ in nil },
         others: @escaping () -> [Tab],
         newTab: @escaping () -> Bool = { false },
         bookmarks: @escaping () -> [Bookmark] = { [] },
@@ -120,6 +123,7 @@ final class Field: ObservableObject {
         self.history = history
         self.search = search
         self.engine = engine
+        self.keyword = keyword
         self.others = others
         self.newTab = newTab
         self.bookmarks = bookmarks
@@ -131,13 +135,14 @@ final class Field: ObservableObject {
         history: History,
         search: @escaping (String) -> URL?,
         engine: @escaping () -> String,
+        keyword: @escaping (String) -> (keyword: Keyword, words: String, url: URL)? = { _ in nil },
         others: @escaping () -> [Tab],
         newTab: @escaping () -> Bool = { false },
         bookmarks: @escaping () -> [Bookmark] = { [] },
         bookmarkForTab: @escaping (UUID) -> Bookmark? = { _ in nil },
         habits: Habits? = nil
     ) {
-        self.init(history: { history }, search: search, engine: engine, others: others, newTab: newTab,
+        self.init(history: { history }, search: search, engine: engine, keyword: keyword, others: others, newTab: newTab,
                   bookmarks: bookmarks, bookmarkForTab: bookmarkForTab, habits: { habits })
     }
 
@@ -261,13 +266,15 @@ final class Field: ObservableObject {
             candidates = opened + places
         }
         var list = Array(Field.ranked(candidates, environments: newTab(), lifts: lifts).prefix(room))
-        // Last in the list, and only when what was typed cannot be a place.
-        if !typed.isEmpty,
-           Address.url(from: typed) == nil,
-           let asked = search(typed) {
-            list.append(
-                Suggestion(key: typed, title: engine(), url: asked, kind: .search)
-            )
+        // Only when what was typed cannot be a place: a site named by its
+        // keyword first, in place of the engine, which otherwise comes last.
+        if !typed.isEmpty, Address.url(from: typed) == nil {
+            if let found = keyword(typed) {
+                list.insert(Suggestion(key: typed, title: "Search \(found.keyword.site) for \(found.words)",
+                                       url: found.url, kind: .keyword), at: 0)
+            } else if let asked = search(typed) {
+                list.append(Suggestion(key: typed, title: engine(), url: asked, kind: .search))
+            }
         }
         offers = list
         // What Return finishes without a chosen row is what was typed, read

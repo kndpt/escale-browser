@@ -63,7 +63,7 @@ struct SettingsPanel: View {
         /// Words people look for, including the former category names.
         var searchTerms: String {
             switch self {
-            case .general: return "gear default browser links search engine downloads save folder files"
+            case .general: return "gear default browser links search engine keywords downloads save folder files"
             case .appearance: return "theme light dark colours colors tone escale warm transparency contrast interface size faster shortcut animations motion"
             case .github: return "github bearings pull requests issues local search repository"
             case .routing: return "link routing route rules links open site host domain url space spaces meet routage liens"
@@ -410,6 +410,29 @@ struct SettingsPanel: View {
                     .padding(.horizontal, metrics.length(CardDensity.settings.inset))
                     .padding(.bottom, metrics.length(CardDensity.settings.pad))
                 }
+                Rule()
+                Line("Search a site by keyword", keywordDetail) { EmptyView() }
+                // One per line, so the list is plain text to write, read and carry.
+                ZStack(alignment: .topLeading) {
+                    if prefs.searchKeywords.isEmpty {
+                        Text("npm https://www.npmjs.com/search?q=%s")
+                            .foregroundStyle(Palette.muted.opacity(0.8))
+                            .padding(.leading, metrics.length(5))
+                            .accessibilityHidden(true)
+                    }
+                    TextEditor(text: $prefs.searchKeywords)
+                        .scrollContentBackground(.hidden)
+                        .autocorrectionDisabled()
+                        .foregroundStyle(Palette.ink)
+                        .accessibilityLabel("Search keywords")
+                }
+                .font(.system(size: metrics.length(11.5)))
+                .frame(height: metrics.length(Metrics.settingsKeywords))
+                .padding(.horizontal, metrics.length(3))
+                .padding(.vertical, metrics.length(5))
+                .background(Palette.wash, in: RoundedRectangle(cornerRadius: metrics.length(7), style: .continuous))
+                .padding(.horizontal, metrics.length(CardDensity.settings.inset))
+                .padding(.bottom, metrics.length(CardDensity.settings.pad))
             }
             Card {
                 Line("Save downloads to", prefs.downloads.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")) {
@@ -496,6 +519,14 @@ struct SettingsPanel: View {
             return "An http or https address with %s where the words go. Until then, Google"
         }
         return "Words go to \(prefs.engine.name(custom: prefs.customEngine))"
+    }
+
+    private var keywordDetail: String {
+        switch Keyword.refused(prefs.searchKeywords) {
+        case 0: return "A keyword, then an address with %s, on each line. Type “npm react” to search npm"
+        case 1: return "One line isn't a keyword and an http or https address with %s, and is left out"
+        case let count: return "\(count) lines aren't a keyword and an http or https address with %s, and are left out"
+        }
     }
 
     // MARK: - tabs

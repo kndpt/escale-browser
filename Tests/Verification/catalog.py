@@ -183,6 +183,12 @@ CHECKS = {
               BENCH + ("Tests/Bench/address_field.py",),
               "real typing, suggestions, focus, switcher, refusal and Space transition", "app", ("bundle",),
               paths=("Sources/Escale/Address/Field.swift", "Tests/EscaleTests/FieldTests.swift")),
+        Check("keywords", ("python3", "Tests/Bench/search_keywords.py"),
+              BENCH + ("Tests/Bench/search_keywords.py",),
+              "a keyword's row first, nothing sent while typing, Return opens its loopback template; "
+              "unknown or bare keywords stay searches", "app", ("bundle",),
+              paths=("Sources/Escale/Address/Engine.swift", "Sources/Escale/Address/Field.swift",
+                     "Tests/EscaleTests/KeywordTests.swift")),
         Check("chrome", ("python3", "Tests/Bench/glass_frame.py"),
               BENCH + ("Tests/Bench/glass_frame.py",),
               "page preservation, hit boundaries, Settings and appearance persistence; not visual approval",
@@ -323,7 +329,7 @@ def plan(paths, risks=(), checks=(), quick=False, acknowledge=None):
         include_dependencies(name)
     # Dependencies are small and explicit; no scoring or model-specific workflow.
     order = ["icons", "harness", "portable", "links", "whitespace", "changelog", "build", "swift",
-             "bundle", "app", "wake", "sleeping", "tabs", "shortcut-motion", "sidebar-rows", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "history-panel", "update", "address", "keyboard", "keyboard-settings", "github-search", "habits", "favicon", "icon-lists", "chrome",
+             "bundle", "app", "wake", "sleeping", "tabs", "shortcut-motion", "sidebar-rows", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "github-search", "habits", "favicon", "icon-lists", "chrome",
              "routes", "tab-source", "environments", "calls", "calls-browse", "extension-speech", "extension-bar", "space-media", "call-float", "warnings"]
     return {"checks": [n for n in order if n in chosen], "reasons": chosen,
             "risks": list(risks), "requested": list(checks),

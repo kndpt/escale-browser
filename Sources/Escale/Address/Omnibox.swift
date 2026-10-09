@@ -156,7 +156,7 @@ struct Omnibox: View {
 
         private var heading: some View {
             HStack(spacing: metrics.length(Metrics.searchInset)) {
-                if offer.kind == .search {
+                if offer.kind == .search || offer.kind == .keyword {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(Palette.muted)
                         .frame(width: metrics.length(Metrics.searchIcon))
@@ -165,7 +165,8 @@ struct Omnibox: View {
                          letter: String((offer.url.host() ?? "•").prefix(1)).uppercased(),
                          size: metrics.length(Metrics.searchIcon))
                 }
-                Text(offer.key)
+                // A keyword's row says what Return does: "Search npmjs.com for react".
+                Text(offer.kind == .keyword ? offer.title : offer.key)
                     .font(.system(size: metrics.length(Metrics.searchFont)))
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
@@ -181,12 +182,14 @@ struct Omnibox: View {
                         .help("Active environment: \(environment.name)")
                         .accessibilityLabel("Active environment: \(environment.name)")
                 }
-                Text(offer.title)
-                    .font(.system(size: metrics.length(Metrics.searchDetail)))
-                    .foregroundStyle(Palette.muted)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .layoutPriority(-1)
+                if offer.kind != .keyword {
+                    Text(offer.title)
+                        .font(.system(size: metrics.length(Metrics.searchDetail)))
+                        .foregroundStyle(Palette.muted)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .layoutPriority(-1)
+                }
                 Spacer(minLength: 0)
                 if picked {
                     HStack(spacing: metrics.length(Metrics.searchGap)) {

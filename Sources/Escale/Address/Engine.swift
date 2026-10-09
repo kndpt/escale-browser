@@ -73,3 +73,48 @@ enum Engine: String, CaseIterable, Identifiable {
         return host.lowercased()
     }
 }
+
+/// A site searched by the word typed before the words: `npm react` searches
+/// npm for react. Settings holds them one per line, `npm https://…?q=%s`, and
+/// the list starts empty, so nothing typed changes meaning until one is written.
+struct Keyword: Equatable {
+    let word: String
+    let template: String
+
+    /// The site its searches go to, as the row names it.
+    var site: String { Engine.custom.name(custom: template) }
+
+    /// The keywords written, one `word template` per line. A line that is not
+    /// two parts, or whose template is not an http or https address with %s,
+    /// is refused; a word written twice keeps its first line. Case is ignored.
+    static func list(_ text: String) -> [Keyword] {
+        var found: [Keyword] = []
+        for line in text.split(whereSeparator: \.isNewline) {
+            let parts = line.split(whereSeparator: \.isWhitespace)
+            guard parts.count == 2 else { continue }
+            let word = parts[0].lowercased(), template = String(parts[1])
+            guard Engine.accepts(template), !found.contains(where: { $0.word == word }) else { continue }
+            found.append(Keyword(word: word, template: template))
+        }
+        return found
+    }
+
+    /// How many written lines are not used, for Settings to say so.
+    static func refused(_ text: String) -> Int {
+        let lines = text.split(whereSeparator: \.isNewline)
+            .filter { !$0.allSatisfy(\.isWhitespace) }
+        return lines.count - list(text).count
+    }
+
+    /// What was typed read as a keyword and its words, and where they go: nil
+    /// when the first word is no keyword or no words follow it.
+    static func search(_ typed: String, in text: String) -> (keyword: Keyword, words: String, url: URL)? {
+        let trimmed = typed.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, let space = trimmed.firstIndex(where: \.isWhitespace) else { return nil }
+        let word = trimmed[..<space].lowercased()
+        let words = trimmed[space...].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let keyword = list(text).first(where: { $0.word == word }),
+              let url = Engine.url(for: words, template: keyword.template) else { return nil }
+        return (keyword, words, url)
+    }
+}

@@ -47,6 +47,11 @@ enum TransferPreferences {
             if prefs.customEngine != text { prefs.customEngine = text }
             return true
         }),
+        Entry(key: "search.keywords", read: { .word($0.searchKeywords) }, write: { prefs, value in
+            guard case .word(let text) = value, text.utf8.count <= TransferLimits.field else { return false }
+            if prefs.searchKeywords != text { prefs.searchKeywords = text }
+            return true
+        }),
         flag("tabs.sleep", \.sleepsTabs), flag("tabs.reading", \.showsReading), flag("shield", \.shielded),
         flag("extensions.private", \.extensionsInPrivate), flag("downloads.ask", \.asksWhereToSave),
         flag("passwords.save", \.savesPasswords), flag("passwords.fill", \.fillsPasswords),
