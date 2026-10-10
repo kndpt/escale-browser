@@ -261,7 +261,7 @@ struct ContentView: View {
     @ViewBuilder
     private var panels: some View {
         if browser.recalling {
-            sheet { HistoryPanel(browser: browser) } close: { browser.recalling = false }
+            sheet { HistoryPanel(browser: browser, recall: browser.recall) } close: { browser.recalling = false }
         }
         if browser.hoarding {
             sheet { DownloadsPanel(browser: browser, loot: browser.loot) }

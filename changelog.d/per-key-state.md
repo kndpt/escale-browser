@@ -1,0 +1,1 @@
+Typing in History's search no longer redraws the whole window on every key: with 100 tabs, a key takes 2 to 4 ms instead of 17 to 19. Typing an address into a tab, and dragging over the column's bookmarks, no longer redraw it either.
