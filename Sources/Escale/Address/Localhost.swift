@@ -43,6 +43,10 @@ final class Localhost: ObservableObject {
     /// panel opens, and again when a reading fails.
     @Published private(set) var listening: Listening?
     private(set) var reading = false
+    /// When each endpoint's page last arrived, in memory: a reload the file
+    /// needn't hear about still names it (retitle). One date per local
+    /// origin opened since launch, a handful.
+    private var arrived: [String: Date] = [:]
     private let file: URL
     static let limit = 12
 
@@ -140,29 +144,34 @@ final class Localhost: ObservableObject {
         }
     }
 
-    func record(_ url: URL, title: String, in space: UUID) {
+    func record(_ url: URL, title: String, in space: UUID, at now: Date = Date()) {
         guard let origin = Self.origin(of: url) else { return }
         let key = space.uuidString
+        arrived[key + " " + origin] = now
         var list = saved[key] ?? []
         let old = list.first { $0.origin == origin }
         // A reload or short run through routes on one server needn't write
         // the same endpoint repeatedly. A new title still matters.
-        if let old, Date().timeIntervalSince(old.visited) < 300,
+        if let old, now.timeIntervalSince(old.visited) < 300,
            old.url == url.absoluteString,
            (title.isEmpty || old.title == title) { return }
         list.removeAll { $0.origin == origin }
         list.insert(Entry(origin: origin, url: url.absoluteString,
                           title: String((title.isEmpty ? old?.title ?? "" : title).prefix(80)),
-                          visited: Date()), at: 0)
+                          visited: now), at: 0)
         saved[key] = Array(list.prefix(Self.limit))
         Writer.to(file).save(saved)
     }
 
-    func retitle(_ url: URL, title: String, in space: UUID) {
+    /// Only while the page is still naming itself, as in History.retitle.
+    func retitle(_ url: URL, title: String, in space: UUID, at now: Date = Date()) {
+        let title = String(title.prefix(80))
         guard let origin = Self.origin(of: url), !title.isEmpty,
               let index = saved[space.uuidString]?.firstIndex(where: { $0.origin == origin }),
-              saved[space.uuidString]?[index].title != title else { return }
-        saved[space.uuidString]?[index].title = String(title.prefix(80))
+              saved[space.uuidString]?[index].title != title,
+              let since = arrived[space.uuidString + " " + origin],
+              now.timeIntervalSince(since) < History.naming else { return }
+        saved[space.uuidString]?[index].title = title
         Writer.to(file).save(saved)
     }
 
