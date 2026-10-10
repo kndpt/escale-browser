@@ -52,7 +52,13 @@ enum TransferPreferences {
             if prefs.searchKeywords != text { prefs.searchKeywords = text }
             return true
         }),
-        flag("tabs.sleep", \.sleepsTabs), flag("tabs.reading", \.showsReading), flag("shield", \.shielded),
+        flag("tabs.sleep", \.sleepsTabs),
+        Entry(key: "tabs.sleep.after", read: { .number(Double($0.sleepDelay.rawValue)) }, write: { prefs, value in
+            guard case .number(let minutes) = value, let chosen = Int(exactly: minutes).flatMap(SleepDelay.init) else { return false }
+            if prefs.sleepDelay != chosen { prefs.sleepDelay = chosen }
+            return true
+        }),
+        flag("tabs.reading", \.showsReading), flag("shield", \.shielded),
         flag("extensions.private", \.extensionsInPrivate), flag("downloads.ask", \.asksWhereToSave),
         flag("passwords.save", \.savesPasswords), flag("passwords.fill", \.fillsPasswords),
         flag("autoscroll", \.autoScroll), flag("links.show", \.showsLinks), flag("selection.menu", \.selectionMenu),

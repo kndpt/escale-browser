@@ -156,8 +156,8 @@ struct Omnibox: View {
 
         private var heading: some View {
             HStack(spacing: metrics.length(Metrics.searchInset)) {
-                if offer.kind == .search || offer.kind == .keyword {
-                    Image(systemName: "magnifyingglass")
+                if offer.kind == .search || offer.kind == .keyword || offer.kind == .command {
+                    Image(systemName: offer.kind == .command ? "command" : "magnifyingglass")
                         .foregroundStyle(Palette.muted)
                         .frame(width: metrics.length(Metrics.searchIcon))
                 } else {
@@ -194,7 +194,8 @@ struct Omnibox: View {
                 if picked {
                     HStack(spacing: metrics.length(Metrics.searchGap)) {
                         Image(systemName: "return").accessibilityHidden(true)
-                        Text(offer.kind == .open && input.selectedEnvironment == nil ? "Switch to tab" : "Open")
+                        Text(offer.kind == .command ? "Run"
+                             : offer.kind == .open && input.selectedEnvironment == nil ? "Switch to tab" : "Open")
                     }
                     .font(.system(size: metrics.length(Metrics.searchDetail)))
                     .foregroundStyle(Palette.muted)

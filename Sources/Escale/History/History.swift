@@ -28,6 +28,8 @@ struct Suggestion: Identifiable, Equatable {
     var tab: UUID?
     var bookmark: UUID?
     var environments: [BookmarkEnvironment] = []
+    /// Set when this is a browser command, typed after `>` in New Tab.
+    var action: KeyAction?
     /// How closely it answered what was typed, so New Tab can merge its sources.
     var match: Terms.Match = .typed
 
@@ -50,6 +52,8 @@ struct Suggestion: Identifiable, Equatable {
         case search
         /// Words, and the site whose keyword was typed before them.
         case keyword
+        /// Not a place either: a command, run as its shortcut would run it.
+        case command
     }
 
     var id: String { tab?.uuidString ?? bookmark?.uuidString ?? "\(kind):\(url.absoluteString)" }
