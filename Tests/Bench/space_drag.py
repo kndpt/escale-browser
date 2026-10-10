@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import time
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -32,6 +33,20 @@ def current():
     return bench("space")["current"]
 
 
+def wait_for(check, deadline):
+    """Whether check() came true before the deadline."""
+    end = time.monotonic() + deadline
+    while time.monotonic() < end:
+        if check():
+            return True
+        time.sleep(0.2)
+    return False
+
+
+def dragged():
+    return next((tab for tab in bench("tabs")["tabs"] if "Dragged" in tab["title"]), None)
+
+
 def titles():
     return [row["title"] for row in bench("shelf")["rows"]]
 
@@ -50,7 +65,9 @@ def main():
         source_id = bench("space")["spaces"][0]["id"]
         bench("shelf", "seed")
         bench("bookmark", PAGE, "new")
-        source = next(tab for tab in bench("tabs")["tabs"] if "Dragged" in tab["title"])
+        # The tab's title comes from the page, after the bookmark opens it.
+        assert wait_for(dragged, 10), bench("tabs")
+        source = dragged()
 
         # The tab row's horizontal drag and a short icon pass leave the
         # current Space alone. Even the preview pulse cancels on departure.
