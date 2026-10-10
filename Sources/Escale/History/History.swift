@@ -50,6 +50,8 @@ struct Suggestion: Identifiable, Equatable {
         case known
         /// Not a place at all — words, and an engine to ask.
         case search
+        /// Words, and the site whose keyword was typed before them.
+        case keyword
         /// Not a place either: a command, run as its shortcut would run it.
         case command
     }

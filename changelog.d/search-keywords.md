@@ -1,0 +1,1 @@
+Bearings searches one site when you type its keyword first: write a keyword and an address with %s in Settings › General, then type “npm react” and Return searches npm for react. The list starts empty (#49).

@@ -47,6 +47,11 @@ enum TransferPreferences {
             if prefs.customEngine != text { prefs.customEngine = text }
             return true
         }),
+        Entry(key: "search.keywords", read: { .word($0.searchKeywords) }, write: { prefs, value in
+            guard case .word(let text) = value, text.utf8.count <= TransferLimits.field else { return false }
+            if prefs.searchKeywords != text { prefs.searchKeywords = text }
+            return true
+        }),
         flag("tabs.sleep", \.sleepsTabs),
         Entry(key: "tabs.sleep.after", read: { .number(Double($0.sleepDelay.rawValue)) }, write: { prefs, value in
             guard case .number(let minutes) = value, let chosen = Int(exactly: minutes).flatMap(SleepDelay.init) else { return false }
