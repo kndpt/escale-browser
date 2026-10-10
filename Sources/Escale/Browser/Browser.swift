@@ -2126,7 +2126,8 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         return tab.web
     }
 
-    /// Anything the window can't show is something to keep instead.
+    /// Anything the window can't show, or the server sends as an attachment,
+    /// is something to keep instead.
     func webView(
         _ webView: WKWebView,
         decidePolicyFor response: WKNavigationResponse,
@@ -2140,8 +2141,9 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             decisionHandler(.allow)
             return
         }
-        if response.isForMainFrame && response.canShowMIMEType { tab(for: webView)?.jsonReader.detect(response.response) }
-        decisionHandler(response.canShowMIMEType ? .allow : .download)
+        let shows = response.canShowMIMEType && !(response.isForMainFrame && Downloads.isAttachment(response.response))
+        if response.isForMainFrame && shows { tab(for: webView)?.jsonReader.detect(response.response) }
+        decisionHandler(shows ? .allow : .download)
     }
 
     func webView(

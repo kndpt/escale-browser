@@ -40,6 +40,14 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
         return known.reduce(0) { $0 + min(1, max(0, $1)) } / Double(known.count)
     }
 
+    /// RFC 6266: `Content-Disposition: attachment` asks for the file to be
+    /// kept, even one WebKit could show, as Safari, Chrome and Firefox do.
+    nonisolated static func isAttachment(_ response: URLResponse) -> Bool {
+        guard let value = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Disposition") else { return false }
+        return value.split(separator: ";", maxSplits: 1).first?
+            .trimmingCharacters(in: .whitespaces).lowercased() == "attachment"
+    }
+
     var fraction: Double? { Self.fraction(transfers.map(\.fraction)) }
     var observationCount: Int { progress.count }
     private var spaces: [ObjectIdentifier: UUID] = [:]
