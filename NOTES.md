@@ -1,3 +1,5 @@
+Escale 0.9: Focus Mode hides everything but the page. Type > in the search bar to run any command, or a keyword like “npm react” to search one site.
+
 Escale 0.8.1: sites you were signed into stay signed in after a quit, and with the address above the page its environment shows before the site. Right-click a Space in the rail for its actions.
 
 Escale 0.8: rest the pointer on a bookmark folder to search its sites without opening it. Setup now ends on a summary of your choices, and comes back by itself after you connect GitHub.

@@ -11,6 +11,33 @@ Search before that is in
 
 ## Unreleased
 
+## 0.9 — 2026-10-10
+
+### Highlights
+
+- **Focus Mode.** One command hides everything around the page; the same command brings it back.
+- **Run any command from Bearings.** Type > and a command's name in the search bar, then Return.
+- **Search a site with a keyword.** Type a short word before what you look for to search one site directly, like “npm react”.
+- **Drag Spaces to reorder them.** Drag a workspace icon up or down the left edge to change its place.
+
+### What changed
+
+- The bookmarks button fills in when the page you are on is a bookmark of the Space, and says so to VoiceOver. Its list then offers Remove Bookmark, Rename Bookmark and Show in List in place of Add This Page, and ⇧⌘B on a page already kept opens them (#44).
+- Spaces reorder by dragging their icons up or down the rail; the others make room to show where it lands, Escape or a drop outside the rail cancels, and ⌃1–⌃9 follow the new order (#51).
+- View › Enter Focus Mode hides the sidebar, the Spaces rail and the address bar so the page fills the window, until it is chosen again. ⌘L, ⌘K and ⌘T still open Bearings, the window's top edge brings back the traffic lights, and Settings › Keyboard can give it a shortcut (#50).
+- History, Bookmarks and Downloads work from the keyboard: ↑ and ↓ move a selection, from History's search field too, Return opens the row and ⌘Return opens it in a new tab (in Downloads, shows the file in the Finder), ⌫ removes the row from the list without touching a file on disk, and → and ← open and close a bookmark folder. VoiceOver reads each row the selection reaches (#46).
+- Bearings searches one site when you type its keyword first: write a keyword and an address with %s in Settings › General, then type “npm react” and Return searches npm for react. The list starts empty (#49).
+- Walking the Bearings list with the arrow keys shows each row's address in the field, in New Tab too; walking back off the top gives back what was typed.
+- A bookmark's right-click menu, in the column and in the Bookmarks panel, now has Edit… to change a site's name and address (an empty or invalid address is refused), New Folder, named in place, Open in New Tab and Copy Link; a folder's has Open All in Tabs, which asks first above 15 sites and loads only the first page until the others are looked at (#45).
+- In New Tab, type `>` and a command's name to run it with Return, its shortcut shown beside it: commands without a shortcut, such as Add Left Split or Rename Tab, are a few keys away (#48).
+- The API Calls panel has an Errors filter for 4xx and 5xx answers and failed or cancelled calls, and under All a choice of resource type: Document, Script, Stylesheet, Image, Font or Other. When a filter hides calls, the empty list says which one (#37).
+- A link the server sends as an attachment downloads with its own file name, even an audio file, PDF or image Escale could show in the tab (#104).
+- In GitHub search (⇧⌘K), typing an exact `owner/repo#123` you have never visited offers to open it on github.com; Return opens it in a new tab (#47).
+- Closing the window no longer quits Escale: the app stays in the Dock, its tabs asleep so they cost nothing, and the window comes back where you left it from the Dock or a link.
+- Escale now looks for a new version every 2 hours instead of once a day, so a release reaches you within a few hours (#87).
+- Settings › Tabs & Spaces lets you choose how long an idle tab waits before it sleeps: 15 minutes, 30 minutes (as before), 1 hour or 2 hours. A new choice applies at once (#55).
+- The cross on an open bookmark is labelled Close Tab, on hover and for VoiceOver, and a folded folder no longer wears a dot of its own (#77).
+
 ## 0.8.1 — 2026-10-08
 
 ### Highlights

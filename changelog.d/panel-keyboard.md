@@ -1,1 +1,0 @@
-History, Bookmarks and Downloads work from the keyboard: ↑ and ↓ move a selection, from History's search field too, Return opens the row and ⌘Return opens it in a new tab (in Downloads, shows the file in the Finder), ⌫ removes the row from the list without touching a file on disk, and → and ← open and close a bookmark folder. VoiceOver reads each row the selection reaches (#46).
