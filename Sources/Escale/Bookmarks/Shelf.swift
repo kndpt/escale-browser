@@ -168,6 +168,7 @@ struct Shelf: View {
                              mergeReady: mergeHover.ready && mergeHover.target == line.node.id,
                              naming: browser.shelfNaming == line.node.id, folderName: $folderName,
                              finishName: finishNaming, rename: { startNaming(line.node) },
+                             newFolder: { newFolder(beside: line) },
                              tab: tab, live: tab != nil && tab?.id == browser.activeID && !browser.tuning)
                         .offset(y: held ? travel : 0)
                         // Under the hand exactly, as a tab is (see SideBar.loose).
@@ -323,6 +324,17 @@ struct Shelf: View {
     private func startNaming(_ folder: Bookmark) {
         folderName = folder.title
         browser.shelfNaming = folder.id
+    }
+
+    /// Inside a folder, or beside a site; named where it appears, with the
+    /// folder it went into open so that it shows.
+    private func newFolder(beside line: Line) {
+        let parent = line.node.isFolder ? line.node.id : line.parent
+        let folder = withAnimation(Motion.settle) {
+            line.node.isFolder ? bookmarks.newFolder(in: parent) : bookmarks.newFolder(in: parent, after: line.node.id)
+        }
+        if let parent { withAnimation(Motion.settle) { _ = browser.shelfOpen.insert(parent) } }
+        startNaming(folder)
     }
 
     private func finishNaming() {
@@ -581,6 +593,7 @@ private struct ShelfRow: View {
     @Binding var folderName: String
     let finishName: () -> Void
     let rename: () -> Void
+    let newFolder: () -> Void
     /// The bookmark's own tab, while it is open; `live` while it is on screen.
     let tab: Tab?
     let live: Bool
@@ -609,7 +622,7 @@ private struct ShelfRow: View {
                      letter: String((node.host ?? "•").prefix(1)).uppercased(), size: metrics.length(Metrics.navigationIcon))
             }
             if naming {
-                TextField(node.isFolder ? "Folder name" : "Bookmark name", text: $folderName)
+                TextField("Folder name", text: $folderName)
                     .font(.system(size: metrics.length(12.5)))
                     .textFieldStyle(.plain)
                     .focused($nameFocused)
@@ -703,7 +716,14 @@ private struct ShelfRow: View {
                 Button { browser.close(tab) } label: { Label("Close Tab", systemImage: "xmark") }
                 Divider()
             }
-            if !node.isFolder {
+            if node.isFolder {
+                Button { browser.openAll(node) } label: { Label("Open All in Tabs", systemImage: "square.stack") }
+                    .disabled(Bookmarks.count(node.children ?? []) == 0)
+                Divider()
+            } else {
+                Button { browser.openInNewTab(node) } label: { Label("Open in New Tab", systemImage: "plus.square.on.square") }
+                Button { browser.copyLink(node) } label: { Label("Copy Link", systemImage: "link") }
+                Divider()
                 Button { browser.pinBookmark(node) } label: { Label("Pin as Tab", systemImage: "pin") }
                 LinkRouteMenu(browser: browser, address: node.url.flatMap(URL.init(string:)), space: browser.bookmarks.space)
                 Button { browser.editEnvironments(node, in: browser.bookmarks) } label: {
@@ -711,7 +731,12 @@ private struct ShelfRow: View {
                 }
             }
             Button { browser.bookmarking = true } label: { Label("Manage Bookmarks…", systemImage: "bookmark") }
-            Button(action: rename) { Label("Rename", systemImage: "pencil") }
+            if node.isFolder {
+                Button(action: rename) { Label("Rename", systemImage: "pencil") }
+            } else {
+                Button { browser.editBookmark(node, in: browser.bookmarks) } label: { Label("Edit…", systemImage: "pencil") }
+            }
+            Button(action: newFolder) { Label("New Folder", systemImage: "folder.badge.plus") }
             Divider()
             Button(role: .destructive) { browser.bookmarks.remove(node.id) } label: { Label("Remove", systemImage: "trash") }
         }
@@ -983,7 +1008,8 @@ extension Shelf {
             ["title": line.node.title, "depth": line.depth, "folder": line.node.isFolder,
              "open": browser.shelfOpen.contains(line.node.id),
              "tab": browser.shelfTab(for: line.node.id) != nil,
-             "live": browser.shelfTab(for: line.node.id)?.id == browser.activeID]
+             "live": browser.shelfTab(for: line.node.id)?.id == browser.activeID,
+             "naming": browser.shelfNaming == line.node.id, "url": line.node.url ?? ""]
         }
         return ["on": browser.prefs.sideBookmarks, "folded": browser.prefs.sideBookmarksFolded, "clearable": browser.clearableTabs().count, "rows": rows, "height": Double(height(for: browser)), "landed": landed]
     }

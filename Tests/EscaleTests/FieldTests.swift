@@ -86,7 +86,7 @@ private func field(in root: URL) -> Field {
 
         field.walk(1)
         #expect(field.picked == 0)
-        #expect(field.completed == field.offers[0].key)
+        #expect(field.completed == field.offers[0].url.absoluteString)
         for _ in 1..<rows { field.walk(1) }
         #expect(field.picked == rows - 1)
         field.walk(1)
@@ -121,6 +121,40 @@ private func field(in root: URL) -> Field {
         field.walk(-1)
 
         #expect(field.picked == nil)
+    }
+
+    @Test func walkingNewTabShowsEachRowsAddressAndGivesTheTypingBack() throws {
+        let root = folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = try #require(URL(string: "https://project.example.test/releases?page=2"))
+        let field = Field(history: History(file: root.appendingPathComponent("history.json")),
+                          search: searching, engine: { "Synthetic" }, others: { [] },
+                          newTab: { true }, bookmarks: { [Bookmark.site("Project", url)] })
+        field.typed = "project"
+        #expect(field.offers.map(\.kind) == [.bookmark, .search])
+
+        field.walk(1)
+        // The address, not the bookmark's title.
+        #expect(field.completed == url.absoluteString)
+        field.walk(1)
+        #expect(field.completed == "project")
+        field.walk(-1)
+        field.walk(-1)
+        #expect(field.picked == nil)
+        #expect(field.completed == "project")
+    }
+
+    @Test func walkingOntoADataAddressShowsItsTitle() throws {
+        let root = folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = try #require(URL(string: "data:text/html,<p>project</p>"))
+        let field = Field(history: History(file: root.appendingPathComponent("history.json")),
+                          search: searching, engine: { "Synthetic" }, others: { [] },
+                          newTab: { true }, bookmarks: { [Bookmark.site("Project inline", url)] })
+        field.typed = "project"
+        field.walk(1)
+        #expect(field.selected?.url == url)
+        #expect(field.completed == "Project inline")
     }
 
     @Test func aBackspaceDropsTheEndingAndTabTakesIt() {
@@ -226,7 +260,7 @@ private func field(in root: URL) -> Field {
         #expect(field.selectedEnvironment?.name == "PROD")
         field.moveEnvironment(1)
         #expect(field.selectedEnvironment?.name == "DEV")
-        #expect(field.completed == "project")
+        #expect(field.completed == "http://localhost:8000/app?dev=1#start")
         field.leaveEnvironments()
         #expect(!field.environmentFocused)
         #expect(field.selectedEnvironment?.name == "DEV")
@@ -321,6 +355,99 @@ private func field(in root: URL) -> Field {
     }
 }
 
+
+/// `>` in New Tab: browser commands by title, never pages (see Field.swift).
+@MainActor
+@Suite struct FieldCommandTests {
+    /// A New Tab field over the two visited places, running what `available` allows.
+    private func commands(in root: URL, available: @escaping (KeyAction) -> Bool = { _ in true }) -> Field {
+        let history = History(file: root.appendingPathComponent("history.json"))
+        if let url = URL(string: "https://fieldalpha.example.test/") { history.take(url, title: "Add Left Split notes", count: 9, last: Date()) }
+        history.settle()
+        return Field(history: history, search: searching, engine: { "Synthetic" }, others: { [] },
+                     newTab: { true }, available: available)
+    }
+
+    @Test func thePrefixListsOnlyCommandsAndChoosesTheFirst() {
+        let root = folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let field = commands(in: root)
+
+        field.typed = ">"
+        #expect(field.commanding)
+        #expect(field.offers.count == Field.room)
+        #expect(field.offers.allSatisfy { $0.kind == .command && $0.action != nil })
+
+        // A page titled like a command is still not offered, nor a search.
+        field.typed = "> add left split"
+        #expect(field.offers.map(\.key) == ["Add Left Split"])
+        #expect(field.offers.first?.action == .splitLeft)
+        #expect(field.picked == 0)
+        #expect(field.ending == nil)
+        #expect(field.completed == "> add left split")
+
+        field.typed = ">fieldalpha"
+        #expect(field.offers.isEmpty)
+        #expect(field.picked == nil)
+
+        field.typed = "add left split"
+        #expect(!field.commanding)
+        #expect(field.offers.contains { $0.kind == .visited })
+        #expect(!field.offers.contains { $0.kind == .command })
+    }
+
+    @Test func titlesMatchByWordsAndEachShowsItsShortcut() {
+        let root = folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let field = commands(in: root)
+
+        field.typed = ">split right"
+        #expect(field.offers.first?.key == "Add Right Split")
+        #expect(field.offers.first?.title == "⇧⌘E")
+
+        field.typed = "> rename tab"
+        #expect(field.offers.first?.action == .renameTab)
+        #expect(field.offers.first?.title == "")
+
+        field.typed = "> back"
+        #expect(field.offers.first?.title == "⌘[ · ⌘←")
+
+        // The contiguous title first, then words in any order.
+        field.typed = "> tab"
+        #expect(field.offers.first?.key == "New Tab")
+    }
+
+    @Test func onlyAvailableBrowserCommandsAreOffered() {
+        let root = folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let field = commands(in: root) { $0 != .splitLeft }
+
+        field.typed = "> split"
+        #expect(field.offers.map(\.action) == [.splitRight, .splitTop, .splitBottom])
+
+        // Editing and macOS references are not browser commands.
+        field.typed = "> select all"
+        #expect(field.offers.isEmpty)
+        field.typed = "> paste"
+        #expect(field.offers.map(\.key) == ["Paste and Go"])
+    }
+
+    @Test func addressEditingAndTheSwitcherKeepTheirMeaning() {
+        let root = folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        // ⌘L over a page.
+        let address = field(in: root)
+        address.typed = "> split"
+        #expect(!address.commanding)
+        #expect(!address.offers.contains { $0.kind == .command })
+
+        let switcher = commands(in: root)
+        switcher.startSummoning()
+        switcher.typed = "> split"
+        #expect(!switcher.commanding)
+        #expect(!switcher.offers.contains { $0.kind == .command })
+    }
+}
 
 @Suite struct SearchEnvironmentBadgeTests {
     @Test func activeBadgeRequiresALinkAndAnUnambiguousDestination() throws {

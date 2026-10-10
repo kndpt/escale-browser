@@ -664,6 +664,7 @@ final class Bench {
                 "history": browser.recalling,
                 "downloads": browser.hoarding,
                 "keptDownloads": browser.loot.kept.map(\.name),
+                "handedDownloads": Loot.handed,
                 "bookmarks": browser.bookmarking,
                 "bookmarksDropdown": browser.bookmarksOpen,
                 // The page on screen's bookmark in this Space, as its door finds it.

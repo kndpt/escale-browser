@@ -54,6 +54,34 @@ import Testing
         #expect(list.shown(.api, matching: "40").map(\.id) == ["d"])
     }
 
+    @Test func errorsKeepFailuresAnd4xx5xxOnly() {
+        var list = CallList()
+        list.take([row("ok", ["status": 200, "finished": true]), row("missing", ["status": 404, "finished": true, "url": "http://h/missing"]),
+                   row("boom", ["status": 500, "finished": true, "type": "document"]), row("refused", ["failed": true]),
+                   row("aborted", ["canceled": true]), row("pending"), row("redirect", ["status": 302, "finished": true])])
+        #expect(list.shown(.errors).map(\.id) == ["missing", "boom", "refused", "aborted"])
+        // Combined with search: "5" is a status prefix, not any 5 in the address.
+        #expect(list.shown(.errors, matching: "5").map(\.id) == ["boom"])
+        #expect(list.shown(.errors, matching: "missing").map(\.id) == ["missing"])
+    }
+
+    @Test func kindsNarrowAllOnly() {
+        var list = CallList()
+        list.take([row("doc", ["type": "document"]), row("js", ["type": "script"]), row("css", ["type": "stylesheet"]),
+                   row("png", ["type": "image", "url": "http://h/logo.png"]), row("woff", ["type": "font"]),
+                   row("beacon", ["type": "beacon"]), row("other", ["type": "other"]), row("api")])
+        #expect(list.shown(.all, kind: .document).map(\.id) == ["doc"])
+        #expect(list.shown(.all, kind: .script).map(\.id) == ["js"])
+        #expect(list.shown(.all, kind: .stylesheet).map(\.id) == ["css"])
+        #expect(list.shown(.all, kind: .font).map(\.id) == ["woff"])
+        // Other: what no choice names, Fetch and XHR left to their filter.
+        #expect(list.shown(.all, kind: .other).map(\.id) == ["beacon", "other"])
+        #expect(list.shown(.all, kind: .image, matching: "logo").map(\.id) == ["png"])
+        #expect(list.shown(.all, kind: .image, matching: "api").isEmpty)
+        // A kind left chosen does nothing outside All.
+        #expect(list.shown(.api, kind: .document).map(\.id) == ["api"])
+    }
+
     @Test func bodyMatchesAreListedOnceWithinTheFilter() {
         var list = CallList()
         list.take([row("a", ["url": "http://h/users"]), row("b", ["url": "http://h/orders"]),
