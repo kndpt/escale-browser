@@ -2,13 +2,14 @@
 """The API Calls panel on WebKit's own inspector collection.
 
 Loopback only: a local fixture, two origins and a closed port. The page makes a POST of JSON with an Authorization header, an XHR, a
-CORS and an opaque fetch, a redirect, a 500, a refused connection, an aborted
+CORS and an opaque fetch, a redirect, a 500, a 404, a refused connection, an aborted
 fetch, a 2.5 MB response, two cacheable fetches, a beacon, a dedicated
 worker's fetch, a cross-site iframe's fetch and a service worker's generated
 and passed-through responses.
 
 Asserted: nothing is collected before the panel is opened with ⌥⌘N; each
-row and outcome; response bodies identical to what the page read, and named
+row and outcome; the Errors and resource type filters, kept
+while a call is open; response bodies identical to what the page read, and named
 unavailable (never empty) for failure, cancellation, beacon and worker; the
 sent body; the copied report's redaction; the Copy as cURL command, replayed
 against the fixture, getting the page's own answer; Web Inspector opened on the same
@@ -54,6 +55,7 @@ async function fire(tag) {
   await capture('opaque', fetch(B + '/api/opaque?' + q('opaque'), {mode: 'no-cors'}));
   await capture('redirect', fetch('/api/redirect?' + q('redirect')));
   await capture('error', fetch('/api/error?' + q('error')));
+  await capture('missing', fetch('/api/missing?' + q('missing')));
   await capture('refused', fetch('http://127.0.0.1:' + DEAD + '/api/x?' + q('refused')));
   const ac = new AbortController(); const slow = fetch('/api/slow?' + q('abort'), {signal: ac.signal});
   setTimeout(() => ac.abort(), 150); await capture('abort', slow);
@@ -254,13 +256,14 @@ def main():
             s.require('earlier requests are not reconstructed', [r['url'] for r in rows('before') if r['state'] != 'earlier'], [])
 
             page_read = fire(tab, 'during')
-            s.until('during rows settled', lambda: len([r for r in rows('during') if r['state'] != 'loading']) >= 17, 15)
+            s.until('during rows settled', lambda: len([r for r in rows('during') if r['state'] != 'loading']) >= 18, 15)
             found = {}
             for row in rows('during'):
                 found.setdefault(key(row['url']), []).append(row)
             expected = {'post': ('POST', 'fetch', 'done', 200), 'xhr': ('GET', 'xhr', 'done', 200),
                         'cors': ('GET', 'fetch', 'done', 200), 'opaque': ('GET', 'fetch', 'done', 200),
                         'redirected': ('GET', 'fetch', 'done', 200), 'error': ('GET', 'fetch', 'done', 500),
+                        'missing': ('GET', 'fetch', 'done', 404),
                         'refused': ('GET', 'fetch', 'failed', None), 'abort': ('GET', 'fetch', 'canceled', None),
                         'big': ('GET', 'fetch', 'done', 200), 'cached': ('GET', 'fetch', 'done', 200),
                         'beacon': ('POST', 'beacon', 'done', 204), 'worker': ('GET', 'fetch', 'done', 200),
@@ -276,7 +279,25 @@ def main():
             s.require('service worker response source', found['sw'][-1]['source'], 'service-worker')
             s.require('Fetch/XHR filter hides the beacon and documents',
                       [c for c in calls()['shown'] if c in (found['beacon'][-1]['id'], found['frame-doc'][-1]['id'])], [])
-            print('ok: 15 kinds of exchange listed with outcome, method, type and status', flush=True)
+            print('ok: 16 kinds of exchange listed with outcome, method, type and status', flush=True)
+
+            ids = {name: found[name][-1]['id'] for name in found}
+            calls(action='filter', filter='errors')
+            state = calls()
+            by_id = {row['id']: row for row in state['rows']}
+            s.require('Errors keeps the 404, the 500, the refused and the aborted calls',
+                      {ids[n] for n in ('missing', 'error', 'refused', 'abort')} <= set(state['shown']), True)
+            s.require('Errors keeps nothing else', [c for c in state['shown'] if not (
+                by_id[c]['state'] in ('failed', 'canceled') or (by_id[c]['state'] == 'done' and by_id[c]['status'] >= 400))], [])
+            calls(action='filter', filter='all', kind='document')
+            docs = calls()['shown']
+            s.require('Document lists the frame', ids['frame-doc'] in docs, True)
+            s.require('Document lists documents only', {by_id[c]['type'] for c in docs if c in by_id}, {'document'})
+            calls(action='select', call=ids['frame-doc'])
+            calls(action='select', call=None)
+            s.require('the filter outlives opening a call', calls()['shown'], docs)
+            calls(action='filter', filter='api', kind=None)
+            print('ok: Errors and Document filters, kept across an open call', flush=True)
 
             page_names = {'post': 'post', 'xhr': 'xhr', 'cors': 'cors', 'redirected': 'redirect', 'error': 'error',
                           'cached': 'cached1', 'sw': 'sw', 'swpass': 'swpass'}

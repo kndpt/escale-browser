@@ -108,7 +108,7 @@ private struct CallsList: View {
         let matches = found.current(calls.search)
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: metrics.length(Metrics.callsGap)) {
-                Segmented(options: [(CallList.Filter.api, "Fetch/XHR"), (.all, "All")], selection: $calls.filter)
+                Segmented(options: [(CallList.Filter.api, "Fetch/XHR"), (.errors, "Errors"), (.all, "All")], selection: $calls.filter)
                 Hunt(text: $calls.search, prompt: "Filter or search responses", focus: $searching)
                 HStack(spacing: metrics.length(2)) {
                     RecordToggle(recording: calls.recording) { calls.record(!calls.recording) }
@@ -134,7 +134,7 @@ private struct CallsList: View {
                 ScrollView {
                     LazyVStack(spacing: metrics.length(1)) {
                         ForEach(shown) { call in
-                            CallRow(call: call, wide: calls.filter == .all, match: matches[call.id]) { calls.select(call.id) }
+                            CallRow(call: call, wide: calls.filter != .api, match: matches[call.id]) { calls.select(call.id) }
                         }
                     }
                     .padding(metrics.length(6))
@@ -182,6 +182,7 @@ private struct CallsList: View {
             Image(systemName: "arrow.up")
                 .font(.system(size: metrics.length(Metrics.callsSmall - 1), weight: .semibold))
             Text("Newest first")
+            if calls.filter == .all { kinds }
             Spacer(minLength: metrics.length(6))
             searchState
             if !calls.recording {
@@ -205,6 +206,30 @@ private struct CallsList: View {
         .accessibilityElement(children: .contain)
     }
 
+    /// Under All, one resource type or every one: plain items in the
+    /// system's menu, under a label drawn here.
+    private var kinds: some View {
+        Menu {
+            kind(nil, "Any type")
+            ForEach(CallList.Kind.allCases) { kind($0, $0.title) }
+        } label: {
+            // One text: a native menu flattens its label and would move an
+            // image of its own before the words.
+            Text("· \(calls.kind?.title ?? "Any type") \(Image(systemName: "chevron.down"))")
+                .foregroundStyle(Palette.ink)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .accessibilityLabel("Resource type")
+    }
+
+    private func kind(_ kind: CallList.Kind?, _ title: String) -> some View {
+        Button { calls.kind = kind } label: {
+            if calls.kind == kind { Label(title, systemImage: "checkmark") } else { Text(title) }
+        }
+    }
+
     /// Said only when it matters: a search running, one that could not
     /// read every response in full, or none possible.
     @ViewBuilder private var searchState: some View {
@@ -223,8 +248,32 @@ private struct CallsList: View {
         }
     }
 
+    /// The filter as the bar names it; nil when nothing is filtered out.
+    private var narrowing: String? {
+        switch calls.filter {
+        case .api: return "Fetch/XHR"
+        case .errors: return "Errors"
+        case .all: return calls.kind?.title
+        }
+    }
+
+    /// Which filter hides calls the search would otherwise list, if one does.
+    private var hidden: String {
+        guard let narrowing else { return "" }
+        let others = calls.list.shown(.all, matching: calls.search, bodies: Set(found.current(calls.search).keys)).count
+        guard others > 0 else { return "" }
+        return " \(narrowing) hides " + (others == 1 ? "one other request." : "\(others) other requests.")
+    }
+
+    private var nothingYet: String {
+        switch calls.filter {
+        case .api: return "No Fetch or XHR calls yet"
+        case .errors: return "No errors"
+        case .all: return calls.kind.map { "No \($0.title.lowercased()) requests yet" } ?? "No requests yet"
+        }
+    }
+
     @ViewBuilder private var empty: some View {
-        let others = calls.filter == .api ? calls.list.shown(.all).count : 0
         VStack(spacing: metrics.length(Metrics.callsGap)) {
             Spacer(minLength: 0)
             Image(systemName: "arrow.up.arrow.down")
@@ -234,9 +283,10 @@ private struct CallsList: View {
                 Text("No call matches “\(calls.search)”")
                     .font(.system(size: metrics.length(Metrics.callsText + 0.5), weight: .medium))
                     .foregroundStyle(Palette.ink)
-                Text(CallSearch.wanted(calls.search).isEmpty ? "Addresses, methods and statuses were searched."
+                Text((CallSearch.wanted(calls.search).isEmpty ? "Addresses, methods and statuses were searched."
                      : found.running || found.coverage == nil && found.halted == nil ? "Searching responses…"
                      : "In addresses, methods, statuses or responses.")
+                     + hidden)
                     .font(.system(size: metrics.length(Metrics.callsSmall + 0.5)))
                     .foregroundStyle(Palette.muted)
                     .multilineTextAlignment(.center)
@@ -250,11 +300,12 @@ private struct CallsList: View {
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                Text(calls.filter == .api ? "No Fetch or XHR calls yet" : "No requests yet")
+                Text(nothingYet)
                     .font(.system(size: metrics.length(Metrics.callsText + 0.5), weight: .medium))
                     .foregroundStyle(Palette.ink)
-                Text("Calls appear as the page makes them. Those made before the panel opened are not shown."
-                     + (others == 1 ? " One other request is under All." : others > 1 ? " \(others) other requests are under All." : ""))
+                Text((calls.filter == .errors ? "4xx and 5xx answers, failed and cancelled calls appear here."
+                      : "Calls appear as the page makes them. Those made before the panel opened are not shown.")
+                     + hidden)
                     .font(.system(size: metrics.length(Metrics.callsSmall + 0.5)))
                     .foregroundStyle(Palette.muted)
                     .multilineTextAlignment(.center)
