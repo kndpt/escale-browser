@@ -117,8 +117,6 @@ struct AddressBar: View {
             if browser.showsBar {
                 DownloadDoor(downloads: browser.downloads) { browser.hoarding = true }
                 ExtensionSlot(space: browser.spaceID)
-                VisualDoor(browser: browser)
-                CaptureDoor(browser: browser)
                 DeveloperDoor(browser: browser)
             }
         }

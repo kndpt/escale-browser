@@ -291,18 +291,44 @@ private struct CaptureCard: View {
     }
 }
 
-/// The same Door as its neighbours, opening an AppKit menu below itself. A
+/// Capture in Developer mode's dock, opening an AppKit menu above itself. A
 /// SwiftUI Menu was tried first: AppKit draws its label as a template in the
-/// control colour, so the camera came out darker than the doors beside it.
-struct CaptureDoor: View {
+/// control colour, so the camera came out darker than its neighbours. On while
+/// an area or an element is being chosen for a capture, and while its card is up.
+struct CaptureTool: View {
+    /// The camera's body is below the middle of its box, under the bump on
+    /// top: drawn centred, it reads half a point low beside the pointer and
+    /// the globe, whose weight is in their middle (measured on their ink).
+    static let lift: CGFloat = 0.5
     @ObservedObject var browser: Browser
     @State private var hook = Hook()
 
     var body: some View {
-        Door(icon: "camera", help: browser.prefs.keyHelp(.capture, "Capture Page"), act: open)
-            .background(HookView(hook: hook))
-            .accessibilityLabel("Capture Page")
-            .disabled(browser.active?.built == nil)
+        Group {
+            if let tab = browser.active {
+                Lit(tab: tab, capture: tab.capture, area: tab.area, pick: tab.visual, help: help, act: open)
+            } else {
+                WorkbenchTool(icon: "camera", title: "Capture", help: help, lift: Self.lift, act: open).disabled(true)
+            }
+        }
+        .background(HookView(hook: hook))
+    }
+
+    private var help: String { browser.prefs.keyHelp(.capture, "Capture Page") }
+
+    private struct Lit: View {
+        @ObservedObject var tab: Tab
+        @ObservedObject var capture: PageCapture
+        @ObservedObject var area: AreaPick
+        @ObservedObject var pick: VisualPick
+        let help: String
+        let act: () -> Void
+
+        var body: some View {
+            let on = capture.shown || capture.busy || area.active || (pick.active && pick.capturing)
+            WorkbenchTool(icon: "camera", title: "Capture", on: on, help: help, lift: CaptureTool.lift, act: act)
+                .disabled(tab.built == nil)
+        }
     }
 
     private func open() {
@@ -310,10 +336,13 @@ struct CaptureDoor: View {
         let menu = NSMenu()
         menu.addItem(Self.item("Visible Page", "rectangle") { browser.capturePage(.visible) })
         menu.addItem(Self.item("Select Area…", "rectangle.dashed") { browser.pickArea() })
-        menu.addItem(Self.item("Choose Element…", VisualDoor.icon) { browser.pickVisual(forCapture: true) })
+        menu.addItem(Self.item("Choose Element…", VisualTool.icon) { browser.pickVisual(forCapture: true) })
         menu.addItem(Self.item("Full Page (Limited)…", "rectangle.expand.vertical") { browser.capturePage(.full) })
-        // Hung from the door's lower-left corner, a little below, like a pull-down.
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: view.isFlipped ? view.bounds.height + 4 : -4), in: view)
+        // Its foot a little above the tool's top, since the dock sits at the
+        // window's foot. The menu's top-left corner is the point given.
+        let gap: CGFloat = 6
+        let top = view.isFlipped ? -gap - menu.size.height : view.bounds.height + gap + menu.size.height
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: top), in: view)
     }
 
     /// Menu items call back into Swift through this; the item keeps it alive.

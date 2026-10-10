@@ -103,6 +103,9 @@ enum Palette {
     /// way, and one anybody can (see Bar.swift).
     static let safe = Color(nsColor: NS.safe)           // green-700 · green-400
     static let unsafe = Color(nsColor: NS.unsafe)       // amber-700 · amber-400
+    /// Developer mode's light round the page and on the envelope
+    /// (Workbench.swift): the landing's dev blue in Escale's tone.
+    static let developing = Color(nsColor: NS.developing)
 
     /// A role as it is in one tone and one look, whatever the window wears:
     /// for the Colours choice, which shows both tones side by side
@@ -258,6 +261,7 @@ enum Palette {
         static let githubFinished = tint(light: (0.48, 0.24, 0.69), dark: (0.77, 0.61, 0.96))
         static let safe = tint(light: (0.08, 0.50, 0.24), dark: (0.29, 0.87, 0.50), escale: (0x3B6B3E, 0x9CCB8C))
         static let unsafe = tint(light: (0.71, 0.33, 0.04), dark: (0.98, 0.75, 0.14), escale: (0x9A5B12, 0xE7B75F))
+        static let developing = tint(light: (0.26, 0.52, 0.96), dark: (0.45, 0.65, 1.0), escale: (0x3D5A95, 0x9FB4E0))
         /// Escale's are the landing's three environments: prod's wine for
         /// keys, staging's ochre for text, dev's blue for numbers.
         static let codeKey = tint(light: (0.49, 0.26, 0.62), dark: (0.80, 0.66, 0.96), escale: (0x8E3044, 0xE3A0AD))
@@ -553,6 +557,23 @@ enum Metrics {
     static let callsIndent: CGFloat = 12
     /// A tool's tab above Developer mode (Developer.swift).
     static let devToolTab: CGFloat = 26
+    /// The page tools' dock at the window's foot (Workbench.swift), in
+    /// compact points. A tool is a circle while off, a capsule with its name
+    /// while on.
+    static let dockTool: CGFloat = 30
+    static let dockGlyph: CGFloat = 13
+    static let dockText: CGFloat = 12.5
+    static let dockGrip: CGFloat = 14
+    /// An on tool's capsule: the air before its symbol, between the symbol
+    /// and its name, and after the name.
+    static let dockLead: CGFloat = 12
+    static let dockLabelGap: CGFloat = 7
+    static let dockTrail: CGFloat = 14
+    static let dockPad: CGFloat = 5
+    static let dockGap: CGFloat = 2
+    /// The dock's distance from the window's bottom edge, and the least it
+    /// keeps from the others when moved.
+    static let dockFoot: CGFloat = 16
     /// The card beside an inspected element (VisualPick.swift), in compact points.
     static let visualCardWidth: CGFloat = 264
     static let visualNameWidth: CGFloat = 72
@@ -881,6 +902,9 @@ enum Motion {
     static let fadeDuration: TimeInterval = 0.5
     static let fade = Animation.easeInOut(duration: fadeDuration)
     static let quick = Animation.easeOut(duration: 0.14)
+    /// The page tools' dock rising from the window's foot: a spring with a
+    /// little give.
+    static let dock = Animation.spring(response: 0.42, dampingFraction: 0.76)
     /// Arrival's plane coming in once over the pass and slowing to land.
     static let gateFlight = Animation.timingCurve(0.20, 0.70, 0.20, 1, duration: 0.9)
     static let gateFlightDelay: TimeInterval = 0.12
@@ -917,7 +941,8 @@ enum Motion {
     static let copySwapSpeed = 2.2
     /// The menu over selected text (SelectionMenu.swift), tuned by eye on a
     /// prototype: Copy swells past its size and settles, Translate is drawn
-    /// out of it a beat later. About 0.37 s in all, short enough to be seen
+    /// out of it a beat later. Developer mode's dock turns a tool on the same
+    /// way (Bubble.swift). About 0.37 s in all, short enough to be seen
     /// dozens of times a day. Bounce runs from 0 (none) to 1 (the most).
     static let selectionPop: TimeInterval = 0.30
     static let selectionPopBounce = 0.55

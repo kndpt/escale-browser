@@ -80,6 +80,8 @@ final class VisualPick: ObservableObject {
     private var token = UUID().uuidString
     private var relay: Relay?
     private var picked: ((Selection) -> Void)?
+    /// Picking for a capture rather than to inspect (Browser.pickVisual).
+    var capturing: Bool { picked != nil }
     private static let script = Bundled.script("visual-pick.js")
     private static let name = "escaleVisualPick"
 
@@ -318,7 +320,7 @@ struct VisualCard: View {
             if let pinned {
                 Rectangle().fill(Palette.hairline).frame(height: 1)
                 HStack(spacing: metrics.length(2)) {
-                    Door(icon: VisualDoor.icon, help: "Pick Another Element", box: 24, glyph: 11, act: pinned.again)
+                    Door(icon: VisualTool.icon, help: "Pick Another Element", box: 24, glyph: 11, act: pinned.again)
                     Door(icon: "camera", help: "Capture Element", box: 24, glyph: 11, act: pinned.capture)
                     Spacer(minLength: 0)
                     Button(action: pinned.more) {
@@ -428,7 +430,8 @@ private struct VisualValue: View {
     }
 }
 
-struct VisualDoor: View {
+/// Select in Developer mode's dock: pick an element with the pointer.
+struct VisualTool: View {
     /// The bare pointer: pick with the mouse. Doubled dashed squares were
     /// tried first; they read heavier than the camera and DevTools symbols,
     /// off-centre, and like "copy".
@@ -438,18 +441,18 @@ struct VisualDoor: View {
         if let tab = browser.active {
             Lit(pick: tab.visual, ready: tab.built != nil, help: browser.prefs.keyHelp(.visual)) { browser.pickVisual() }
         } else {
-            Door(icon: Self.icon, help: browser.prefs.keyHelp(.visual)) {}.disabled(true)
+            WorkbenchTool(icon: Self.icon, title: "Select", help: browser.prefs.keyHelp(.visual)) {}.disabled(true)
         }
     }
-    /// Lit while targeting or pinned, so the way out is where the way in was.
+    /// On while targeting or pinned, so the way out is where the way in was.
+    /// Picking an element to capture is Capture's, not this one's.
     private struct Lit: View {
         @ObservedObject var pick: VisualPick
         let ready: Bool
         let help: String
         let act: () -> Void
         var body: some View {
-            Door(icon: VisualDoor.icon, on: pick.active || pick.selection != nil, help: help, act: act)
-                .accessibilityLabel("Visual Inspection")
+            WorkbenchTool(icon: VisualTool.icon, title: "Select", on: (pick.active && !pick.capturing) || pick.selection != nil, help: help, act: act)
                 .disabled(!ready)
         }
     }

@@ -60,12 +60,12 @@ import Testing
     }
 
     @Test func theSpringStartsAtRestOvershootsAndSettles() {
-        let spring = SelectionFrame.spring(Motion.selectionPopBounce)
+        let spring = Bubble.spring(Motion.selectionPopBounce)
         #expect(spring(0) == 0)
         #expect(spring(1) == 1)
         let peak = stride(from: 0.0, through: 1, by: 0.01).map(spring).max() ?? 0
         #expect(peak > 1.02 && peak < 1.2)
-        let flat = SelectionFrame.spring(0)
+        let flat = Bubble.spring(0)
         #expect(stride(from: 0.0, through: 1, by: 0.01).map(flat).max() ?? 0 < 1.01)
     }
 
