@@ -97,6 +97,24 @@ import Testing
         #expect(hub.entries(in: space).first?.title == String(long.prefix(80)))
     }
 
+    @Test func aReloadTheFileSkipsStillTakesItsTitle() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let space = UUID()
+        let url = try #require(URL(string: "http://localhost:3000/"))
+        let hub = Localhost(file: folder.appendingPathComponent("localhost.json"))
+        let first = Date(timeIntervalSince1970: 1_000_000)
+        hub.record(url, title: "App", in: space, at: first)
+        // Two minutes on, the page reloads untitled — not written — then
+        // names itself anew.
+        let reload = first.addingTimeInterval(120)
+        hub.record(url, title: "", in: space, at: reload)
+        #expect(hub.entries(in: space).first?.visited == first)
+        hub.retitle(url, title: "App, renamed", in: space, at: reload.addingTimeInterval(1))
+        #expect(hub.entries(in: space).first?.title == "App, renamed")
+    }
+
     @Test func reopensOnlyOrdinaryTabs() throws {
         let url = try #require(URL(string: "http://localhost:3000/a"))
         #expect(!Localhost.reuses(shy: true, address: url, origin: "http://localhost:3000"))
