@@ -158,6 +158,12 @@ CHECKS = {
               "app", ("bundle",),
               paths=("Sources/Escale/Bookmarks/Environments.swift", "Tests/EscaleTests/BookmarkEnvironmentsTests.swift",
                      "Sources/Escale/Address/Field.swift", "Sources/Escale/Address/SearchEnvironments.swift")),
+        Check("bookmarked-page", ("python3", "Tests/Bench/bookmarked_page.py"),
+              BENCH + ("Tests/Bench/bookmarked_page.py",),
+              "the door follows the page away, back and across Spaces; ⇧⌘B adds, then opens rename and remove",
+              "app", ("bundle",),
+              paths=("Sources/Escale/Bookmarks/Bookmarks.swift", "Sources/Escale/Window/TabBar.swift",
+                     "Sources/Escale/Bench/PopoverBench.swift", "Tests/EscaleTests/BookmarkedPageTests.swift")),
         Check("navigation", ("python3", "Tests/Bench/navigation_history.py"),
               BENCH + ("Tests/Bench/navigation_history.py",),
               "recent history order and direct backward/forward jumps", "app", ("bundle",),
@@ -349,7 +355,7 @@ def plan(paths, risks=(), checks=(), quick=False, acknowledge=None):
     # Dependencies are small and explicit; no scoring or model-specific workflow.
     order = ["icons", "harness", "portable", "links", "whitespace", "changelog", "build", "swift",
              "bundle", "app", "wake", "sleeping", "tabs", "shortcut-motion", "sidebar-rows", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus",
-             "routes", "tab-source", "environments", "calls", "calls-browse", "extension-speech", "extension-bar", "space-media", "space-reorder", "call-float", "warnings"]
+             "routes", "tab-source", "environments", "bookmarked-page", "calls", "calls-browse", "extension-speech", "extension-bar", "space-media", "space-reorder", "call-float", "warnings"]
     return {"checks": [n for n in order if n in chosen], "reasons": chosen,
             "risks": list(risks), "requested": list(checks),
             "unknown": unknown, "acknowledge": acknowledge, "quick": quick,

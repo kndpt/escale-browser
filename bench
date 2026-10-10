@@ -50,6 +50,8 @@
     ./bench shot ID [PATH] [WIDTH]     a PNG of the page → its path
     ./bench close ID | all             only tabs the bench opened
     ./bench media [ID [JSON]]          test run: sources/listeners; action pause/play/previous/next/volume/dismiss/return, value 0...1
+    ./bench popover [X Y]              test world: the open popover's size, or a click X Y points from its top left,
+                                       through the app's event dispatch (the pointer stays where it is)
     ./bench probe                      the window's own state: panels, pageFrame, active transfers/progress/observers, address results and focus
     ./bench extensions                 installed extensions, their warnings and live speech state
     ./bench ext-add ID|LINK [--yes]    install from the Chrome Web Store (--yes only in a --test run)
@@ -464,6 +466,9 @@ def main(argv, out=None, err=None, timeout=None, cwd=None):
         request["id"] = args[0]
         request["clear"] = args[1:] == ["clear"]
         request["closed"] = args[1:] == ["closed"]
+    elif verb == "popover":
+        if len(args) not in (0, 2): sys.exit("usage: bench popover [X Y]")
+        if args: request["x"], request["y"] = float(args[0]), float(args[1])
     elif verb == "menu":
         if args not in ([], ["open"]): sys.exit("usage: bench menu [open]")
         request["open"] = args == ["open"]

@@ -1,0 +1,1 @@
+The bookmarks button fills in when the page you are on is a bookmark of the Space, and says so to VoiceOver. Its list then offers Remove Bookmark, Rename Bookmark and Show in List in place of Add This Page, and ⇧⌘B on a page already kept opens them (#44).
