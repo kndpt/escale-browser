@@ -52,6 +52,19 @@ import Testing
         #expect((text as NSString).substring(with: range) == "value")
     }
 
+    @Test func aParameterTurnedOffSelectsNothingLeftInTheField() {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("escale-query-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: file) }
+        let field = Field(history: History(file: file), search: { _ in nil }, engine: { "" }, others: { [] })
+        field.unfold("https://a.test/?first=one&second=two")
+        field.walk(1)
+        field.toggle()
+        #expect(field.typed == "https://a.test/?second=two")
+        #expect(field.marked == nil)
+        field.toggle()
+        #expect(field.marked.map { (field.typed as NSString).substring(with: $0) } == "one")
+    }
+
     @Test func valuesSayWhenTheyAreAnAddressOrAToken() throws {
         let query = try #require(Query("https://a.test/?next=https%3A%2F%2Fb.test%2F&t=eyJh.eyJi.c&n=3"))
         #expect(query.parameters.map(\.kind) == ["URL", "JWT", nil])

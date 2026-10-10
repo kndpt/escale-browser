@@ -21,7 +21,8 @@ struct Parameters: View {
             let rows = input.shownParameters.count + (tracking.isEmpty ? 0 : 1)
             ScrollViewReader { scroll in
                 ScrollView {
-                    VStack(spacing: 0) {
+                    // Lazy: 4096 bytes can hold a couple of thousand parameters.
+                    LazyVStack(spacing: 0) {
                         ForEach(input.shownParameters.filter { !query.parameters[$0].tracking }, id: \.self) { index in
                             row(query.parameters[index], at: index)
                         }

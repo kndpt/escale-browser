@@ -95,6 +95,8 @@ struct Query: Equatable {
     mutating func toggle(_ index: Int) {
         guard parameters.indices.contains(index) else { return }
         parameters[index].on.toggle()
+        // Off, it is no longer in the field; back on, the next reading places it.
+        parameters[index].range = nil
     }
 
     mutating func removeTracking() { parameters.removeAll(where: \.tracking) }
