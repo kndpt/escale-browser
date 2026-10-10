@@ -72,6 +72,8 @@ import Testing
         #expect(field.offers.first?.title == "Search npm.example.test for react")
         #expect(field.offers.first?.url.absoluteString == "https://npm.example.test/search?q=react")
         #expect(!field.offers.contains { $0.kind == .search })
+        field.walk(1)
+        #expect(field.completed == "npm react")
 
         field.typed = "yarn react"
         #expect(field.offers.last?.kind == .search)

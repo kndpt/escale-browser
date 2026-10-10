@@ -172,10 +172,11 @@ final class Field: ObservableObject {
         if github != nil || commanding { return typed }
         guard let selected else { return typed + (ending ?? "") }
         if let selectedEnvironment { return selectedEnvironment.url }
-        // A row's key can be a tab's or a bookmark's title; a search's is the
-        // words. A `data:` address can be megabytes of page, so its row keeps
-        // its title.
-        return selected.kind == .search || selected.url.scheme == "data" ? selected.key : selected.url.absoluteString
+        // A row's key can be a tab's or a bookmark's title; a search's, by the
+        // engine or a keyword, is the words. A `data:` address can be
+        // megabytes of page, so its row keeps its title.
+        let words = selected.kind == .search || selected.kind == .keyword
+        return words || selected.url.scheme == "data" ? selected.key : selected.url.absoluteString
     }
 
     /// `>` in New Tab: the field lists commands, not places.
