@@ -30,12 +30,45 @@ import SwiftUI
 // a short grace after the pointer leaves it, so a hand that overshoots on the
 // way back in doesn't lose it. While a tab's address is being typed into it,
 // the strip stays out.
+//
+// Focus Mode goes further in the column's mode: the rail and the bar over the
+// page go with the column, and the page has the window. The lights go up as
+// they do with the strip, and the same top edge brings them back down on a
+// bare band of title bar, which also moves the window; the thin band along
+// the top moves it at any time. ⌘L, ⌘K and ⌘T raise Bearings over the page as
+// ever. Across the top it is the fold. The mode lasts the session and touches
+// no setting: leaving it puts back the fold it found, and ⌘S or a change of
+// layout leaves it too, since both ask for the tabs.
 
 extension Browser {
     /// ⌘S. The column, or the strip across the top, out of the way, or back.
     func toggleFold() {
         peeking = false
-        withAnimation(prefs.sidebar ? Motion.fade : Motion.glide) { folded.toggle() }
+        withAnimation(prefs.sidebar ? Motion.fade : Motion.glide) {
+            focusing = false
+            folded.toggle()
+        }
+    }
+
+    /// Focus Mode, or back to the fold it found. Reduce Motion: at once.
+    func toggleFocus() {
+        peeking = false
+        let reduced = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        withAnimation(reduced ? nil : prefs.sidebar ? Motion.fade : Motion.glide) {
+            if focusing {
+                folded = unfocusedFold
+            } else {
+                unfocusedFold = folded
+                folded = true
+            }
+            focusing.toggle()
+        }
+    }
+
+    /// The tabs on screen: not folded, or the folded strip out over the page.
+    /// Focus Mode's band in the column's mode holds no tabs.
+    var tabsInSight: Bool {
+        !folded || peeking && !prefs.sidebar
     }
 
     /// The folded strip out over the page, or back up.
@@ -65,6 +98,7 @@ struct FoldDoor: View {
 struct Fold: View {
     @ObservedObject var browser: Browser
     @ObservedObject var prefs: Preferences
+    @SwiftUI.Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The strip going back up, a moment after the pointer left it.
     @State private var leaving: DispatchWorkItem?
@@ -101,11 +135,18 @@ struct Fold: View {
             }
             if folding, browser.peeking {
                 // Over the page, so glass of its own rather than the
-                // envelope's (Glass.swift).
-                TabBar(browser: browser)
-                    .frame(height: metrics.strip)
-                    .glass(.panel, in: Rectangle())
-                    .transition(.move(edge: .top))
+                // envelope's (Glass.swift). Focus Mode in the column's mode
+                // brings only title bar, for the lights and the window.
+                Group {
+                    if prefs.sidebar {
+                        DragStrip().frame(maxWidth: .infinity)
+                    } else {
+                        TabBar(browser: browser)
+                    }
+                }
+                .frame(height: metrics.strip)
+                .glass(.panel, in: Rectangle())
+                .transition(.move(edge: .top))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -128,12 +169,18 @@ struct Fold: View {
         // back as it rests — whole, not folded from a time nobody remembers,
         // unless Settings says it rests folded.
         .onChange(of: prefs.sidebar) { _, _ in
+            browser.focusing = false
             browser.folded = prefs.sidebar && prefs.sideHides
             browser.peeking = false
         }
         .onChange(of: prefs.sideHides) { _, hides in
             guard prefs.sidebar else { return }
-            withAnimation(Motion.fade) { browser.folded = hides }
+            // In Focus Mode, it is the fold the mode will put back.
+            if browser.focusing {
+                browser.unfocusedFold = hides
+            } else {
+                withAnimation(Motion.fade) { browser.folded = hides }
+            }
         }
         .onChange(of: prefs.interfaceSize) { _, _ in hideLights() }
         // The address typed into a tab is done with, and the pointer went
@@ -143,14 +190,14 @@ struct Fold: View {
         }
     }
 
-    /// The strip folded, and not taken over by a page filling the screen:
-    /// the only fold the pointer brings out.
+    /// The strip folded, or Focus Mode, and not taken over by a page filling
+    /// the screen: the only folds the pointer brings out.
     private var folding: Bool {
-        !prefs.sidebar && browser.folded && browser.active?.immersed != true
+        (!prefs.sidebar || browser.focusing) && browser.folded && browser.active?.immersed != true
     }
 
     private var lightsOff: Bool {
-        !prefs.sidebar && browser.folded && !browser.peeking
+        (!prefs.sidebar || browser.focusing) && browser.folded && !browser.peeking
     }
 
     /// The pointer is watched only while there is something folded for it
@@ -241,13 +288,14 @@ struct Fold: View {
     /// them, and hidden buttons take no clicks.
     private func hideLights() {
         guard let bar = Fold.titlebar else { return }
-        if prefs.sidebar {
+        if prefs.sidebar, !browser.focusing, !bar.isHidden {
             // The rail/column never owns the native title bar. Keeping the
-            // translation at zero also resets it when switching from strip
-            // mode after a folded strip.
+            // translation at zero also resets it. Lights still up from a
+            // folded strip or Focus Mode come back down the way they went.
             Fold.slide(bar, off: false, by: 0)
         } else {
-            Fold.slide(bar, off: lightsOff, by: metrics.strip, up: true)
+            // Reduce Motion: no distance to travel, so no slide.
+            Fold.slide(bar, off: lightsOff, by: reduceMotion ? 0 : metrics.strip, up: true)
         }
     }
 

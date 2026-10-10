@@ -36,9 +36,9 @@ import SwiftUI
 
 extension Browser {
     /// The bar is on the window: the column's mode, the switch on, and no
-    /// page holding the whole screen.
+    /// page holding the whole screen or the window (Focus Mode).
     var showsBar: Bool {
-        prefs.sidebar && prefs.addressBar && active?.immersed != true
+        prefs.sidebar && prefs.addressBar && !focusing && active?.immersed != true
     }
 
     /// The column's corner, where the lights sit: the strip's height, or the

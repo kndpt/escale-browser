@@ -27,6 +27,7 @@ struct KeyMenus: Commands {
             Toggle("Show Tabs in Sidebar", isOn: Binding(get: { prefs.sidebar }, set: { _ in Motion.command { browser.toggleSidebar() } }))
                 .keyboardShortcut(prefs.keyBindings.keys(.sidebar).first?.shortcut)
             KeyMenuItem(action: .fold, browser: browser, prefs: prefs, title: browser.folded ? "Show Tab Bar" : "Hide Tab Bar")
+            KeyMenuItem(action: .focus, browser: browser, prefs: prefs, title: browser.focusing ? "Exit Focus Mode" : "Enter Focus Mode")
             Picker("Tabs Wear", selection: $prefs.glyph) {
                 ForEach(Glyph.allCases) { Text($0.title).tag($0) }
             }

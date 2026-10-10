@@ -137,6 +137,10 @@ final class Browser: NSObject, ObservableObject {
     /// while it is (see Fold.swift).
     @Published var folded = false
     @Published var peeking = false
+    /// Focus Mode: the page alone in the window, for the session, and the
+    /// fold it found, put back on the way out (see Fold.swift).
+    @Published var focusing = false
+    var unfocusedFold = false
 
     /// The address field, raised over a page by ⌘L or a pending New Tab. A blank tab shows it
     /// without being asked — there is nothing else for that tab to show.
@@ -1698,6 +1702,7 @@ final class Browser: NSObject, ObservableObject {
         playback.selected = id
         playback.minimized = id
         prefs.sidebar = true
+        focusing = false
         folded = false
     }
 

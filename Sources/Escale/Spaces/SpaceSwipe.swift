@@ -61,7 +61,7 @@ final class SpaceSwipe {
 
     /// True for an event the swipe keeps for itself.
     private func takes(_ event: NSEvent) -> Bool {
-        guard let browser, browser.prefs.usesSpaces, !browser.folded || browser.peeking else { return false }
+        guard let browser, browser.prefs.usesSpaces, browser.tabsInSight else { return false }
         // A mouse wheel over the bar: a notch, a space.
         if !event.hasPreciseScrollingDeltas {
             guard !browser.prefs.sidebar, event.scrollingDeltaY != 0, overTabs(event, in: browser) else { return false }
