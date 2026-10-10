@@ -298,7 +298,9 @@ struct AddressField: NSViewRepresentable {
         if want != coordinator.synced {
             coordinator.synced = want
             field.stringValue = want
-            coordinator.select(from: input.typed.count, in: field)
+            // Only an ending of what was typed is selected; a walked-to
+            // address that doesn't extend it keeps the caret at its end.
+            coordinator.select(from: want.hasPrefix(input.typed) ? input.typed.count : want.count, in: field)
         }
 
         if coordinator.answered != input.focusRequest {
