@@ -107,11 +107,13 @@ final class Browser: NSObject, ObservableObject {
     /// The tabs that are bookmarks' own, and whose (see Shelf.swift).
     @Published var shelfTabs: [Tab.ID: Bookmark.ID] = [:]
 
-    /// ⇧⌘B. The page you are on, at the end of the list.
+    /// ⇧⌘B. The page you are on, at the end of the list. Already kept, its
+    /// bookmark's actions instead, which hang from the strip's door; without
+    /// the strip, only the word.
     func bookmarkCurrent() {
         guard let tab = active, let url = tab.address else { return }
         guard !bookmarks.contains(url) else {
-            announce("Already a bookmark")
+            if !prefs.sidebar, !folded || peeking, !tab.immersed { bookmarksOpen = true } else { announce("Already a bookmark") }
             return
         }
         bookmarks.add(url, title: tab.title)

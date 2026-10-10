@@ -174,10 +174,9 @@ struct TabBar: View {
                         VisualDoor(browser: browser)
                         CaptureDoor(browser: browser)
                         DeveloperDoor(browser: browser)
-                        Door(icon: "bookmark", help: "Bookmarks") { browser.bookmarksOpen.toggle() }
-                            .popover(isPresented: $browser.bookmarksOpen, arrowEdge: .bottom) {
-                                BookmarksDropdown(browser: browser, bookmarks: browser.bookmarks)
-                            }
+                        if let tab = browser.active {
+                            BookmarkDoor(browser: browser, bookmarks: browser.bookmarks, tab: tab)
+                        }
                         // Last, at the far right, as over the page (Bar.swift).
                         if browser.prefs.copyDoor, let tab = browser.active {
                             CopyDoor(browser: browser, tab: tab)

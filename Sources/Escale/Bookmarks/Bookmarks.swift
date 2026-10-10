@@ -33,8 +33,11 @@ struct Bookmark: Codable, Identifiable, Hashable {
 
 @MainActor
 final class Bookmarks: ObservableObject {
-    @Published private(set) var roots: [Bookmark] = []
+    @Published private(set) var roots: [Bookmark] = [] { didSet { addresses = nil } }
     let space: UUID
+    /// Each site by its address, made when first asked for after a change:
+    /// the door asks at every redraw, and a dictionary answers that, not the tree.
+    private var addresses: [String: Bookmark]?
 
     /// The file it lives in: its space's (see Shelf.swift).
     private let file: URL
@@ -81,11 +84,36 @@ final class Bookmarks: ObservableObject {
         save()
     }
 
-    func contains(_ url: URL) -> Bool {
-        func walk(_ nodes: [Bookmark]) -> Bool {
-            nodes.contains { $0.url == url.absoluteString || walk($0.children ?? []) }
+    func contains(_ url: URL) -> Bool { bookmark(for: url) != nil }
+
+    /// The bookmark kept for this page, in whatever folder.
+    func bookmark(for url: URL) -> Bookmark? {
+        if addresses == nil { addresses = Bookmarks.byAddress(roots) }
+        return addresses?[url.absoluteString]
+    }
+
+    /// Every site by its address; where one is kept twice, the first in the
+    /// list's order, as it is drawn.
+    static func byAddress(_ nodes: [Bookmark]) -> [String: Bookmark] {
+        var found: [String: Bookmark] = [:]
+        func walk(_ nodes: [Bookmark]) {
+            for node in nodes {
+                if let url = node.url, found[url] == nil { found[url] = node }
+                walk(node.children ?? [])
+            }
         }
-        return walk(roots)
+        walk(nodes)
+        return found
+    }
+
+    /// The folders `id` sits in, outermost first: empty at the top level,
+    /// nil when it isn't in the list.
+    static func path(to id: Bookmark.ID, in nodes: [Bookmark]) -> [Bookmark.ID]? {
+        for node in nodes {
+            if node.id == id { return [] }
+            if let kids = node.children, let inner = path(to: id, in: kids) { return [node.id] + inner }
+        }
+        return nil
     }
 
     func remove(_ id: Bookmark.ID) {
@@ -431,7 +459,15 @@ struct BookmarkOutline: View {
     @ObservedObject var bookmarks: Bookmarks
     /// The scroll view it is in, to keep the chosen row in sight.
     let list: ScrollViewProxy
+    /// A bookmark to bring into view, its folders opened, and to name when
+    /// asked: the dropdown's actions on the page's own bookmark.
+    var reveal: Binding<Reveal?> = .constant(nil)
     let open: (URL) -> Void
+
+    struct Reveal: Equatable {
+        let id: Bookmark.ID
+        var naming = false
+    }
 
     @SwiftUI.Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var expanded: Set<Bookmark.ID> = []
@@ -442,6 +478,8 @@ struct BookmarkOutline: View {
     @State private var folderName = ""
     /// None until the arrows choose one.
     @State private var chosen: Bookmark.ID?
+    /// The row brought into view, marked until the list closes.
+    @State private var revealed: Bookmark.ID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
@@ -452,6 +490,17 @@ struct BookmarkOutline: View {
         .onDrop(of: [.text], isTargeted: $overRoot) { providers in drop(providers, into: nil) }
         .onDisappear { mergeHover.cancel() }
         .onChange(of: chosen) { _, id in if let id { list.scrollTo(id) } }
+        .onChange(of: reveal.wrappedValue) { _, asked in
+            guard let asked, let node = bookmarks.find(asked.id) else { return }
+            reveal.wrappedValue = nil
+            // Opened at once, so the row is in place to be scrolled to.
+            expanded.formUnion(Bookmarks.path(to: node.id, in: bookmarks.roots) ?? [])
+            revealed = node.id
+            if asked.naming { startNaming(node) }
+            DispatchQueue.main.async {
+                withAnimation(reduceMotion ? nil : Motion.settle) { list.scrollTo(node.id, anchor: .center) }
+            }
+        }
         // A name being typed keeps every key.
         .walking(move: move, open: { _ in chosenNode.map(act) }, remove: { chosenNode.map(remove) },
                  fold: { open in
@@ -501,7 +550,7 @@ struct BookmarkOutline: View {
                 isOpen: expanded.contains(node.id),
                 chosen: chosen == node.id,
                 dragging: dragging == node.id,
-                merging: mergeHover.target == node.id,
+                merging: mergeHover.target == node.id || revealed == node.id,
                 pulsing: mergeHover.pulsing && (mergeHover.source == node.id || mergeHover.target == node.id),
                 mergeReady: mergeHover.ready && mergeHover.target == node.id,
                 naming: naming == node.id, folderName: $folderName,
@@ -512,6 +561,7 @@ struct BookmarkOutline: View {
                 moveTo: { bookmarks.move(node.id, into: $0) },
                 remove: { bookmarks.remove(node.id) }
             )
+            .id(node.id)
             .onDrag {
                 dragging = node.id
                 return NSItemProvider(object: node.id.uuidString as NSString)
@@ -755,10 +805,34 @@ struct BookmarkOutline: View {
     }
 }
 
-/// The button's dropdown: the tree, and the two things that aren't in it.
+/// The strip's bookmarks door, filled while the page on screen is one of
+/// this Space's bookmarks. The tab is watched here, as CopyDoor watches it:
+/// a navigation redraws this door, not the window.
+struct BookmarkDoor: View {
+    @ObservedObject var browser: Browser
+    @ObservedObject var bookmarks: Bookmarks
+    @ObservedObject var tab: Tab
+
+    var body: some View {
+        let kept = tab.address.flatMap(bookmarks.bookmark(for:))
+        let words = kept == nil ? "Bookmarks" : "Bookmarks, this page is bookmarked"
+        Door(icon: kept == nil ? "bookmark" : "bookmark.fill", help: words) { browser.bookmarksOpen.toggle() }
+            .accessibilityLabel(words)
+            .popover(isPresented: $browser.bookmarksOpen, arrowEdge: .bottom) {
+                BookmarksDropdown(browser: browser, bookmarks: bookmarks, kept: kept)
+            }
+    }
+}
+
+/// The button's dropdown: the tree, and the things that aren't in it. On a
+/// page already kept, what can be done to its bookmark stands in for adding it.
 struct BookmarksDropdown: View {
     @ObservedObject var browser: Browser
     @ObservedObject var bookmarks: Bookmarks
+    /// The page on screen's own bookmark, as the door found it.
+    let kept: Bookmark?
+
+    @State private var reveal: BookmarkOutline.Reveal?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -770,7 +844,7 @@ struct BookmarksDropdown: View {
             } else {
                 ScrollViewReader { list in
                     ScrollView {
-                        BookmarkOutline(browser: browser, bookmarks: bookmarks, list: list) { url in
+                        BookmarkOutline(browser: browser, bookmarks: bookmarks, list: list, reveal: $reveal) { url in
                             browser.pickBookmark(url)
                         }
                         .padding(6)
@@ -780,7 +854,13 @@ struct BookmarksDropdown: View {
             }
             Divider().overlay(Palette.hairline)
             VStack(spacing: 1) {
-                Foot("bookmark", "Add This Page") { browser.bookmarkCurrent() }
+                if let kept {
+                    Foot("bookmark.slash", "Remove Bookmark") { bookmarks.remove(kept.id) }
+                    Foot("pencil", "Rename Bookmark") { reveal = .init(id: kept.id, naming: true) }
+                    Foot("scope", "Show in List") { reveal = .init(id: kept.id) }
+                } else {
+                    Foot("bookmark", "Add This Page") { browser.bookmarkCurrent() }
+                }
                 Foot(nil, "Manage Bookmarks…") { browser.bookmarking = true }
             }
             .padding(6)
@@ -802,21 +882,24 @@ struct BookmarksDropdown: View {
             self.act = act
         }
 
+        // A button, not a tap: VoiceOver can find and press it.
         var body: some View {
-            HStack(spacing: 8) {
-                if let symbol {
-                    Image(systemName: symbol).font(.system(size: 11)).foregroundStyle(Palette.muted).frame(width: 14)
-                } else {
-                    Spacer().frame(width: 14)
+            Button(action: act) {
+                HStack(spacing: 8) {
+                    if let symbol {
+                        Image(systemName: symbol).font(.system(size: 11)).foregroundStyle(Palette.muted).frame(width: 14)
+                    } else {
+                        Spacer().frame(width: 14)
+                    }
+                    Text(title).font(.system(size: 12.5)).foregroundStyle(Palette.ink)
+                    Spacer(minLength: 0)
                 }
-                Text(title).font(.system(size: 12.5)).foregroundStyle(Palette.ink)
-                Spacer(minLength: 0)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(hovering ? Palette.wash : .clear))
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(hovering ? Palette.wash : .clear))
-            .contentShape(Rectangle())
-            .onTapGesture(perform: act)
+            .buttonStyle(.plain)
             .onHover { hovering = $0 }
         }
     }
