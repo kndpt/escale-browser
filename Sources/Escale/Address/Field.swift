@@ -164,11 +164,18 @@ final class Field: ObservableObject {
     /// Rows New Tab shows before its search row; ⌘L shows three.
     static let room = 6
 
-    /// Typed plus whatever the field is quietly finishing for you.
+    /// Typed plus whatever the field is quietly finishing for you; on a
+    /// walked-to row, where Return goes. Walking off the top gives back what
+    /// was typed, since `typed` never changes while walking. A command has no
+    /// address, so the field keeps the typed `>` words.
     var completed: String {
-        if github != nil { return typed }
-        if !newTab(), let picked, offers.indices.contains(picked) { return offers[picked].key }
-        return typed + (ending ?? "")
+        if github != nil || commanding { return typed }
+        guard let selected else { return typed + (ending ?? "") }
+        if let selectedEnvironment { return selectedEnvironment.url }
+        // A row's key can be a tab's or a bookmark's title; a search's is the
+        // words. A `data:` address can be megabytes of page, so its row keeps
+        // its title.
+        return selected.kind == .search || selected.url.scheme == "data" ? selected.key : selected.url.absoluteString
     }
 
     /// `>` in New Tab: the field lists commands, not places.

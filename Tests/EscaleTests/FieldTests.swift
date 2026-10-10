@@ -86,7 +86,7 @@ private func field(in root: URL) -> Field {
 
         field.walk(1)
         #expect(field.picked == 0)
-        #expect(field.completed == field.offers[0].key)
+        #expect(field.completed == field.offers[0].url.absoluteString)
         for _ in 1..<rows { field.walk(1) }
         #expect(field.picked == rows - 1)
         field.walk(1)
@@ -121,6 +121,40 @@ private func field(in root: URL) -> Field {
         field.walk(-1)
 
         #expect(field.picked == nil)
+    }
+
+    @Test func walkingNewTabShowsEachRowsAddressAndGivesTheTypingBack() throws {
+        let root = folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = try #require(URL(string: "https://project.example.test/releases?page=2"))
+        let field = Field(history: History(file: root.appendingPathComponent("history.json")),
+                          search: searching, engine: { "Synthetic" }, others: { [] },
+                          newTab: { true }, bookmarks: { [Bookmark.site("Project", url)] })
+        field.typed = "project"
+        #expect(field.offers.map(\.kind) == [.bookmark, .search])
+
+        field.walk(1)
+        // The address, not the bookmark's title.
+        #expect(field.completed == url.absoluteString)
+        field.walk(1)
+        #expect(field.completed == "project")
+        field.walk(-1)
+        field.walk(-1)
+        #expect(field.picked == nil)
+        #expect(field.completed == "project")
+    }
+
+    @Test func walkingOntoADataAddressShowsItsTitle() throws {
+        let root = folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = try #require(URL(string: "data:text/html,<p>project</p>"))
+        let field = Field(history: History(file: root.appendingPathComponent("history.json")),
+                          search: searching, engine: { "Synthetic" }, others: { [] },
+                          newTab: { true }, bookmarks: { [Bookmark.site("Project inline", url)] })
+        field.typed = "project"
+        field.walk(1)
+        #expect(field.selected?.url == url)
+        #expect(field.completed == "Project inline")
     }
 
     @Test func aBackspaceDropsTheEndingAndTabTakesIt() {
@@ -226,7 +260,7 @@ private func field(in root: URL) -> Field {
         #expect(field.selectedEnvironment?.name == "PROD")
         field.moveEnvironment(1)
         #expect(field.selectedEnvironment?.name == "DEV")
-        #expect(field.completed == "project")
+        #expect(field.completed == "http://localhost:8000/app?dev=1#start")
         field.leaveEnvironments()
         #expect(!field.environmentFocused)
         #expect(field.selectedEnvironment?.name == "DEV")
