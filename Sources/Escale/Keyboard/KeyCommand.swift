@@ -4,7 +4,7 @@
 import SwiftUI
 
 enum KeyAction: String, CaseIterable, Codable {
-    case closeWindow, newTab, privateTab, reopenTab, closeTab, searchTabs, searchGitHub, nextTab, previousTab, duplicateTab, renameTab, pinTab, changeLetter, closeOthers, clearTabs, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, lastTab, splitRight, splitLeft, splitTop, splitBottom, openAddress, back, forward, reload, stopLoading, copyAddress, copyMarkdown, pasteGo, history, clearHistory, addBookmark, bookmarks, previousSpace, nextSpace, newSpace, renameSpace, duplicateSpace, moveSpaceUp, moveSpaceDown, deleteSpace, find, findNext, findPrevious, zoomIn, zoomOut, resetZoom, print, reader, floatVideo, stopSound, hideElements, hiddenElements, resetSite, siteData, inspector, console, inspectElement, visual, capture, captureArea, captureFull, developer, localhost, settings, fold, focus, sidebar, downloads, passwords, welcome, feedback, space1, space2, space3, space4, space5, space6, space7, space8, space9
+    case closeWindow, newTab, privateTab, reopenTab, closeTab, searchTabs, searchGitHub, nextTab, previousTab, duplicateTab, renameTab, pinTab, changeLetter, closeOthers, clearTabs, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, lastTab, splitRight, splitLeft, splitTop, splitBottom, openAddress, back, forward, reload, stopLoading, copyAddress, copyMarkdown, pasteGo, history, clearHistory, addBookmark, bookmarks, previousSpace, nextSpace, newSpace, renameSpace, duplicateSpace, moveSpaceUp, moveSpaceDown, deleteSpace, find, findNext, findPrevious, zoomIn, zoomOut, resetZoom, print, reader, floatVideo, stopSound, hideElements, hiddenElements, resetSite, siteData, inspector, console, inspectElement, visual, capture, captureArea, captureFull, developer, network, localhost, settings, fold, focus, sidebar, downloads, passwords, welcome, feedback, space1, space2, space3, space4, space5, space6, space7, space8, space9
 
     var command: KeyCommand { KeyCommand.catalog[self] ?? KeyCommand(self, rawValue, .app) }
     var index: Int? { Int(rawValue.dropFirst(rawValue.hasPrefix("space") ? 5 : 3)) }
@@ -95,7 +95,8 @@ struct KeyCommand: Identifiable {
         .init(.capture, "Capture Visible Page", .tools, "", [.init("s", [.command, .option])]),
         .init(.captureArea, "Select Area to Capture", .tools, "", []),
         .init(.captureFull, "Capture Full Page", .tools, "Subject to the page capture limits.", []),
-        .init(.developer, "Developer Mode", .tools, "Inspect the page’s API calls.", [.init("n", [.command, .option])]),
+        .init(.developer, "Developer Mode", .tools, "Capture, element selection and Network, in a dock at the window’s foot.", []),
+        .init(.network, "Network", .tools, "Inspect the page’s API calls.", [.init("n", [.command, .option])]),
         .init(.localhost, "Show Localhost", .tools, "", []),
         .init(.closeWindow, "Close Window", .app, "Close the focused browser window.", [.init("w", [.command, .shift])]),
         .init(.settings, "Settings", .app, "", [.init(",", [.command])]),

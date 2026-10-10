@@ -353,6 +353,9 @@ final class Browser: NSObject, ObservableObject {
         }
     }
 
+    /// Developer mode: the page tools' dock at the window's foot (Workbench.swift).
+    @Published var developing = false
+
     // MARK: - what is kept, and getting rid of it
 
     @Published var recalling = false
