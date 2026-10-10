@@ -161,9 +161,10 @@ final class Field: ObservableObject {
 
     /// Typed plus whatever the field is quietly finishing for you; on a
     /// walked-to row, where Return goes. Walking off the top gives back what
-    /// was typed, since `typed` never changes while walking.
+    /// was typed, since `typed` never changes while walking. A command has no
+    /// address, so the field keeps the typed `>` words.
     var completed: String {
-        if github != nil { return typed }
+        if github != nil || commanding { return typed }
         guard let selected else { return typed + (ending ?? "") }
         if let selectedEnvironment { return selectedEnvironment.url }
         // A row's key can be a tab's or a bookmark's title; a search's is the
