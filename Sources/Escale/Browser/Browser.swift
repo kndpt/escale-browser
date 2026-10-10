@@ -679,6 +679,8 @@ final class Browser: NSObject, ObservableObject {
     /// The minute-by-minute look for tabs to put to sleep, and the ear for
     /// macOS saying memory is short. See Sleep.swift.
     var dozing: Timer?
+    /// Starts and stops `dozing` with Settings › Tabs.
+    var dozeSwitch: AnyCancellable?
     var pressure: DispatchSourceMemoryPressure?
     /// The pictures sleeping tabs keep, taken one at a time. See Pictures.swift.
     let pictures = Pictures()
