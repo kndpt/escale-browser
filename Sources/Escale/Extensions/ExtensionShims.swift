@@ -701,7 +701,9 @@ enum ExtensionShims {
         case "search.query":
             guard browser.spaceID == owner.space else { throw Unsupported(what: "This space is parked") }
             let spec = first as? [String: Any] ?? [:]
-            guard let url = browser.destination(for: spec["text"] as? String ?? "") else { return nil }
+            // Chrome sends it to the default engine: a person's keywords are for what they type.
+            let text = spec["text"] as? String ?? ""
+            guard let url = Address.url(from: text) ?? browser.searchURL(for: text) else { return nil }
             switch spec["disposition"] as? String {
             case "NEW_TAB", "NEW_WINDOW": browser.open(url, foreground: true)
             default: browser.visit(url)

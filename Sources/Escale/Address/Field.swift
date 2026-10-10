@@ -30,6 +30,12 @@ import Foundation
 // order its source gave. Each source hands over as many rows as the list
 // shows, and the places learned for the query even past that, so the cut
 // comes after the order. The grey ending keeps the order before any lift.
+//
+// In New Tab, `>` turns the question from where to go into what to do: the
+// rows are browser commands whose title matches what follows, each with its
+// shortcut as bound, and never a page. Only commands the window can run now
+// are offered, read from the finite catalogue (KeyCommand.swift) on each key,
+// so nothing is built or kept for it.
 
 @MainActor
 final class Field: ObservableObject {
@@ -99,6 +105,8 @@ final class Field: ObservableObject {
     private let search: (String) -> URL?
     /// The name of the engine that search goes to, for its row.
     private let engine: () -> String
+    /// A site's search, when the first word typed is its keyword.
+    private let keyword: (String) -> (keyword: Keyword, words: String, url: URL)?
     /// Eligible tabs; a pending New Tab also offers the page underneath.
     private let others: () -> [Tab]
     private let newTab: () -> Bool
@@ -106,50 +114,73 @@ final class Field: ObservableObject {
     private let bookmarkForTab: (UUID) -> Bookmark?
     /// What the rows taken before have taught, for the current Space.
     private let habits: () -> Habits?
+    /// Whether the window can run a command now (`Browser.keyAvailable`).
+    private let available: (KeyAction) -> Bool
+    /// A command's shortcuts as bound now.
+    private let keys: (KeyAction) -> [KeyStroke]
 
     init(
         history: @escaping () -> History,
         search: @escaping (String) -> URL?,
         engine: @escaping () -> String,
+        keyword: @escaping (String) -> (keyword: Keyword, words: String, url: URL)? = { _ in nil },
         others: @escaping () -> [Tab],
         newTab: @escaping () -> Bool = { false },
         bookmarks: @escaping () -> [Bookmark] = { [] },
         bookmarkForTab: @escaping (UUID) -> Bookmark? = { _ in nil },
-        habits: @escaping () -> Habits? = { nil }
+        habits: @escaping () -> Habits? = { nil },
+        available: @escaping (KeyAction) -> Bool = { _ in true },
+        keys: @escaping (KeyAction) -> [KeyStroke] = { $0.command.defaults }
     ) {
         self.history = history
         self.search = search
         self.engine = engine
+        self.keyword = keyword
         self.others = others
         self.newTab = newTab
         self.bookmarks = bookmarks
         self.bookmarkForTab = bookmarkForTab
         self.habits = habits
+        self.available = available
+        self.keys = keys
     }
 
     convenience init(
         history: History,
         search: @escaping (String) -> URL?,
         engine: @escaping () -> String,
+        keyword: @escaping (String) -> (keyword: Keyword, words: String, url: URL)? = { _ in nil },
         others: @escaping () -> [Tab],
         newTab: @escaping () -> Bool = { false },
         bookmarks: @escaping () -> [Bookmark] = { [] },
         bookmarkForTab: @escaping (UUID) -> Bookmark? = { _ in nil },
-        habits: Habits? = nil
+        habits: Habits? = nil,
+        available: @escaping (KeyAction) -> Bool = { _ in true }
     ) {
-        self.init(history: { history }, search: search, engine: engine, others: others, newTab: newTab,
-                  bookmarks: bookmarks, bookmarkForTab: bookmarkForTab, habits: { habits })
+        self.init(history: { history }, search: search, engine: engine, keyword: keyword, others: others, newTab: newTab,
+                  bookmarks: bookmarks, bookmarkForTab: bookmarkForTab, habits: { habits }, available: available)
     }
 
     /// Rows New Tab shows before its search row; ⌘L shows three.
     static let room = 6
 
-    /// Typed plus whatever the field is quietly finishing for you.
+    /// Typed plus whatever the field is quietly finishing for you; on a
+    /// walked-to row, where Return goes. Walking off the top gives back what
+    /// was typed, since `typed` never changes while walking. A command has no
+    /// address, so the field keeps the typed `>` words.
     var completed: String {
-        if github != nil { return typed }
-        if !newTab(), let picked, offers.indices.contains(picked) { return offers[picked].key }
-        return typed + (ending ?? "")
+        if github != nil || commanding { return typed }
+        guard let selected else { return typed + (ending ?? "") }
+        if let selectedEnvironment { return selectedEnvironment.url }
+        // A row's key can be a tab's or a bookmark's title; a search's, by the
+        // engine or a keyword, is the words. A `data:` address can be
+        // megabytes of page, so its row keeps its title.
+        let words = selected.kind == .search || selected.kind == .keyword
+        return words || selected.url.scheme == "data" ? selected.key : selected.url.absoluteString
     }
+
+    /// `>` in New Tab: the field lists commands, not places.
+    var commanding: Bool { github == nil && !summoning && newTab() && typed.hasPrefix(">") }
 
     /// Put the cursor back in the field, from wherever asked.
     func askFocus(selectAll: Bool = true) {
@@ -221,6 +252,14 @@ final class Field: ObservableObject {
             github.ask(typed)
             return
         }
+        guard !commanding else {
+            offers = commands(matching: String(typed.dropFirst()))
+            ending = nil
+            // The best match is already chosen: `>`, a name, Return.
+            picked = offers.isEmpty ? nil : 0
+            return
+        }
+
         let lifts = typed.isEmpty ? [:] : habits()?.lifts(for: typed) ?? [:]
         let learned = Set(lifts.keys)
         guard !summoning else {
@@ -261,13 +300,15 @@ final class Field: ObservableObject {
             candidates = opened + places
         }
         var list = Array(Field.ranked(candidates, environments: newTab(), lifts: lifts).prefix(room))
-        // Last in the list, and only when what was typed cannot be a place.
-        if !typed.isEmpty,
-           Address.url(from: typed) == nil,
-           let asked = search(typed) {
-            list.append(
-                Suggestion(key: typed, title: engine(), url: asked, kind: .search)
-            )
+        // Only when what was typed cannot be a place: a site named by its
+        // keyword first, in place of the engine, which otherwise comes last.
+        if !typed.isEmpty, Address.url(from: typed) == nil {
+            if let found = keyword(typed) {
+                list.insert(Suggestion(key: typed, title: "Search \(found.keyword.site) for \(found.words)",
+                                       url: found.url, kind: .keyword), at: 0)
+            } else if let asked = search(typed) {
+                list.append(Suggestion(key: typed, title: engine(), url: asked, kind: .search))
+            }
         }
         offers = list
         // What Return finishes without a chosen row is what was typed, read
@@ -350,6 +391,28 @@ final class Field: ObservableObject {
         let identity = selected?.id
         guess()
         picked = identity.flatMap { id in offers.firstIndex { $0.id == id } }
+    }
+
+    /// The commands the window can run now whose title answers `query`, the
+    /// closer match first, then in the catalogue's order. Editing and macOS
+    /// references are not in the catalogue: they belong to whoever has focus.
+    private func commands(matching query: String) -> [Suggestion] {
+        let terms = Terms(query)
+        return KeyCommand.all
+            .compactMap { command -> (command: KeyCommand, match: Terms.Match)? in
+                guard let match = terms.isEmpty ? .typed : terms.match(command.title) else { return nil }
+                return (command, match)
+            }
+            .filter { available($0.command.action) }
+            .enumerated()
+            .sorted { $0.element.match != $1.element.match ? $0.element.match < $1.element.match : $0.offset < $1.offset }
+            .prefix(Field.room)
+            .compactMap { _, found in
+                let action = found.command.action
+                guard let url = URL(string: "escale:" + action.rawValue) else { return nil }
+                return Suggestion(key: found.command.title, title: keys(action).map(\.label).joined(separator: " · "),
+                                  url: url, kind: .command, action: action, match: found.match)
+            }
     }
 
     /// What is open, most recently looked at first, filtered by what has been

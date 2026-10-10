@@ -86,6 +86,15 @@ struct Call: Identifiable, Equatable {
     /// Fetch and XHR: what the page's own code asked for.
     var isAPI: Bool { type == "fetch" || type == "xhr" }
 
+    /// A 4xx or 5xx answer, or no answer: failed or cancelled.
+    var isError: Bool {
+        switch state {
+        case .done(let status): return status >= 400
+        case .failed, .canceled: return true
+        case .loading, .earlier: return false
+        }
+    }
+
     enum State: Equatable {
         case loading, done(Int), failed(String), canceled, earlier
     }
@@ -185,15 +194,35 @@ struct CallList: Equatable {
 
     subscript(id: String) -> Call? { calls[id] }
 
-    enum Filter: Hashable { case api, all }
+    enum Filter: Hashable { case api, errors, all }
 
-    /// The calls of `filter` matching `text`, newest last, as the page made
-    /// them. `bodies` are calls whose response matched the same text
-    /// (CallSearch.swift): they are listed once, like any other match.
-    func shown(_ filter: Filter, matching text: String = "", bodies: Set<String> = []) -> [Call] {
+    /// What All can be narrowed to, from WebKit's resource type. Other is
+    /// the rest but Fetch and XHR, which have a filter of their own.
+    enum Kind: String, CaseIterable, Identifiable {
+        case document, script, stylesheet, image, font, other
+
+        var id: String { rawValue }
+        var title: String { rawValue.capitalized }
+
+        func holds(_ call: Call) -> Bool {
+            guard self == .other else { return call.type == rawValue }
+            return !call.isAPI && Kind(rawValue: call.type).map { $0 == .other } ?? true
+        }
+    }
+
+    /// The calls of `filter` (and `kind`, under All) matching `text`, newest
+    /// last, as the page made them. `bodies` are calls whose response matched
+    /// the same text (CallSearch.swift): they are listed once, like any other match.
+    func shown(_ filter: Filter, kind: Kind? = nil, matching text: String = "", bodies: Set<String> = []) -> [Call] {
         let needle = text.trimmingCharacters(in: .whitespaces)
         return order.compactMap { calls[$0] }.filter { call in
-            (filter == .all || call.isAPI) &&
+            let kept: Bool
+            switch filter {
+            case .api: kept = call.isAPI
+            case .errors: kept = call.isError
+            case .all: kept = kind?.holds(call) ?? true
+            }
+            return kept &&
                 (needle.isEmpty || call.url.localizedCaseInsensitiveContains(needle) ||
                  call.method.localizedCaseInsensitiveContains(needle) ||
                  call.status.map { String($0).hasPrefix(needle) } == true ||

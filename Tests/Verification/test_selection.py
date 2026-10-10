@@ -111,6 +111,15 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn('habits', plan([], risks=['address'])['checks'])
         self.assertEqual(CHECKS['habits'].command, ('python3', 'Tests/Bench/bearings_habits.py'))
 
+    def test_bearings_commands_route_their_scenario(self):
+        for path in ('Sources/Escale/Address/Field.swift', 'Sources/Escale/Browser/Browser.swift',
+                     'Sources/Escale/Keyboard/KeyRouting.swift'):
+            with self.subTest(path=path):
+                selected = plan([path])
+                self.assertFalse(selected['unknown'])
+                self.assertLess(selected['checks'].index('bundle'), selected['checks'].index('commands'))
+        self.assertEqual(CHECKS['commands'].command, ('python3', 'Tests/Bench/bearings_commands.py'))
+
     def test_history_panel_routes_its_scenario(self):
         selected = plan(['Sources/Escale/History/Recall.swift'])
         self.assertFalse(selected['unknown'])

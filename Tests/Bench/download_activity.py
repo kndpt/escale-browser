@@ -3,6 +3,10 @@
 
 Transfers survive tab closure and Space parking; completion reaches the original
 history. Space deletion cancels outstanding downloads without leaving observers.
+After a restart, the Downloads panel by real key presses: ↑ and ↓ within the
+list, Return opens a file and ⌘Return shows it in the Finder (a scripted world
+notes both rather than hand the file to another app), ⌫ forgets the line and
+leaves the file, Escape closes.
 INSPECT=1 pauses with two transfers, then after completion, for native button
 and popover/cancel/history checks;
 write /tmp/escale-download-resume to continue, context is in /tmp/escale-download-world.json.
@@ -16,6 +20,7 @@ import suite as s
 
 releases = {name: Event() for name in ('one', 'two', 'unknown', 'fail', 'cancel')}
 body = b'escale fixture\n' * 65536
+DOWN, UP, RETURN, DELETE, ESCAPE = ('125', '\uf701'), ('126', '\uf700'), ('36', '\r'), ('51', '\x7f'), ('53', '\x1b')
 
 
 class Page(s.Page):
@@ -63,6 +68,28 @@ def start(base, name):
     bench('tap', tab['id'], '#download')
     s.until(name + ' transfer', lambda: any(t['name'] == name + '.bin' for t in state()['transfers']), 15)
     return tab['id']
+
+
+def keyboard():
+    kept = state()['keptDownloads']
+    s.require('at least three kept files', len(kept) >= 3, True)
+    bench('ui', 'downloads', 'on')
+    s.until('Downloads open', lambda: state()['downloads'], 10)
+    # Nothing chosen, then the top, held there, then the second.
+    for key in (UP, UP, DOWN):
+        bench('press', *key)
+    bench('press', *RETURN)
+    bench('press', *RETURN, 'cmd')
+    s.require('Return opens, ⌘Return shows', state()['handedDownloads'], [f'open {kept[1]}', f'show {kept[1]}'])
+    file = s.SOCKET.parent / 'Downloads' / kept[1]
+    s.require('file on disk', file.exists(), True)
+    bench('press', *DELETE)
+    s.require('⌫ forgets the line', state()['keptDownloads'], kept[:1] + kept[2:])
+    s.require('⌫ leaves the file', file.exists(), True)
+    bench('press', *RETURN)
+    s.require('the next line is chosen', state()['handedDownloads'][-1], f'open {kept[2]}')
+    bench('press', *ESCAPE)
+    s.until('Escape closes Downloads', lambda: not state()['downloads'], 10)
 
 
 def main():
@@ -132,6 +159,8 @@ def main():
         s.launch()
         s.require('restart hides session door', state()['downloadDoorVisible'], False)
         assert 'unknown.bin' in state()['keptDownloads']
+        keyboard()
+        print('ok: keyboard in the Downloads panel')
         print('ok: active count, equal mean, unknown/mixed total, parked/closed source, completion, failure, cancellation, observer teardown')
     except Exception:
         print(state(), flush=True)

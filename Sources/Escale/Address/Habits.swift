@@ -144,7 +144,7 @@ final class Habits {
 
     /// Where a row leads, or nil for a web search.
     static func destination(of offer: Suggestion) -> String? {
-        guard offer.kind != .search else { return nil }
+        guard offer.kind != .search, offer.kind != .keyword else { return nil }
         if let bookmark = offer.bookmark { return "bookmark:" + bookmark.uuidString }
         let key = "page:" + Address.pretty(offer.url).lowercased()
         return offer.url.port.map { key + " :\($0)" } ?? key

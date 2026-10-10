@@ -1,0 +1,1 @@
+A bookmark's right-click menu, in the column and in the Bookmarks panel, now has Edit… to change a site's name and address (an empty or invalid address is refused), New Folder, named in place, Open in New Tab and Copy Link; a folder's has Open All in Tabs, which asks first above 15 sites and loads only the first page until the others are looked at (#45).
