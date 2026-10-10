@@ -143,7 +143,7 @@ final class CallSearch: ObservableObject {
     /// since its last pass, after the pass under way if there is one.
     func arrived() {
         guard let calls, !Self.wanted(calls.search).isEmpty else { return }
-        let scope = calls.list.shown(calls.filter)
+        let scope = calls.list.shown(calls.filter, kind: calls.kind)
         let finished = scope.filter { $0.finished || $0.failed || $0.canceled }.count
         guard scope.count != looked.count || finished != looked.finished else { return }
         if running { again = true } else if wait == nil { schedule() }
@@ -190,7 +190,7 @@ final class CallSearch: ObservableObject {
         halted = nil
         revision += 1
         let token = revision
-        let scope = calls.list.shown(calls.filter)
+        let scope = calls.list.shown(calls.filter, kind: calls.kind)
         looked = (scope.count, scope.filter { $0.finished || $0.failed || $0.canceled }.count)
         again = false
         running = true
