@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import Testing
 @testable import Escale
@@ -71,6 +72,29 @@ import Testing
         hub.forget(from: Date(timeIntervalSince1970: 2_500), through: Date(timeIntervalSince1970: 3_500), in: b)
         Writer.to(file).flush()
         #expect(Localhost(file: file).entries(in: b).isEmpty)
+    }
+
+    @Test func takesATitleOnlyWhileThePageNamesItself() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let file = folder.appendingPathComponent("localhost.json")
+        let space = UUID()
+        let url = try #require(URL(string: "http://localhost:3000/"))
+        let hub = Localhost(file: file)
+        hub.record(url, title: "", in: space)
+        let visited = try #require(hub.entries(in: space).first?.visited)
+        let long = String(repeating: "x", count: 100)
+        hub.retitle(url, title: long, in: space, at: visited.addingTimeInterval(1))
+        #expect(hub.entries(in: space).first?.title == String(long.prefix(80)))
+        var changes = 0
+        let watch = hub.objectWillChange.sink { changes += 1 }
+        defer { watch.cancel() }
+        // The same long title again, then a counter after the page arrived.
+        hub.retitle(url, title: long, in: space, at: visited.addingTimeInterval(2))
+        hub.retitle(url, title: "(3) App", in: space, at: visited.addingTimeInterval(History.naming))
+        #expect(changes == 0)
+        #expect(hub.entries(in: space).first?.title == String(long.prefix(80)))
     }
 
     @Test func reopensOnlyOrdinaryTabs() throws {

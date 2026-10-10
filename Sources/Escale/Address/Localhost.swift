@@ -158,11 +158,14 @@ final class Localhost: ObservableObject {
         Writer.to(file).save(saved)
     }
 
-    func retitle(_ url: URL, title: String, in space: UUID) {
+    /// Only while the page is still naming itself, as in History.retitle.
+    func retitle(_ url: URL, title: String, in space: UUID, at now: Date = Date()) {
+        let title = String(title.prefix(80))
         guard let origin = Self.origin(of: url), !title.isEmpty,
               let index = saved[space.uuidString]?.firstIndex(where: { $0.origin == origin }),
-              saved[space.uuidString]?[index].title != title else { return }
-        saved[space.uuidString]?[index].title = String(title.prefix(80))
+              let entry = saved[space.uuidString]?[index], entry.title != title,
+              now.timeIntervalSince(entry.visited) < History.naming else { return }
+        saved[space.uuidString]?[index].title = title
         Writer.to(file).save(saved)
     }
 

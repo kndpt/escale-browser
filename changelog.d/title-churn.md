@@ -1,0 +1,1 @@
+A page whose title keeps changing, such as an unread count or a timer, no longer redraws the window and rewrites the history each time: History keeps the name the page gave itself as it loaded, and Escale uses about a third of the CPU it did on such a page.
