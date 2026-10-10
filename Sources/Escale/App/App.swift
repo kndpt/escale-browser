@@ -178,7 +178,7 @@ struct ContentView: View {
             // Extensions stay in the top bar even when the optional address
             // bar is disabled. This is the same top-right action slot used by
             // the strip layout.
-            if browser.prefs.sidebar, !browser.showsBar, browser.active?.immersed != true {
+            if browser.prefs.sidebar, !browser.showsBar, !browser.focusing, browser.active?.immersed != true {
                 HStack {
                     Spacer(minLength: 0)
                     DownloadDoor(downloads: browser.downloads) { browser.hoarding = true }
@@ -304,7 +304,7 @@ struct ContentView: View {
             // The rail remains anchored to the left while the column slides
             // over the page when folded (see Side.swift and Fold.swift).
             .overlay(alignment: .leading) {
-                if browser.prefs.sidebar, browser.active?.immersed != true {
+                if browser.prefs.sidebar, !browser.focusing, browser.active?.immersed != true {
                     SidebarChrome(browser: browser, prefs: browser.prefs)
                 }
             }
@@ -529,9 +529,9 @@ struct ContentView: View {
 
     /// How much of the window's left the rail and the column take from the
     /// page: the rail alone while the column is folded, nothing once the
-    /// spaces are off too (see Fold.swift).
+    /// spaces are off too, or in Focus Mode (see Fold.swift).
     private var sideFootprint: CGFloat {
-        guard browser.prefs.sidebar, browser.active?.immersed != true else { return 0 }
+        guard browser.prefs.sidebar, !browser.focusing, browser.active?.immersed != true else { return 0 }
         return metrics.sidebarFootprint(
             browser.prefs.sideWidth,
             rail: browser.prefs.usesSpaces,
@@ -542,7 +542,7 @@ struct ContentView: View {
     /// The column folded without the bar over the page: the line over the
     /// page still holds the column's door, and back, forward and reload.
     private var foldedLine: Bool {
-        browser.prefs.sidebar && browser.folded && !browser.showsBar && browser.active?.immersed != true
+        browser.prefs.sidebar && browser.folded && !browser.focusing && !browser.showsBar && browser.active?.immersed != true
     }
 
     private var metrics: ChromeMetrics { ChromeMetrics(size: browser.prefs.interfaceSize) }
@@ -585,7 +585,7 @@ struct ContentView: View {
     /// envelope above the page. Otherwise its buttons sit over web content
     /// and a correctly page-clipped search backdrop also dims those buttons.
     private var band: CGFloat {
-        guard browser.active?.immersed != true else { return 0 }
+        guard browser.active?.immersed != true, !browser.focusing else { return 0 }
         if browser.prefs.sidebar { return browser.showsBar || foldedLine ? 0 : metrics.strip }
         return browser.folded ? 0 : metrics.strip
     }
@@ -665,6 +665,9 @@ struct ContentView: View {
         // The native sheet owns editing keys, including Escape and Return.
         if browser.environmentEditor.request != nil || Links.window?.attachedSheet != nil || NSApp.modalWindow != nil { return false }
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+
+        // A Space icon held in the rail lets go first, whatever else is open.
+        if event.keyCode == 53, SpaceReorder.current?.cancel() == true { return true }
 
         // An area being chosen keeps Escape for itself.
         if flags.isEmpty, event.keyCode == 53, let area = browser.active?.area, area.active {

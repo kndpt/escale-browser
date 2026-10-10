@@ -208,6 +208,11 @@ CHECKS = {
               "app", ("bundle",),
               paths=("Sources/Escale/Design/Glass.swift", "Sources/Escale/Window/Stage.swift",
                      "Sources/Escale/Window/Fold.swift")),
+        Check("focus", ("python3", "Tests/Bench/focus_mode.py"),
+              BENCH + ("Tests/Bench/focus_mode.py",),
+              "Focus Mode in both layouts, with and without Spaces: page frame, ⌘L, top band, restored state",
+              "app", ("bundle",),
+              paths=("Sources/Escale/Window/Fold.swift", "Sources/Escale/Window/Bar.swift")),
         Check("routes", ("python3", "Tests/Bench/link_routes.py"),
               BENCH + ("Tests/Bench/link_routes.py",),
               "first-request store, real links, private isolation, destination deletion and restart",
@@ -252,6 +257,13 @@ CHECKS = {
               "app", ("bundle",),
               paths=("Sources/Escale/Spaces/Spaces.swift", "Sources/Escale/Spaces/Presence.swift", "Sources/Escale/Tabs/Media.swift",
                      "Sources/Escale/Tabs/Tab.swift", "Tests/Bench/calls.py", "Tests/Bench/media_player.py", "Tests/Bench/fixtures/call/**"),
+              foreground=True),
+        Check("space-reorder", ("python3", "Tests/Bench/space_reorder.py"),
+              BENCH + ("Tests/Bench/space_reorder.py",),
+              "a rail icon dragged to the top, Escape and an outside drop cancel, order and ⌃1 after relaunch",
+              "app", ("bundle",),
+              paths=("Sources/Escale/Spaces/Spaces.swift", "Sources/Escale/Spaces/SpaceReorder.swift",
+                     "Sources/Escale/App/App.swift", "Tests/EscaleTests/SpaceRailTests.swift"),
               foreground=True),
         Check("call-float", ("python3", "Tests/Bench/call_float.py"),
               BENCH + ("Tests/Bench/call_float.py", "Tests/Bench/calls.py", "Tests/Bench/media_player.py",
@@ -342,8 +354,8 @@ def plan(paths, risks=(), checks=(), quick=False, acknowledge=None):
         include_dependencies(name)
     # Dependencies are small and explicit; no scoring or model-specific workflow.
     order = ["icons", "harness", "portable", "links", "whitespace", "changelog", "build", "swift",
-             "bundle", "app", "wake", "sleeping", "tabs", "shortcut-motion", "sidebar-rows", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome",
-             "routes", "tab-source", "environments", "bookmarked-page", "calls", "calls-browse", "extension-speech", "extension-bar", "space-media", "call-float", "warnings"]
+             "bundle", "app", "wake", "sleeping", "tabs", "shortcut-motion", "sidebar-rows", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus",
+             "routes", "tab-source", "environments", "bookmarked-page", "calls", "calls-browse", "extension-speech", "extension-bar", "space-media", "space-reorder", "call-float", "warnings"]
     return {"checks": [n for n in order if n in chosen], "reasons": chosen,
             "risks": list(risks), "requested": list(checks),
             "unknown": unknown, "acknowledge": acknowledge, "quick": quick,
