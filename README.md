@@ -55,6 +55,7 @@ back to its tab, or reopens its last address.
 | | |
 |---|---|
 | <kbd>⌘T</kbd> | Go somewhere new, starting from this space: its open tabs, bookmarks and their environments. |
+| <kbd>⌘T</kbd> <kbd>></kbd> | Run a command by its name, its shortcut beside it. |
 | <kbd>⌘K</kbd> | Switch to an open tab, by name. |
 | <kbd>⇧⌘K</kbd> | Find a pull request or issue you have seen on GitHub. |
 | <kbd>⌘L</kbd> | Change where this page goes: an address takes you there, words search. |

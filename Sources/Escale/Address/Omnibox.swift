@@ -156,8 +156,8 @@ struct Omnibox: View {
 
         private var heading: some View {
             HStack(spacing: metrics.length(Metrics.searchInset)) {
-                if offer.kind == .search {
-                    Image(systemName: "magnifyingglass")
+                if offer.kind == .search || offer.kind == .command {
+                    Image(systemName: offer.kind == .search ? "magnifyingglass" : "command")
                         .foregroundStyle(Palette.muted)
                         .frame(width: metrics.length(Metrics.searchIcon))
                 } else {
@@ -191,7 +191,8 @@ struct Omnibox: View {
                 if picked {
                     HStack(spacing: metrics.length(Metrics.searchGap)) {
                         Image(systemName: "return").accessibilityHidden(true)
-                        Text(offer.kind == .open && input.selectedEnvironment == nil ? "Switch to tab" : "Open")
+                        Text(offer.kind == .command ? "Run"
+                             : offer.kind == .open && input.selectedEnvironment == nil ? "Switch to tab" : "Open")
                     }
                     .font(.system(size: metrics.length(Metrics.searchDetail)))
                     .foregroundStyle(Palette.muted)
@@ -298,7 +299,9 @@ struct AddressField: NSViewRepresentable {
         if want != coordinator.synced {
             coordinator.synced = want
             field.stringValue = want
-            coordinator.select(from: input.typed.count, in: field)
+            // Only an ending of what was typed is selected; a walked-to
+            // address that doesn't extend it keeps the caret at its end.
+            coordinator.select(from: want.hasPrefix(input.typed) ? input.typed.utf16.count : want.utf16.count, in: field)
         }
 
         if coordinator.answered != input.focusRequest {
@@ -396,18 +399,19 @@ struct AddressField: NSViewRepresentable {
 
             field.stringValue = text + ending
             synced = field.stringValue
-            select(from: text.count, in: field)
+            select(from: text.utf16.count, in: field)
         }
 
         /// The part after the caret, shown as selected, so the next keystroke
-        /// replaces it and Return takes it.
+        /// replaces it and Return takes it. `start` is in UTF-16 units, as
+        /// `NSRange` is.
         func select(from start: Int, in field: NSTextField) {
             guard let editor = field.currentEditor() as? NSTextView else { return }
             editor.selectedTextAttributes = [
                 .backgroundColor: NSColor(Palette.ink.opacity(0.12)),
                 .foregroundColor: Palette.NS.ink,
             ]
-            let length = field.stringValue.count
+            let length = field.stringValue.utf16.count
             guard start <= length else { return }
             editor.selectedRange = NSRange(location: start, length: length - start)
         }

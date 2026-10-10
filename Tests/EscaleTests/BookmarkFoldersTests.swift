@@ -10,6 +10,68 @@ import Testing
         Bookmark(title: title, url: "https://\(title.lowercased()).example.test/", children: nil)
     }
 
+    /// A list kept in a file of its own, and what reached that file.
+    private func kept(_ roots: [Bookmark]) throws -> (list: Bookmarks, saved: () throws -> [Bookmark]) {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("escale-folders-\(UUID()).json")
+        try JSONEncoder().encode(roots).write(to: file)
+        let list = Bookmarks(file: file)
+        return (list, {
+            Writer.to(file).flush()
+            defer { try? FileManager.default.removeItem(at: file) }
+            return try JSONDecoder().decode([Bookmark].self, from: Data(contentsOf: file))
+        })
+    }
+
+    @Test func editingASiteChangesItsTitleAndAddressTogether() throws {
+        let site = site("Old")
+        let (list, saved) = try kept([.folder("Folder", [site])])
+        #expect(list.edit(site.id, title: "  New  ", address: " example.org/page "))
+        let edited = try #require(list.find(site.id))
+        #expect(edited.title == "New" && edited.url == "https://example.org/page")
+        // An empty title keeps the old one; an address left alone is kept even
+        // when the field would not take it.
+        let page = "chrome-extension://abcdef/options.html"
+        #expect(list.edit(site.id, title: "", address: page) == false)
+        list.update(site.id, title: nil, url: page)
+        #expect(list.edit(site.id, title: " ", address: page))
+        #expect(list.find(site.id)?.title == "New" && list.find(site.id)?.url == page)
+        #expect(try saved().first?.children?.first == list.find(site.id))
+    }
+
+    @Test(arguments: ["", "   ", "not an address", "https://", "mailto:someone@example.test", "example .org"])
+    func anEmptyOrInvalidAddressIsRefused(_ address: String) throws {
+        let site = site("Kept")
+        let folder = Bookmark.folder("Folder", [])
+        let (list, saved) = try kept([site, folder])
+        #expect(!list.edit(site.id, title: "Changed", address: address))
+        #expect(!list.edit(folder.id, title: "Changed", address: "https://example.org/"))
+        #expect(list.roots == [site, folder])
+        #expect(try saved() == [site, folder])
+    }
+
+    @Test func aNewFolderIsEmptyAndLandsWhereItWasAskedFor() throws {
+        let first = site("First")
+        let second = site("Second")
+        let inner = site("Inner")
+        let folder = Bookmark.folder("Folder", [inner])
+        let (list, saved) = try kept([first, folder, second])
+
+        let beside = list.newFolder(in: nil, after: first.id)
+        #expect(list.roots.map(\.id) == [first.id, beside.id, folder.id, second.id])
+        let inside = list.newFolder(in: folder.id)
+        let after = list.newFolder(in: folder.id, after: inner.id)
+        #expect(list.find(folder.id)?.children?.map(\.id) == [inner.id, after.id, inside.id])
+        let last = list.newFolder(in: nil, after: second.id)
+        #expect(list.roots.last?.id == last.id)
+        for made in [beside, inside, after, last] {
+            #expect(made.isFolder && made.title == "New Folder" && made.children == [])
+        }
+        // A folder gone in the meantime leaves the new one at the top level.
+        let orphan = list.newFolder(in: UUID())
+        #expect(list.roots.last?.id == orphan.id)
+        #expect(try saved() == list.roots)
+    }
+
     @Test func mergingAcrossFoldersKeepsBothSitesAndTheTargetPlace() throws {
         let carried = site("Carried")
         let target = site("Target")

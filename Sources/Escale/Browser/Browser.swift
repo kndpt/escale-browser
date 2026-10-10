@@ -184,7 +184,9 @@ final class Browser: NSObject, ObservableObject {
             guard let self, let id = self.shelfTabs[tab] else { return nil }
             return self.bookmarks.find(id)
         },
-        habits: { [weak self] in self.map { $0.habits(for: $0.spaceID) } }
+        habits: { [weak self] in self.map { $0.habits(for: $0.spaceID) } },
+        available: { [weak self] in self?.keyAvailable($0) == true },
+        keys: { [weak self] in self?.prefs.keyBindings.keys($0) ?? [] }
     )
     /// Bumped when an address typed into a tab can't be gone to (see
     /// commitTabEdit); the address field has its own (see Field.refusals).
@@ -1407,16 +1409,7 @@ final class Browser: NSObject, ObservableObject {
     /// in the same store, as a link that asks for a new window already does.
     @discardableResult
     func open(_ url: URL, foreground: Bool, atEnd: Bool = false, from source: Tab? = nil, shy: Bool = false) -> Tab {
-        // An extension's own page is served only to a view built from that
-        // extension's configuration.
-        let url = Browser.page(url)
-        let page = Browser.extensionConfiguration(for: url)
-        let tab = if let source, source.shy, page == nil {
-            Tab(shy: true, configuration: Web.configuration(shy: true, store: source.store))
-        } else {
-            Tab(shy: shy, configuration: page)
-        }
-        prepare(tab)
+        let (tab, url) = made(for: url, from: source, shy: shy)
         let here = atEnd ? nil : tabs.firstIndex { $0.id == activeID }
         tabs.insert(tab, at: here.map { $0 + 1 } ?? tabs.count)
         tab.go(to: url)
@@ -1427,6 +1420,33 @@ final class Browser: NSObject, ObservableObject {
             field.typed = ""
         }
         return tab
+    }
+
+    /// A tab for `url`, made as `open` makes one. An extension's own page is
+    /// served only to a view built from that extension's configuration.
+    private func made(for url: URL, from source: Tab?, shy: Bool) -> (Tab, URL) {
+        let url = Browser.page(url)
+        let page = Browser.extensionConfiguration(for: url)
+        let tab = if let source, source.shy, page == nil {
+            Tab(shy: true, configuration: Web.configuration(shy: true, store: source.store))
+        } else {
+            Tab(shy: shy, configuration: page)
+        }
+        prepare(tab)
+        return (tab, url)
+    }
+
+    /// Tabs after `tab` that hold an address and a title, and no page until
+    /// one is looked at, as a restored session's do: a folder opened in tabs
+    /// (BookmarkActions.swift). Made as `open` makes them, private from a
+    /// private `source`. Put in at once, so the row redraws once.
+    func openWaiting(_ pages: [(title: String, url: URL)], after tab: Tab, from source: Tab?) {
+        let waiting = pages.map { page -> Tab in
+            let (made, url) = made(for: page.url, from: source, shy: false)
+            made.restore(url: url, title: page.title)
+            return made
+        }
+        tabs.insert(contentsOf: waiting, at: tabs.firstIndex { $0 === tab }.map { $0 + 1 } ?? tabs.count)
     }
 
     /// An extension's page sending its own tab to a website — 1Password's
@@ -1883,6 +1903,16 @@ final class Browser: NSObject, ObservableObject {
     /// same question but must not share an answer: a list that appears under a
     /// resting cursor would otherwise rewrite the field before you had moved.
     func take(_ offer: Suggestion) {
+        // A command runs as its shortcut would here, with this New Tab's
+        // context (privacy, what ⌘W closes); then Bearings closes and no tab
+        // is made, unless the command asked for the field (⌘L, ⌘K, GitHub).
+        if let action = offer.action {
+            let asked = field.focusRequest
+            field.typed = ""
+            performKeyAction(action)
+            if field.focusRequest == asked { editing = false }
+            return
+        }
         let choice = Choice(of: self)
         if let bookmark = offer.bookmark, offer.tab == nil || (field.selected?.id == offer.id && field.selectedEnvironment != nil) {
             if takeSearchBookmark(bookmark, environment: field.selected?.id == offer.id ? field.selectedEnvironment : nil) {
@@ -1935,8 +1965,13 @@ final class Browser: NSObject, ObservableObject {
         }
         let offers = field.offers
         let choice = Choice(of: self)
-        if let selected = field.selected, selected.tab != nil || selected.bookmark != nil {
+        if let selected = field.selected, selected.tab != nil || selected.bookmark != nil || selected.action != nil {
             take(selected)
+            return
+        }
+        // `>` asks for a command, never a page or a search.
+        if field.commanding {
+            field.refuse()
             return
         }
 
@@ -2126,7 +2161,8 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         return tab.web
     }
 
-    /// Anything the window can't show is something to keep instead.
+    /// Anything the window can't show, or the server sends as an attachment,
+    /// is something to keep instead.
     func webView(
         _ webView: WKWebView,
         decidePolicyFor response: WKNavigationResponse,
@@ -2140,8 +2176,9 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             decisionHandler(.allow)
             return
         }
-        if response.isForMainFrame && response.canShowMIMEType { tab(for: webView)?.jsonReader.detect(response.response) }
-        decisionHandler(response.canShowMIMEType ? .allow : .download)
+        let shows = response.canShowMIMEType && !(response.isForMainFrame && Downloads.isAttachment(response.response))
+        if response.isForMainFrame && shows { tab(for: webView)?.jsonReader.detect(response.response) }
+        decisionHandler(shows ? .allow : .download)
     }
 
     func webView(

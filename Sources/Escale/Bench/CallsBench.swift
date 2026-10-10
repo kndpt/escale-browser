@@ -23,7 +23,13 @@ enum CallsBench {
         case "clear":
             calls.clear()
         case "filter":
-            calls.filter = request["all"] as? Bool == true ? .all : .api
+            switch request["filter"] as? String {
+            case "errors"?: calls.filter = .errors
+            case "all"?: calls.filter = .all
+            case "api"?: calls.filter = .api
+            default: calls.filter = request["all"] as? Bool == true ? .all : .api
+            }
+            if request.keys.contains("kind") { calls.kind = (request["kind"] as? String).flatMap(CallList.Kind.init) }
             if let search = request["search"] as? String { calls.search = search }
         case "select":
             calls.select(request["call"] as? String)

@@ -60,7 +60,9 @@ extension Browser {
         case .forward: return active?.canGoForward == true
         case .stopLoading: return active?.loading == true
         case .findNext, .findPrevious: return finding
-        case .pinTab, .duplicateTab, .copyAddress, .copyMarkdown, .addBookmark, .print, .find: return active?.isBlank == false
+        case .pinTab, .duplicateTab, .copyAddress, .copyMarkdown, .addBookmark, .print: return active?.isBlank == false
+        // The find bar never opens under a pending New Tab (openFind).
+        case .find: return field.opening == nil && active?.isBlank == false
         case .renameTab: return active != nil
         case .changeLetter: return active?.pin != nil
         case .closeOthers: return tabs.count > 1

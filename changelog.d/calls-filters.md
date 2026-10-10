@@ -1,0 +1,1 @@
+The API Calls panel has an Errors filter for 4xx and 5xx answers and failed or cancelled calls, and under All a choice of resource type: Document, Script, Stylesheet, Image, Font or Other. When a filter hides calls, the empty list says which one (#37).

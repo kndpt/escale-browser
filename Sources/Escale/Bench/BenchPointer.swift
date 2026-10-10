@@ -49,7 +49,7 @@ enum BenchPointer {
             closed(answer)
             return
         }
-        guard ["click", "hold", "move"].contains(action),
+        guard ["click", "hold", "move", "menu"].contains(action),
               let x = request["x"] as? Double, let y = request["y"] as? Double,
               x.isFinite, y.isFinite, x >= 0, y >= 0,
               x <= window.frame.width, y <= window.frame.height,
@@ -91,8 +91,9 @@ enum BenchPointer {
             let frame = window.contentView?.superview
             let local = NSPoint(x: x, y: window.frame.height - y)
             pressed = frame.flatMap { $0.hitTest($0.convert(local, from: nil)) }.map { String("\(type(of: $0))".prefix(60)) } ?? ""
-            post(.leftMouseDown)
-            guard action == "hold" else {
+            // `menu` is a right press, whose context menu opens on the press.
+            post(action == "menu" ? .rightMouseDown : .leftMouseDown)
+            guard action != "click" else {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { post(.leftMouseUp); settled() }
                 return
             }
@@ -102,7 +103,7 @@ enum BenchPointer {
             let limit = CACurrentMediaTime() + 1.5
             func held() {
                 guard menu == nil, CACurrentMediaTime() < limit else {
-                    post(.leftMouseUp)
+                    post(action == "menu" ? .rightMouseUp : .leftMouseUp)
                     // An open menu's tracking loop takes the release itself and
                     // leaves the marker queued behind it until the menu closes.
                     if menu != nil { Bench.afterRests(2) { answer(state()) } } else { settled() }
