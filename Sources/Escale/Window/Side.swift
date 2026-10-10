@@ -409,7 +409,7 @@ struct SideBar: View {
                     PinGrid(columns: cols, width: width, height: height, spacing: pinGap) {
                         ForEach(pins) { tab in
                             PinSquare(browser: browser, prefs: prefs, tab: tab, live: tab.id == row.active,
-                                      pill: pill, width: width, height: height)
+                                      pill: pill, lettering: false, width: width, height: height)
                         }
                     }
                 }
@@ -422,7 +422,8 @@ struct SideBar: View {
                     if let group = panels.group(tab.id) {
                         PanelEntry(browser: browser, panels: panels, group: group, row: row.tabs)
                     } else {
-                    SideRow(browser: browser, prefs: prefs, tab: tab, live: tab.id == row.active, pill: pill, close: {})
+                    SideRow(browser: browser, prefs: prefs, tab: tab, live: tab.id == row.active, pill: pill,
+                            editing: false, refusals: 0, closes: false)
                     }
                 }
             }
@@ -509,6 +510,7 @@ struct SideBar: View {
                     tab: tab,
                     live: tab.id == browser.activeID && !browser.tuning,
                     pill: pill,
+                    lettering: browser.editingPin == tab.id,
                     width: width,
                     height: height
                 )
@@ -629,7 +631,9 @@ struct SideBar: View {
                     tab: tab,
                     live: tab.id == browser.activeID && !browser.tuning,
                     pill: pill,
-                    close: { browser.close(tab) }
+                    editing: browser.editingTab == tab.id,
+                    refusals: browser.refusals,
+                    closes: true
                 )
                 }
                 }
@@ -830,11 +834,14 @@ private struct PinGrid: Layout {
 /// its row asks for, but never taller than the classic square, so a row with
 /// room to spare turns into a wide, short button rather than a bigger icon.
 private struct PinSquare: View {
-    @ObservedObject var browser: Browser
+    /// Not watched, as in SideRow.
+    let browser: Browser
     @ObservedObject var prefs: Preferences
     @ObservedObject var tab: Tab
     let live: Bool
     let pill: Namespace.ID
+    /// Its letter being typed.
+    let lettering: Bool
     var width: CGFloat = 34
     var height: CGFloat = 34
 
@@ -847,7 +854,7 @@ private struct PinSquare: View {
 
     var body: some View {
         Group {
-            if browser.editingPin == tab.id {
+            if lettering {
                 PinField(browser: browser, tab: tab)
             } else if prefs.glyph == .icons, let icon = tab.icon {
                 Mark(icon: icon, letter: tab.pin ?? "", size: scale * Metrics.navigationIcon / 34, dim: tab.asleep)
@@ -887,18 +894,22 @@ private struct PinSquare: View {
 
 /// One tab, as a line in the column.
 private struct SideRow: View {
-    @ObservedObject var browser: Browser
+    /// Not watched: a row is drawn again when what it is handed changes, not
+    /// on every change in the window (a key in a search, a swipe's step).
+    let browser: Browser
     @ObservedObject var prefs: Preferences
     @ObservedObject var tab: Tab
     let live: Bool
     let pill: Namespace.ID
-    let close: () -> Void
+    /// Its address being typed into, and how often one typed was refused.
+    let editing: Bool
+    let refusals: Int
+    /// Only a row of the space on screen closes its tab.
+    let closes: Bool
     @SwiftUI.Environment(\.chromeMetrics) private var metrics
 
     @State private var hovering = false
     @State private var shake: CGFloat = 0
-
-    private var editing: Bool { browser.editingTab == tab.id }
 
     /// The ring, which stays for as long as the page loads and so keeps a
     /// place of its own at the end of the row. The speaker is at the start
@@ -1004,7 +1015,7 @@ private struct SideRow: View {
         .modifier(SleepHint(tab: tab))
         .animation(Motion.quick, value: hovering)
         .animation(Motion.glide, value: editing)
-        .onChange(of: browser.refusals) { _, _ in
+        .onChange(of: refusals) { _, _ in
             guard editing else { return }
             shake = 0
             withAnimation(.easeOut(duration: 0.5)) { shake = 1 }
@@ -1039,6 +1050,10 @@ private struct SideRow: View {
             RoundedRectangle(cornerRadius: metrics.length(9), style: .continuous)
                 .fill(Palette.hover)
         }
+    }
+
+    private func close() {
+        if closes { browser.close(tab) }
     }
 
     private var colour: Color {
