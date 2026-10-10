@@ -172,6 +172,15 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(CHECKS['call-float'].command, ('python3', 'Tests/Bench/call_float.py'))
         self.assertEqual(CHECKS['space-media'].command, ('python3', 'Tests/Bench/space_media.py'))
 
+    def test_rail_code_selects_the_space_reorder_scenario(self):
+        for path in ('Sources/Escale/Spaces/Spaces.swift', 'Sources/Escale/Spaces/SpaceReorder.swift',
+                     'Sources/Escale/App/App.swift', 'Tests/Bench/space_reorder.py'):
+            with self.subTest(path=path):
+                selected = plan([path])
+                self.assertIn('space-reorder', selected['checks'])
+                self.assertLess(selected['checks'].index('bundle'), selected['checks'].index('space-reorder'))
+        self.assertTrue(CHECKS['space-reorder'].foreground)
+
     def test_tab_opening_and_closing_code_selects_the_source_tab_scenario(self):
         for path in ('Sources/Escale/Browser/Browser.swift', 'Sources/Escale/Spaces/LinkRoutes.swift',
                      'Sources/Escale/Tabs/Tab.swift', 'Tests/Bench/tab_source.py'):

@@ -81,7 +81,8 @@
                                        click: test run, a single click there; command: click with ⌘ held
     ./bench pointer state|cancel|choose INDEX|move X Y|click X Y|hold X Y|menu X Y  test-only native pointer and tracking-menu
                                        inspection; menu: a right press, for a context menu
-    ./bench drag X Y TOX TOY [HOLD_MS [ENDX ENDY [PAUSE_MS]]] [live]  test run: move in steps, optionally hold, then let go;
+    ./bench drag X Y TOX TOY [HOLD_MS [ENDX ENDY [PAUSE_MS]]] [escape] [live]  test run: move in steps, optionally hold, then let go;
+                                       escape: press Escape after the hold, before letting go;
                                        live routes every event, press included, through AppKit;
                                        JSON heldSpace is the Space visible before mouse-up
     ./bench place ID INDEX             put a tab at another place in the row
@@ -402,10 +403,10 @@ def main(argv, out=None, err=None, timeout=None, cwd=None):
         elif len(args) == 2 and args[0] == "choose": request["index"] = int(args[1])
         elif args not in (["state"], ["cancel"]): sys.exit("usage: bench pointer state|cancel|choose INDEX|move X Y|click X Y|hold X Y|menu X Y")
     elif verb == "drag":
-        if args and args[-1] == "live":
-            request["live"] = True
+        while args and args[-1] in ("live", "escape"):
+            request[args[-1]] = True
             args = args[:-1]
-        if len(args) not in (4, 5, 7, 8): sys.exit("usage: bench drag X Y TOX TOY [HOLD_MS [ENDX ENDY [PAUSE_MS]]] [live]")
+        if len(args) not in (4, 5, 7, 8): sys.exit("usage: bench drag X Y TOX TOY [HOLD_MS [ENDX ENDY [PAUSE_MS]]] [escape] [live]")
         request["x"], request["y"], request["toX"], request["toY"] = map(float, args[:4])
         if len(args) >= 5: request["holdMS"] = int(args[4])
         if len(args) >= 7: request["endX"], request["endY"] = map(float, args[5:7])

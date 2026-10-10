@@ -1013,6 +1013,7 @@ final class Bench {
             let hold = min(max(request["holdMS"] as? Int ?? 0, 0), 3_000)
             let dropPause = min(max(request["dropPauseMS"] as? Int ?? 0, 0), 3_000)
             let live = request["live"] as? Bool ?? false
+            let escape = request["escape"] as? Bool ?? false
             func point(_ x: Double, _ y: Double) -> NSPoint { NSPoint(x: x, y: Double(window.frame.height) - y) }
             let end = point(request["endX"] as? Double ?? toX, request["endY"] as? Double ?? toY)
             func event(_ type: NSEvent.EventType, _ at: NSPoint) -> NSEvent? {
@@ -1057,17 +1058,32 @@ final class Bench {
                     DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(hold)) {
                         let heldSpace = browser.spaceID.uuidString
                         let heldPanels = PanelBench.state(browser)
-                        if end != at { deliver(.leftMouseDragged, end, routed: live) }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(dropPause)) {
-                            deliver(.leftMouseUp, end, routed: live)
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                answer(["view": String("\(type(of: target))".prefix(60)),
-                                        "heldSpace": heldSpace,
-                                        "heldPanels": heldPanels,
-                                        "inputMS": inputMS,
-                                        "releaseMonitor": SpaceDrag.releasedByMonitor])
+                        @MainActor func release() {
+                            if end != at { deliver(.leftMouseDragged, end, routed: live) }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(dropPause)) {
+                                deliver(.leftMouseUp, end, routed: live)
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                    answer(["view": String("\(type(of: target))".prefix(60)),
+                                            "heldSpace": heldSpace,
+                                            "heldPanels": heldPanels,
+                                            "inputMS": inputMS,
+                                            "releaseMonitor": SpaceDrag.releasedByMonitor])
+                                }
                             }
                         }
+                        // Escape while the button is still down, through the
+                        // app's queue as a key press goes; let go once it has.
+                        guard escape else { release(); return }
+                        for type in [NSEvent.EventType.keyDown, .keyUp] {
+                            if let key = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: [],
+                                                          timestamp: ProcessInfo.processInfo.systemUptime,
+                                                          windowNumber: window.windowNumber, context: nil,
+                                                          characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}",
+                                                          isARepeat: false, keyCode: 53) {
+                                NSApp.postEvent(key, atStart: false)
+                            }
+                        }
+                        Bench.afterQueue { release() }
                     }
                 }
             }

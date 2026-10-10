@@ -666,6 +666,9 @@ struct ContentView: View {
         if browser.environmentEditor.request != nil || Links.window?.attachedSheet != nil || NSApp.modalWindow != nil { return false }
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
 
+        // A Space icon held in the rail lets go first, whatever else is open.
+        if event.keyCode == 53, SpaceReorder.current?.cancel() == true { return true }
+
         // An area being chosen keeps Escape for itself.
         if flags.isEmpty, event.keyCode == 53, let area = browser.active?.area, area.active {
             area.stop()

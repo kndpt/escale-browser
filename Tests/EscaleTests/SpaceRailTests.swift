@@ -3,8 +3,9 @@ import Testing
 @testable import Escale
 
 // The rail is a vertical, fixed-width anchor rather than the old horizontal
-// space row. These checks keep its hit boxes inside the rail and preserve the
-// column's independent width when the rail is added to the window.
+// space row. These checks keep its hit boxes inside the rail, land a dragged
+// icon on a whole door, and preserve the column's independent width when the
+// rail is added to the window.
 @Suite @MainActor struct SpaceRailTests {
     @Test func everySpaceDoorFitsInsideTheRail() {
         let metrics = ChromeMetrics(size: .standard)
@@ -30,6 +31,26 @@ import Testing
         let metrics = ChromeMetrics(size: .standard)
         #expect(metrics.sidebarFootprint(Metrics.side, rail: false, folded: false) == metrics.sidebarWidth(Metrics.side))
         #expect(metrics.sidebarFootprint(Metrics.side, rail: false, folded: true) == 0)
+    }
+
+    /// A held icon lands one door per step travelled, past half a step, and
+    /// never beyond the first or last Space.
+    @Test func aDraggedIconLandsByWholeDoors() {
+        let step = ChromeMetrics(size: .standard).length(SpaceRail.icon + SpaceRail.gap)
+        #expect(SpaceReorder.landing(from: 2, travel: -2 * step, step: step, count: 4) == 0)
+        #expect(SpaceReorder.landing(from: 2, travel: -0.4 * step, step: step, count: 4) == 2)
+        #expect(SpaceReorder.landing(from: 2, travel: 0.6 * step, step: step, count: 4) == 3)
+        #expect(SpaceReorder.landing(from: 0, travel: -5 * step, step: step, count: 4) == 0)
+        #expect(SpaceReorder.landing(from: 1, travel: 9 * step, step: step, count: 4) == 3)
+        #expect(SpaceReorder.landing(from: 0, travel: step, step: step, count: 0) == 0)
+    }
+
+    /// Only the doors between the held one and its landing step aside, towards
+    /// the place it left.
+    @Test func theDoorsPassedStepAside() {
+        #expect((0..<4).map { SpaceReorder.shift($0, from: 2, to: 0) } == [1, 1, 0, 0])
+        #expect((0..<4).map { SpaceReorder.shift($0, from: 0, to: 2) } == [0, -1, -1, 0])
+        #expect((0..<4).map { SpaceReorder.shift($0, from: 1, to: 1) } == [0, 0, 0, 0])
     }
 
     /// The lights stay where they are when the column folds: the line over
