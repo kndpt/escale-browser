@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Bookmark folders: real sidebar drags, folder persistence and visible open
-pages; then each right-click action of the column and the Bookmarks panel,
-chosen from the real context menu: Open in New Tab, Copy Link, Edit… (an
+pages; the Bookmarks panel by real key presses: ↑ and ↓ over the rows on
+show, Return and ⌘Return on a site, → and ← on a folder, ⌫ on a row, Escape,
+also once the page under the panel has taken the keyboard back; then each
+right-click action of the column and the Bookmarks panel, chosen from the real
+context menu: Open in New Tab, Copy Link, Edit… (an
 empty or invalid address refused), New Folder named in place, and Open All in
 Tabs, asked first above its threshold and private from a private tab.
 
@@ -22,6 +25,8 @@ import time
 
 ROOT = Path(__file__).resolve().parents[2]
 WORLD = os.environ.get("ESCALE_WORLD", "issue76-folders-regression")
+KEYMARK = "data:text/html,<title>KeyMark</title><textarea></textarea>"
+ELSEWHERE = "data:text/html,<title>Elsewhere</title>"
 
 
 def run(*args, env=None):
@@ -110,6 +115,7 @@ def typed(text):
 
 
 TAB, RIGHT, RETURN, DELETE, ESCAPE = (48, "\t"), (124, "\uf703"), (36, "\r"), (51, "\x7f"), (53, "\x1b")
+DOWN, UP, LEFT = (125, "\uf701"), (126, "\uf700"), (123, "\uf702")
 # A posted Return or Escape in the sheet's field goes to the field before
 # the sheet's buttons; Enter and ⌘. reach the buttons, as by hand.
 ENTER, CANCEL = (76, "\x03"), (47, ".", "cmd")
@@ -192,6 +198,89 @@ def drags(env):
     bench("shelf", "open", "Reading")
     assert "FolderTab" in titles(), titles()
     print("bookmark folders: drag delay, cancellation, merge, insertion, collapse and restart passed")
+
+
+def press(key, times=1, *mods):
+    for _ in range(times):
+        bench("press", str(key[0]), key[1], *mods)
+
+
+def show_panel():
+    bench("ui", "bookmarks", "on")
+    wait_for(lambda: bench("probe")["bookmarks"], "Bookmarks open")
+
+
+def roots():
+    return [row["title"] for row in shelf() if row["depth"] == 0]
+
+
+def reading():
+    """The titles in Reading, opened in the column to be read."""
+    rows = bench("shelf", "open", "Reading")["rows"]
+    at = next(i for i, row in enumerate(rows) if row["title"] == "Reading")
+    inside = []
+    for row in rows[at + 1:]:
+        if row["depth"] == 0:
+            break
+        if row["depth"] == 1:
+            inside.append(row["title"])
+    return inside
+
+
+def keyboard():
+    """Reopened before its closing has finished, the panel keeps its last
+    selection, so each step but the first starts from the top: ↑ is held there."""
+    bench("bookmark", KEYMARK, "new")
+    bench("shelf", "keep")
+    bench("bookmark", ELSEWHERE, "new")
+    top = roots()
+    # Kept before its page has loaded, the bookmark is named by its address.
+    mark = next(i for i, title in enumerate(top) if "KeyMark" in title)
+    folder = top.index("Reading")
+    assert folder + 1 < len(top), top
+    count = len(tabs())
+
+    # Nothing chosen yet: the first ↓ takes the top row. Return opens the
+    # site in the tab on screen.
+    show_panel()
+    press(DOWN, mark + 1)
+    press(RETURN)
+    wait_for(lambda: "KeyMark" in active()["url"], "KeyMark in the tab on screen", seconds=10)
+    assert len(tabs()) == count and not bench("probe")["bookmarks"]
+
+    # ⌘Return opens it apart.
+    show_panel()
+    press(UP, len(top) + 1)
+    press(DOWN, mark)
+    press(RETURN, 1, "cmd")
+    wait_for(lambda: len(tabs()) == count + 1, "KeyMark in a new tab", seconds=10)
+    assert "KeyMark" in active()["url"], active()
+
+    # The page under the panel takes the keyboard back with a real click:
+    # the panel's keys still walk its list. → opens Reading, ↓ steps into it,
+    # ⌫ takes its first row.
+    inside = reading()
+    show_panel()
+    bench("tap", active()["id"], "textarea")
+    press(UP, len(top) + 1)
+    press(DOWN, folder)
+    press(RIGHT)
+    press(DOWN)
+    press(DELETE)
+    assert reading() == inside[1:], (inside, reading())
+    assert roots() == top, roots()
+
+    # Back up to Reading, ← shuts it: ↓ now lands on the next top row.
+    press(UP)
+    press(LEFT)
+    press(DOWN)
+    press(DELETE)
+    assert roots() == top[:folder + 1] + top[folder + 2:], roots()
+    assert reading() == inside[1:], reading()
+
+    press(ESCAPE)
+    wait_for(lambda: not bench("probe")["bookmarks"], "Escape closes Bookmarks", seconds=10)
+    print("bookmark panel keys: ↑ ↓ held in bounds, Return, ⌘Return, → ←, ⌫ and Escape passed")
 
 
 def column(x="120"):
@@ -344,6 +433,7 @@ def main():
     kept = clipboard()
     try:
         drags(env)
+        keyboard()
         menus(env)
     finally:
         run(ROOT / "fresh.sh", "wipe", env=env)

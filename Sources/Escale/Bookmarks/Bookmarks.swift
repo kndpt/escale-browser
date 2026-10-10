@@ -424,10 +424,13 @@ final class Bookmarks: ObservableObject {
 /// The list itself: folders that open in place rather than to the side, each
 /// row draggable into another folder or back out to the top, each row good
 /// for a right-click too. Used both in the small dropdown off the button and
-/// in the full manager — the interaction is the same size either way.
+/// in the full manager — the interaction is the same size either way, the
+/// keyboard's included (Walk.swift).
 struct BookmarkOutline: View {
     let browser: Browser
     @ObservedObject var bookmarks: Bookmarks
+    /// The scroll view it is in, to keep the chosen row in sight.
+    let list: ScrollViewProxy
     let open: (URL) -> Void
 
     @SwiftUI.Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -437,6 +440,8 @@ struct BookmarkOutline: View {
     @StateObject private var mergeHover = HoverDwell()
     @State private var naming: Bookmark.ID?
     @State private var folderName = ""
+    /// None until the arrows choose one.
+    @State private var chosen: Bookmark.ID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
@@ -446,6 +451,43 @@ struct BookmarkOutline: View {
         .background(overRoot ? Palette.wash : .clear)
         .onDrop(of: [.text], isTargeted: $overRoot) { providers in drop(providers, into: nil) }
         .onDisappear { mergeHover.cancel() }
+        .onChange(of: chosen) { _, id in if let id { list.scrollTo(id) } }
+        // A name being typed keeps every key.
+        .walking(move: move, open: { _ in chosenNode.map(act) }, remove: { chosenNode.map(remove) },
+                 fold: { open in
+                     guard let node = chosenNode, node.isFolder, expanded.contains(node.id) != open else { return }
+                     toggle(node.id)
+                 }, while: { naming == nil && !browser.tuning })
+    }
+
+    /// The rows on show, top to bottom: a folder's own only while it is open.
+    static func shown(_ nodes: [Bookmark], open: Set<Bookmark.ID>) -> [Bookmark] {
+        nodes.flatMap { node in
+            [node] + (node.isFolder && open.contains(node.id) ? shown(node.children ?? [], open: open) : [])
+        }
+    }
+
+    private var chosenNode: Bookmark? {
+        chosen.flatMap { id in Self.shown(bookmarks.roots, open: expanded).first { $0.id == id } }
+    }
+
+    private func move(_ by: Int) {
+        let rows = Self.shown(bookmarks.roots, open: expanded)
+        chosen = Walk.step(rows.map(\.id), from: chosen, by: by)
+        if let node = rows.first(where: { $0.id == chosen }) { Walk.say(node.title) }
+    }
+
+    /// Return does what a click does: a folder opens or closes, a site opens
+    /// — apart with ⌘ held, which `Browser.visit` reads from the key as it
+    /// does from a click.
+    private func act(_ node: Bookmark) {
+        if node.isFolder { toggle(node.id) } else if let url = node.url.flatMap(URL.init(string:)) { open(url) }
+    }
+
+    private func remove(_ node: Bookmark) {
+        // A folder's own rows go with it: the next row is the one after them.
+        chosen = Walk.after(Self.shown(bookmarks.roots, open: expanded.subtracting([node.id])).map(\.id), removing: node.id)
+        bookmarks.remove(node.id)
     }
 
     @ViewBuilder
@@ -457,6 +499,7 @@ struct BookmarkOutline: View {
                 depth: depth,
                 open: node.url.flatMap(URL.init(string:)).map { url in { open(url) } },
                 isOpen: expanded.contains(node.id),
+                chosen: chosen == node.id,
                 dragging: dragging == node.id,
                 merging: mergeHover.target == node.id,
                 pulsing: mergeHover.pulsing && (mergeHover.source == node.id || mergeHover.target == node.id),
@@ -582,6 +625,7 @@ struct BookmarkOutline: View {
         /// Nil for a folder — folders open in place, not out to a page.
         let open: (() -> Void)?
         let isOpen: Bool
+        let chosen: Bool
         let dragging: Bool
         let merging: Bool
         let pulsing: Bool
@@ -658,7 +702,7 @@ struct BookmarkOutline: View {
             .padding(.trailing, 10)
             .padding(.vertical, 6)
             .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(merging ? Palette.wash : (hovering ? Palette.hover : .clear)))
+                .fill(merging || chosen ? Palette.wash : (hovering ? Palette.hover : .clear)))
             .contentShape(Rectangle())
             .opacity(dragging ? (pulsing ? 0.7 : 0.35) : 1)
             .scaleEffect(pulsing ? 1.035 : 1)
@@ -724,11 +768,13 @@ struct BookmarksDropdown: View {
                     .foregroundStyle(Palette.muted)
                     .padding(14)
             } else {
-                ScrollView {
-                    BookmarkOutline(browser: browser, bookmarks: bookmarks) { url in
-                        browser.pickBookmark(url)
+                ScrollViewReader { list in
+                    ScrollView {
+                        BookmarkOutline(browser: browser, bookmarks: bookmarks, list: list) { url in
+                            browser.pickBookmark(url)
+                        }
+                        .padding(6)
                     }
-                    .padding(6)
                 }
                 .frame(maxHeight: 360)
             }
@@ -786,15 +832,17 @@ struct BookmarksPanel: View {
             if bookmarks.isEmpty {
                 Card { Nothing("Nothing kept yet. Add this page from the Bookmarks menu, or bring yours in below.") }
             } else {
-                ScrollView(showsIndicators: false) {
-                    Card {
-                        BookmarkOutline(browser: browser, bookmarks: bookmarks) { url in
-                            browser.pickBookmark(url)
+                ScrollViewReader { list in
+                    ScrollView(showsIndicators: false) {
+                        Card {
+                            BookmarkOutline(browser: browser, bookmarks: bookmarks, list: list) { url in
+                                browser.pickBookmark(url)
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 6)
                         }
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 6)
+                        .padding(.bottom, 2)
                     }
-                    .padding(.bottom, 2)
                 }
                 .frame(maxHeight: 440)
             }

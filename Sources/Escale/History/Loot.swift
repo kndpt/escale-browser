@@ -48,12 +48,20 @@ final class Loot: ObservableObject {
     }
 
     func reveal(_ keep: Keep) {
+        if Loot.scripted { Loot.handed.append("show \(keep.name)"); return }
         NSWorkspace.shared.activateFileViewerSelecting([keep.url])
     }
 
     func open(_ keep: Keep) {
+        if Loot.scripted { Loot.handed.append("open \(keep.name)"); return }
         NSWorkspace.shared.open(keep.url)
     }
+
+    /// What a scripted test world was asked to open or show in the Finder,
+    /// in order. There no file goes to another app, on a desktop the script
+    /// shares with the person at this Mac (see BenchKeys.swift).
+    private(set) static var handed: [String] = []
+    private static var scripted: Bool { Store.testing && Bench.shared.running }
 
     private static func file(for space: UUID) -> URL {
         Store.file(space == Space.firstID ? "downloads.json" : "downloads-\(space.uuidString).json")
