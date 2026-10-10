@@ -1,4 +1,4 @@
-Escale 0.9: Focus Mode hides everything but the page. Type > in the search bar to run any command, or a keyword like “npm react” to search one site.
+Escale 0.9: Focus Mode hides everything but the page. In a new tab, type > to run any command, or a keyword like “npm react” to search one site.
 
 Escale 0.8.1: sites you were signed into stay signed in after a quit, and with the address above the page its environment shows before the site. Right-click a Space in the rail for its actions.
 

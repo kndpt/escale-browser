@@ -16,7 +16,7 @@ Search before that is in
 ### Highlights
 
 - **Focus Mode.** One command hides everything around the page; the same command brings it back.
-- **Run any command from Bearings.** Type > and a command's name in the search bar, then Return.
+- **Run any command from Bearings.** In a new tab, type > and a command's name, then Return.
 - **Search a site with a keyword.** Type a short word before what you look for to search one site directly, like “npm react”.
 - **Drag Spaces to reorder them.** Drag a workspace icon up or down the left edge to change its place.
 
