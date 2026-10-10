@@ -40,6 +40,16 @@ import Testing
         bindings.reset()
         #expect(bindings.keys(.newTab) == [KeyStroke("t", .command)])
     }
+    @Test func keysSavedForTheOldDeveloperModeStayWithNetwork() throws {
+        // As saved before the dock: ⌥⌘N removed from Developer Mode, which
+        // was the Network column, and given to Passwords instead.
+        let moved = String(decoding: try JSONEncoder().encode([KeyStroke("n", [.command, .option])]), as: UTF8.self)
+        let saved = Data(#"{"overrides":{"developer":[],"passwords":\#(moved)}}"#.utf8)
+        let loaded = KeyBindings.read(saved)
+        #expect(loaded.keys(.network).isEmpty)
+        #expect(loaded.keys(.passwords) == [KeyStroke("n", [.command, .option])])
+        #expect(loaded.keys(.developer).isEmpty)
+    }
     @Test func collisionRequiresConsentAndKeepsUnrelatedAlternative() {
         var bindings = KeyBindings()
         let next = KeyStroke("]", [.command, .shift])
