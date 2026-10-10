@@ -1945,11 +1945,11 @@ final class Browser: NSObject, ObservableObject {
     // MARK: - the address field
 
     /// ⌘L. The current address comes up selected, so typing over it replaces it
-    /// and Escape puts it back.
+    /// and Escape puts it back; its parameters are listed under it.
     func edit() {
         field.stopOpening()
         field.stopSummoning()
-        field.typed = active?.address?.absoluteString ?? ""
+        field.unfold(active?.address?.absoluteString ?? "")
         editing = true
         field.askFocus()
     }

@@ -10,6 +10,7 @@
 // ⌘T and ⌘K each pair with GitHub in a capsule at the end of the field
 // (Modes.swift, Bearing.swift), so GitHub reads as a mode of the same bar, not
 // a place; Tab switches the pair. ⌘L, which changes this page's address, shows no modes.
+// Over an address with a query, ⌘L lists its parameters instead (Parameters.swift).
 import SwiftUI
 import AppKit
 
@@ -52,6 +53,9 @@ struct Omnibox: View {
                         if let search = input.github {
                             Divider().overlay(Palette.hairline)
                             GitHubResults(browser: browser, search: search, maxHeight: bounds.size.height * 0.5)
+                        } else if input.query?.parameters.isEmpty == false {
+                            Divider().overlay(Palette.hairline)
+                            Parameters(input: input, maxHeight: bounds.size.height * 0.5)
                         } else if !input.offers.isEmpty {
                             Divider().overlay(Palette.hairline)
                             ScrollViewReader { scroll in
@@ -307,6 +311,15 @@ struct AddressField: NSViewRepresentable {
             coordinator.select(from: want.hasPrefix(input.typed) ? input.typed.utf16.count : want.utf16.count, in: field)
         }
 
+        // A parameter walked to has its value selected, so typing replaces it.
+        if coordinator.marked != input.markRequest, let editor = field.currentEditor() as? NSTextView {
+            coordinator.marked = input.markRequest
+            let end = (field.stringValue as NSString).length
+            let range = input.marked.flatMap { NSMaxRange($0) <= end ? $0 : nil } ?? NSRange(location: end, length: 0)
+            editor.selectedRange = range
+            editor.scrollRangeToVisible(range)
+        }
+
         if coordinator.answered != input.focusRequest {
             coordinator.answered = input.focusRequest
             let selectAll = input.focusSelectsAll
@@ -376,6 +389,8 @@ struct AddressField: NSViewRepresentable {
         /// The last value pushed in from the browser side, so an update can
         /// tell a change worth applying from one it made itself.
         var synced = ""
+        /// The last parameter selection applied (`Field.markRequest`).
+        var marked = 0
 
         /// A backspace has to be allowed to actually take a letter off. Without
         /// this the field puts the same letter straight back as a completion

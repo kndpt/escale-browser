@@ -36,6 +36,10 @@ import Foundation
 // shortcut as bound, and never a page. Only commands the window can run now
 // are offered, read from the finite catalogue (KeyCommand.swift) on each key,
 // so nothing is built or kept for it.
+//
+// ⌘L over an address with a query lists its parameters instead (Query.swift):
+// the arrows walk them, each walked to has its value selected in the field,
+// and typing there re-reads them while it is still the same page.
 
 @MainActor
 final class Field: ObservableObject {
@@ -61,6 +65,15 @@ final class Field: ObservableObject {
     /// The last request the field has answered with the keyboard in it. Not
     /// published: nothing is drawn from it; a script waits on it before typing.
     var focusGiven = 0
+
+    /// ⌘L's parameters, in place of suggestions, while the field is this page.
+    @Published private(set) var query: Query?
+    /// The parameter walked to, an index into `query`.
+    @Published private(set) var parameter: Int?
+    /// Tracking parameters listed rather than folded under their heading.
+    @Published var trackingShown = false
+    /// Bumped when the field should select the walked-to parameter's value.
+    @Published private(set) var markRequest = 0
 
     @Published private(set) var github: GitHubSearch?
     private(set) var focusSelectsAll = true
@@ -218,9 +231,65 @@ final class Field: ObservableObject {
         typed += ending
     }
 
+    /// ⌘L: the address, unfolded when it has a query.
+    func unfold(_ address: String) {
+        query = Query(address)
+        parameter = nil
+        trackingShown = false
+        typed = address
+    }
+
+    /// The parameters in the order the list shows them, tracking last.
+    var shownParameters: [Int] {
+        guard let query else { return [] }
+        let all = query.parameters.indices
+        return all.filter { !query.parameters[$0].tracking } + (trackingShown ? all.filter { query.parameters[$0].tracking } : [])
+    }
+
+    /// Where the walked-to parameter's value is in the field, if it is there.
+    var marked: NSRange? {
+        guard let query, let parameter, query.parameters.indices.contains(parameter) else { return nil }
+        return query.parameters[parameter].range
+    }
+
+    func pick(_ index: Int?) {
+        parameter = index
+        markRequest += 1
+    }
+
+    /// Space or a click: the parameter leaves the address, or comes back.
+    @discardableResult func toggle(_ index: Int? = nil) -> Bool {
+        guard var next = query, let index = index ?? parameter, next.parameters.indices.contains(index) else { return false }
+        next.toggle(index)
+        query = next
+        typed = next.address
+        markRequest += 1
+        return true
+    }
+
+    func removeTracking() {
+        guard var next = query else { return }
+        next.removeTracking()
+        query = next
+        parameter = nil
+        trackingShown = false
+        typed = next.address
+        markRequest += 1
+    }
+
     /// The arrow keys walk the list, and walking off the top lets go of it.
     func walk(_ step: Int) {
         if let github { github.walk(step); return }
+        if query != nil {
+            let order = shownParameters
+            guard !order.isEmpty else { return }
+            guard let here = parameter.flatMap(order.firstIndex) else {
+                pick(order[step > 0 ? 0 : order.count - 1])
+                return
+            }
+            pick(order.indices.contains(here + step) ? order[here + step] : nil)
+            return
+        }
         guard !offers.isEmpty else { return }
         switch picked {
         case nil:
@@ -245,6 +314,18 @@ final class Field: ObservableObject {
         environmentIndex = nil
         environmentFocused = false
         environmentChosen = false
+        if let query {
+            if github == nil, !summoning, let read = query.reading(typed) {
+                self.query = read
+                if let parameter, !read.parameters.indices.contains(parameter) { self.parameter = nil }
+                offers = []
+                ending = nil
+                picked = nil
+                return
+            }
+            self.query = nil
+            parameter = nil
+        }
         if let github {
             offers = []
             ending = nil
