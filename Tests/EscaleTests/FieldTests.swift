@@ -144,6 +144,19 @@ private func field(in root: URL) -> Field {
         #expect(field.completed == "project")
     }
 
+    @Test func walkingOntoADataAddressShowsItsTitle() throws {
+        let root = folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = try #require(URL(string: "data:text/html,<p>project</p>"))
+        let field = Field(history: History(file: root.appendingPathComponent("history.json")),
+                          search: searching, engine: { "Synthetic" }, others: { [] },
+                          newTab: { true }, bookmarks: { [Bookmark.site("Project inline", url)] })
+        field.typed = "project"
+        field.walk(1)
+        #expect(field.selected?.url == url)
+        #expect(field.completed == "Project inline")
+    }
+
     @Test func aBackspaceDropsTheEndingAndTabTakesIt() {
         let root = folder()
         defer { try? FileManager.default.removeItem(at: root) }

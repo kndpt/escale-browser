@@ -151,8 +151,10 @@ final class Field: ObservableObject {
         if github != nil { return typed }
         guard let selected else { return typed + (ending ?? "") }
         if let selectedEnvironment { return selectedEnvironment.url }
-        // A row's key can be a tab's or a bookmark's title; a search's is the words.
-        return selected.kind == .search ? selected.key : selected.url.absoluteString
+        // A row's key can be a tab's or a bookmark's title; a search's is the
+        // words. A `data:` address can be megabytes of page, so its row keeps
+        // its title.
+        return selected.kind == .search || selected.url.scheme == "data" ? selected.key : selected.url.absoluteString
     }
 
     /// Put the cursor back in the field, from wherever asked.

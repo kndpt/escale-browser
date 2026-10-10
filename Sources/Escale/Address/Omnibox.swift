@@ -300,7 +300,7 @@ struct AddressField: NSViewRepresentable {
             field.stringValue = want
             // Only an ending of what was typed is selected; a walked-to
             // address that doesn't extend it keeps the caret at its end.
-            coordinator.select(from: want.hasPrefix(input.typed) ? input.typed.count : want.count, in: field)
+            coordinator.select(from: want.hasPrefix(input.typed) ? input.typed.utf16.count : want.utf16.count, in: field)
         }
 
         if coordinator.answered != input.focusRequest {
@@ -398,18 +398,19 @@ struct AddressField: NSViewRepresentable {
 
             field.stringValue = text + ending
             synced = field.stringValue
-            select(from: text.count, in: field)
+            select(from: text.utf16.count, in: field)
         }
 
         /// The part after the caret, shown as selected, so the next keystroke
-        /// replaces it and Return takes it.
+        /// replaces it and Return takes it. `start` is in UTF-16 units, as
+        /// `NSRange` is.
         func select(from start: Int, in field: NSTextField) {
             guard let editor = field.currentEditor() as? NSTextView else { return }
             editor.selectedTextAttributes = [
                 .backgroundColor: NSColor(Palette.ink.opacity(0.12)),
                 .foregroundColor: Palette.NS.ink,
             ]
-            let length = field.stringValue.count
+            let length = field.stringValue.utf16.count
             guard start <= length else { return }
             editor.selectedRange = NSRange(location: start, length: length - start)
         }
