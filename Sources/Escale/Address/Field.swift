@@ -30,6 +30,12 @@ import Foundation
 // order its source gave. Each source hands over as many rows as the list
 // shows, and the places learned for the query even past that, so the cut
 // comes after the order. The grey ending keeps the order before any lift.
+//
+// In New Tab, `>` turns the question from where to go into what to do: the
+// rows are browser commands whose title matches what follows, each with its
+// shortcut as bound, and never a page. Only commands the window can run now
+// are offered, read from the finite catalogue (KeyCommand.swift) on each key,
+// so nothing is built or kept for it.
 
 @MainActor
 final class Field: ObservableObject {
@@ -106,6 +112,10 @@ final class Field: ObservableObject {
     private let bookmarkForTab: (UUID) -> Bookmark?
     /// What the rows taken before have taught, for the current Space.
     private let habits: () -> Habits?
+    /// Whether the window can run a command now (`Browser.keyAvailable`).
+    private let available: (KeyAction) -> Bool
+    /// A command's shortcuts as bound now.
+    private let keys: (KeyAction) -> [KeyStroke]
 
     init(
         history: @escaping () -> History,
@@ -115,7 +125,9 @@ final class Field: ObservableObject {
         newTab: @escaping () -> Bool = { false },
         bookmarks: @escaping () -> [Bookmark] = { [] },
         bookmarkForTab: @escaping (UUID) -> Bookmark? = { _ in nil },
-        habits: @escaping () -> Habits? = { nil }
+        habits: @escaping () -> Habits? = { nil },
+        available: @escaping (KeyAction) -> Bool = { _ in true },
+        keys: @escaping (KeyAction) -> [KeyStroke] = { $0.command.defaults }
     ) {
         self.history = history
         self.search = search
@@ -125,6 +137,8 @@ final class Field: ObservableObject {
         self.bookmarks = bookmarks
         self.bookmarkForTab = bookmarkForTab
         self.habits = habits
+        self.available = available
+        self.keys = keys
     }
 
     convenience init(
@@ -135,10 +149,11 @@ final class Field: ObservableObject {
         newTab: @escaping () -> Bool = { false },
         bookmarks: @escaping () -> [Bookmark] = { [] },
         bookmarkForTab: @escaping (UUID) -> Bookmark? = { _ in nil },
-        habits: Habits? = nil
+        habits: Habits? = nil,
+        available: @escaping (KeyAction) -> Bool = { _ in true }
     ) {
         self.init(history: { history }, search: search, engine: engine, others: others, newTab: newTab,
-                  bookmarks: bookmarks, bookmarkForTab: bookmarkForTab, habits: { habits })
+                  bookmarks: bookmarks, bookmarkForTab: bookmarkForTab, habits: { habits }, available: available)
     }
 
     /// Rows New Tab shows before its search row; ⌘L shows three.
@@ -150,6 +165,9 @@ final class Field: ObservableObject {
         if !newTab(), let picked, offers.indices.contains(picked) { return offers[picked].key }
         return typed + (ending ?? "")
     }
+
+    /// `>` in New Tab: the field lists commands, not places.
+    var commanding: Bool { github == nil && !summoning && newTab() && typed.hasPrefix(">") }
 
     /// Put the cursor back in the field, from wherever asked.
     func askFocus(selectAll: Bool = true) {
@@ -221,6 +239,14 @@ final class Field: ObservableObject {
             github.ask(typed)
             return
         }
+        guard !commanding else {
+            offers = commands(matching: String(typed.dropFirst()))
+            ending = nil
+            // The best match is already chosen: `>`, a name, Return.
+            picked = offers.isEmpty ? nil : 0
+            return
+        }
+
         let lifts = typed.isEmpty ? [:] : habits()?.lifts(for: typed) ?? [:]
         let learned = Set(lifts.keys)
         guard !summoning else {
@@ -350,6 +376,28 @@ final class Field: ObservableObject {
         let identity = selected?.id
         guess()
         picked = identity.flatMap { id in offers.firstIndex { $0.id == id } }
+    }
+
+    /// The commands the window can run now whose title answers `query`, the
+    /// closer match first, then in the catalogue's order. Editing and macOS
+    /// references are not in the catalogue: they belong to whoever has focus.
+    private func commands(matching query: String) -> [Suggestion] {
+        let terms = Terms(query)
+        return KeyCommand.all
+            .compactMap { command -> (command: KeyCommand, match: Terms.Match)? in
+                guard let match = terms.isEmpty ? .typed : terms.match(command.title) else { return nil }
+                return (command, match)
+            }
+            .filter { available($0.command.action) }
+            .enumerated()
+            .sorted { $0.element.match != $1.element.match ? $0.element.match < $1.element.match : $0.offset < $1.offset }
+            .prefix(Field.room)
+            .compactMap { _, found in
+                let action = found.command.action
+                guard let url = URL(string: "escale:" + action.rawValue) else { return nil }
+                return Suggestion(key: found.command.title, title: keys(action).map(\.label).joined(separator: " · "),
+                                  url: url, kind: .command, action: action, match: found.match)
+            }
     }
 
     /// What is open, most recently looked at first, filtered by what has been
