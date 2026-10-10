@@ -384,7 +384,7 @@ private final class Pointer {
     private var accepted = false
 
     func start(_ moved: @escaping @MainActor () -> Void) {
-        guard local == nil, let window else { return }
+        guard shown == nil, let window else { return }
         self.moved = moved
         // The pointer's moves reach the monitor wherever it is over the
         // window, not only over what tracks it — for as long as the watch
@@ -416,8 +416,10 @@ private final class Pointer {
         }
     }
 
+    /// `shown` marks a watch under way: the observer is always made, where
+    /// a monitor may not be.
     func stop() {
-        guard local != nil else { return }
+        guard shown != nil else { return }
         if let local { NSEvent.removeMonitor(local) }
         if let global { NSEvent.removeMonitor(global) }
         if let shown { NotificationCenter.default.removeObserver(shown) }
