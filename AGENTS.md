@@ -37,7 +37,7 @@ The [documentation map](docs/README.md) lists the rest.
 
 - **No new external dependencies or vendored code.** Apple frameworks and the bundled toolchain only. The one test target, `EscaleTests`, is not a precedent.
 - **WebKit only.** Where Chrome behaves differently, the fix belongs in Escale (see `ExtensionShims.swift`), not in another engine.
-- **Nothing phones home.** No analytics, telemetry or network traffic the user didn't ask for. The README's [Privacy](README.md#privacy) section lists every request Escale makes; a new one needs a reason and a row there.
+- **Nothing phones home.** No analytics, telemetry or network traffic the user didn't ask for. The one count is the update check's `first=` (`Updater.firsts`), the same words for every copy; never an identifier. The README's [Privacy](README.md#privacy) section lists every request Escale makes; a new one needs a reason and a row there.
 - **No force-unwraps (`!`, `try!`, `as!`) on anything that can fail at run time,** such as a network response, a file read or a keychain lookup.
 - **`swift build` adds zero new warnings.**
 - **Swift 5 language mode is on purpose** (`Package.swift`). No Swift 6 strict concurrency, no `Sendable` or actor ceremony.

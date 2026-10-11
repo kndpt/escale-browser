@@ -160,8 +160,10 @@ final class Updater: ObservableObject {
     func check(then done: @escaping (Release?) -> Void) {
         guard !checking else { return }
         checking = true
+        // A test run is nobody using Escale, so it is not counted.
+        let first = Store.testing ? [] : Updater.firsts(since: Store.settings.object(forKey: lastKey) as? Date)
         Task { [weak self] in
-            let found = await Updater.fetch()
+            let found = await Updater.fetch(first: first)
             guard let self else { return }
             checking = false
             lastChecked = Date()
@@ -255,8 +257,22 @@ final class Updater: ObservableObject {
         return arguments + [Bundle.main.bundleURL.path]
     }
 
-    private static func fetch() async -> Release? {
-        var request = URLRequest(url: feed)
+    /// What this read is the first of since the last one: the UTC day, the
+    /// ISO week, the month, or the install itself. The site counts these
+    /// words to know how many copies are in use without anything that tells
+    /// one copy from another: every copy first today sends the same `day`.
+    /// UTC, so a copy is first only once in the site's day, wherever it is.
+    nonisolated static func firsts(since last: Date?, now: Date = Date()) -> [String] {
+        guard let last else { return ["install", "day", "week", "month"] }
+        var utc = Calendar(identifier: .iso8601)
+        utc.timeZone = .gmt
+        let periods: [(String, Calendar.Component)] = [("day", .day), ("week", .weekOfYear), ("month", .month)]
+        return periods.filter { !utc.isDate(last, equalTo: now, toGranularity: $0.1) }.map(\.0)
+    }
+
+    private static func fetch(first: [String]) async -> Release? {
+        let address = first.isEmpty ? feed : feed.appending(queryItems: [URLQueryItem(name: "first", value: first.joined(separator: ","))])
+        var request = URLRequest(url: address)
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.timeoutInterval = 12
         guard let (data, response) = try? await URLSession.shared.data(for: request),

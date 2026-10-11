@@ -107,7 +107,9 @@ you act. A label is a reminder you set, not a guard.
 
 ## Privacy
 
-No account, no sync, no cloud, no analytics, no telemetry, no crash reports.
+No account, no sync, no cloud, no tracking, no crash reports. Escale counts
+its users once, without telling them apart: the update check says whether it
+is this copy's first today, this week or this month, and nothing else.
 Typing in the address bar sends nothing until you press Return.
 
 | What | Where it stays |
@@ -122,7 +124,7 @@ own:
 
 | Request | When | Where | What it sends |
 |---|---|---|---|
-| Update check | About every 2 hours, and on **Check now** in Settings | `escalebrowser.com/appcast.json`, redirected to the latest release here | A plain GET whose User-Agent carries the build and Darwin version. The site counts these per day; no IP, cookie or identifier is kept. |
+| Update check | About every 2 hours, and on **Check now** in Settings | `escalebrowser.com/appcast.json`, redirected to the latest release here | A plain GET whose User-Agent carries the build and Darwin version, and `first=` with what this check is the first of for this copy: the UTC day, ISO week, month or install (`first=day,week`). Every copy first today sends the same words, so the site counts copies in use per day, week and month; no IP, cookie or identifier is kept. |
 | Update download | When a newer version exists | GitHub Releases | A plain GET for the ZIP, installed only if its hash and bundle id match and Apple's Developer ID signed it for the same team. Nothing restarts on its own. |
 | Site icons | After a page loads | The icon the page declares, or `/favicon.ico` | A GET without cookies or cache, private tabs included. |
 | Extensions | When you add one, and its update check at most every 20 hours | Chrome Web Store (`clients2.google.com`) | The extension's id and version, and a fixed Chrome version (`prodversion=140.0.0.0`), the same for everyone. |

@@ -1,7 +1,8 @@
 // What an update's signature must satisfy before the updater swaps it in: a
 // Developer ID certificate from Apple, for this team. Checked against
 // requirement text and a binary Apple signed itself, which is not Developer ID.
-// And how often the feed is read on its own, against the hourly clock.
+// And how often the feed is read on its own, against the hourly clock, and
+// what each read says it is the first of.
 import Foundation
 import Security
 import Testing
@@ -34,5 +35,16 @@ import Testing
         #expect(!Updater.due(since: last, now: start.addingTimeInterval(60 * 60)))
         #expect(Updater.due(since: last, now: start.addingTimeInterval(2 * 60 * 60)))
         #expect(Updater.due(since: .distantPast))
+    }
+
+    @Test func aReadSaysWhatItIsTheFirstOf() throws {
+        func utc(_ text: String) throws -> Date { try #require(ISO8601DateFormatter().date(from: text)) }
+        #expect(Updater.firsts(since: nil) == ["install", "day", "week", "month"])
+        let wednesday = try utc("2026-10-07T23:00:00Z")
+        #expect(Updater.firsts(since: wednesday, now: try utc("2026-10-07T23:50:00Z")) == [])
+        #expect(Updater.firsts(since: wednesday, now: try utc("2026-10-08T00:10:00Z")) == ["day"])
+        #expect(Updater.firsts(since: wednesday, now: try utc("2026-10-12T09:00:00Z")) == ["day", "week"])
+        // Thursday 31 December and Friday 1 January share an ISO week.
+        #expect(Updater.firsts(since: try utc("2026-12-31T12:00:00Z"), now: try utc("2027-01-01T12:00:00Z")) == ["day", "month"])
     }
 }
