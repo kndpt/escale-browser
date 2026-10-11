@@ -4,7 +4,8 @@
 The slot in the bar used to look its owner up once and keep it: SwiftUI
 reuses a view whose inputs are unchanged. Built in a Space without
 extensions, it showed nothing back in the Space that has them until a
-relaunch; built in that Space, it showed its buttons everywhere. `bar` in
+relaunch; built in that Space, it showed its buttons everywhere. The menu
+is there in every Space, so it must say the Space on screen. `bar` in
 `bench extensions` lists the anchors the window really holds, so this reads
 what is drawn, not the installed list. A local pinned fixture stands in for
 Dashlane; the shared runner owns the world, deadlines and cleanup.
@@ -57,22 +58,22 @@ def main():
 
         obj("space", "new", "Empty")
         empty = h.until("second Space on screen", lambda: (s if (s := current()) != FIRST else None))
-        shows("a Space without extensions shows none of the first one's", [], empty)
+        shows("a Space without extensions shows only its own menu", [MENU], empty)
 
         # The reported case: the bar is rebuilt while the empty Space is on
         # screen (here by its layout changing), then the first Space returns.
         for sidebar in ("off", "on"):
             obj("ui", "sidebar", sidebar)
-            shows(f"empty Space, sidebar {sidebar}", [], empty)
+            shows(f"empty Space, sidebar {sidebar}", [MENU], empty)
             obj("space", "go", "1")
             shows(f"first Space back after a rebuild, sidebar {sidebar}", [ident, MENU], FIRST)
             obj("space", "go", "2")
-            shows(f"empty Space again, sidebar {sidebar}", [], empty)
+            shows(f"empty Space again, sidebar {sidebar}", [MENU], empty)
         obj("space", "go", "1")
         shows("first Space after the round trips", [ident, MENU], FIRST)
 
         # A pinned extension that is not loaded loses its button; the menu
-        # stays while anything is installed.
+        # stays.
         obj("ext-enable", ident, "off")
         shows("menu without a loaded extension", [MENU], FIRST)
         obj("ext-enable", ident, "on")

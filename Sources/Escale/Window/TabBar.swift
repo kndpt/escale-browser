@@ -170,7 +170,7 @@ struct TabBar: View {
                         // Without the rail, a waiting update leads the row.
                         GateDoor(browser: browser)
                         DownloadDoor(downloads: browser.downloads) { browser.hoarding = true }
-                        ExtensionSlot(space: browser.spaceID)
+                        ExtensionSlot(space: browser.spaceID, planned: browser.space.plannedExtensions ?? [])
                         VisualDoor(browser: browser)
                         CaptureDoor(browser: browser)
                         DeveloperDoor(browser: browser)
