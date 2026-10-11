@@ -81,6 +81,10 @@ CHECKS = {
               "Clear at the Tabs heading: loose tabs only, landing, other Space and a real click", "app", ("bundle",),
               paths=("Sources/Escale/Bookmarks/Shelf.swift", "Sources/Escale/Browser/Browser.swift"),
               foreground=True),
+        Check("closed-tabs", ("python3", "Tests/Bench/tab_close_views.py"),
+              BENCH + ("Tests/Bench/tab_close_views.py",),
+              "a tab closed with ⌘W gets no new page view: live content controllers stay level", "app", ("bundle",),
+              paths=("Sources/Escale/Tabs/Tab.swift", "Sources/Escale/Window/Stage.swift")),
         Check("shortcut-motion", ("python3", "Tests/Bench/shortcut_motion.py"),
               BENCH + ("Tests/Bench/shortcut_motion.py",),
               "shortcut bursts, stable tab slots, pointer origin, create/close and persisted pace in both layouts",
@@ -354,7 +358,7 @@ def plan(paths, risks=(), checks=(), quick=False, acknowledge=None):
         include_dependencies(name)
     # Dependencies are small and explicit; no scoring or model-specific workflow.
     order = ["icons", "harness", "portable", "links", "whitespace", "changelog", "build", "swift",
-             "bundle", "app", "wake", "sleeping", "tabs", "shortcut-motion", "sidebar-rows", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus",
+             "bundle", "app", "wake", "sleeping", "tabs", "closed-tabs", "shortcut-motion", "sidebar-rows", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus",
              "routes", "tab-source", "environments", "bookmarked-page", "calls", "calls-browse", "extension-speech", "extension-bar", "space-media", "space-reorder", "call-float", "warnings"]
     return {"checks": [n for n in order if n in chosen], "reasons": chosen,
             "risks": list(risks), "requested": list(checks),

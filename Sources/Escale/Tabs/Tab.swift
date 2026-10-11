@@ -1271,9 +1271,14 @@ final class Tab: ObservableObject, Identifiable {
         web.go(to: item)
     }
 
+    /// Thrown away for good (close). The stage still watching it for a frame
+    /// built it a new view, which nothing ever let go of.
+    private(set) var closed = false
+
     /// Called when the tab is thrown away. Without it the view keeps running
     /// whatever the page left behind — timers, video, sockets.
     func close() {
+        closed = true
         onPanelEnd?(self)
         onPanelEnd = nil
         onPanelFocus = nil
