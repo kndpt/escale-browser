@@ -55,7 +55,12 @@ LIBPROC.proc_pid_rusage.restype = ctypes.c_int
 
 class Page(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path.startswith("/dynamic"):
+        if self.path.startswith("/titled"):
+            # A page that keeps renaming itself, as an unread count or a timer does.
+            body = ("<title>Resource fixture</title><main><h1>Resource fixture</h1></main><script>"
+                    "let n=0; setInterval(()=>{document.title='('+(++n)+') Resource fixture'},250)"
+                    "</script>").encode()
+        elif self.path.startswith("/dynamic"):
             body = ("<title>Resource fixture</title><main><h1>Resource fixture</h1>"
                     "<p id='moving'>Dynamic</p></main><script>"
                     "let n=0; setInterval(()=>{document.querySelector('#moving').textContent="
@@ -608,6 +613,74 @@ def navigation(label, base, count):
         cleanup()
 
 
+def updates(label, base, tabs, keys=42, swipes=5):
+    """What one change in the window costs with many tabs: a key in History's
+    search and a step of a Space swipe, in ms until the run loop rests, in
+    both layouts. The search's list may settle a pass after the first rest,
+    so the third rest is kept beside the first."""
+    first = "00000000-0000-0000-0000-000000000001"
+    second = "00000000-0000-0000-0000-000000000002"
+    spaces = [{"id": first, "name": "One", "colour": 0, "sharesSignIns": False},
+              {"id": second, "name": "Two", "colour": 1, "sharesSignIns": False}]
+    result = {"tabs": tabs}
+    for layout in ["strip", "column"]:
+        setup(f"resource-{label}-updates-{layout[:3]}", session=session(tabs, base),
+              history=history(2000), spaces=spaces,
+              extra_sessions={f"session-{second}.json": session(5, base)},
+              settings={"sidebar": layout == "column", "spaces": True})
+        try:
+            launched = launch(f"{base}/tab-0")
+            check(f"{layout} lazy page count", len(ask("space")["pages"]), 1)
+            ask("recall", open=True)
+            hunt_first, hunt_settled = [], []
+            while len(hunt_first) < keys:
+                for size in range(1, 8):
+                    rests = ask("recall", hunt="project"[:size])["ms"]
+                    hunt_first.append(rests[0])
+                    hunt_settled.append(rests[-1])
+                ask("recall", hunt="")
+            ask("recall", open=False)
+            steps = []
+            for _ in range(swipes):
+                steps += ask("space", timeout=60, action="glide",
+                             dx=-40.0 if layout == "column" else -20.0, steps=30)["ms"]
+                # The cancelled swipe springs back (Motion.settle, about half a
+                # second) while its offset already reads zero: nothing to poll,
+                # so the next one waits that spring out twice over.
+                time.sleep(1)
+            result[layout] = {"hunt_first_rest_ms": hunt_first, "hunt_settled_ms": hunt_settled,
+                              "swipe_step_ms": steps, "memory": sample_memory(set(launched["created_webkit_pids"]))}
+            print(f"updates {layout}: key {statistics.median(hunt_settled):.2f} ms settled, "
+                  f"swipe step {statistics.median(steps):.2f} ms", flush=True)
+        finally:
+            cleanup()
+    return result
+
+
+def title(label, base, tabs, seconds):
+    """The browser's CPU while the page on screen renames itself four times a
+    second, with many tabs in the column: what each title change costs the
+    window. Measured after the page's first ten seconds."""
+    setup(f"resource-{label}-title", session={"tabs": [{"url": f"{base}/titled/tab-0", "title": "Tab 0"}]
+          + [{"url": f"{base}/tab-{i}", "title": f"Tab {i}"} for i in range(1, tabs)], "active": 0},
+          settings={"sidebar": True})
+    try:
+        result = launch(f"{base}/titled/tab-0")
+        time.sleep(12)
+        pid = result["memory"]["app_pid"]
+        before, before_wakeups = cpu_seconds(pid), wakeups(pid)
+        time.sleep(seconds)
+        after, after_wakeups = cpu_seconds(pid), wakeups(pid)
+        result.update({"tabs": tabs, "seconds": seconds,
+                       "browser_cpu_percent_one_core": round(100 * (after - before) / seconds, 3),
+                       "browser_wakeups": {name: after_wakeups[name] - before_wakeups[name]
+                                           for name in ["package_idle", "interrupt"]}})
+        print(f"title: {result['browser_cpu_percent_one_core']:.2f}% of one core", flush=True)
+        return result
+    finally:
+        cleanup()
+
+
 def main():
     global ROOT, APP
     parser = ArgumentParser(description=__doc__)
@@ -624,7 +697,7 @@ def main():
     parser.add_argument("--churn-cycles", type=int, default=100)
     parser.add_argument("--navigation-count", type=int, default=100)
     parser.add_argument("--feature-seconds", type=int, default=60)
-    parser.add_argument("--only", choices=["core", "launches", "display", "typing", "spaces", "churn", "sleep", "features", "extensions", "idle", "background-idle", "navigation"],
+    parser.add_argument("--only", choices=["core", "launches", "display", "typing", "spaces", "churn", "sleep", "features", "extensions", "idle", "background-idle", "navigation", "updates", "title"],
                         default="core")
     args = parser.parse_args()
     if not str(args.out).endswith(".tar.gz"):
@@ -696,6 +769,10 @@ def main():
                     args.label, base, args.idle_seconds, args.idle_runs, background=True)
         if args.only == "navigation":
             result["navigation"] = navigation(args.label, base, args.navigation_count)
+        if args.only == "updates":
+            result["updates"] = updates(args.label, base, 100)
+        if args.only == "title":
+            result["title"] = title(args.label, base, 40, args.feature_seconds)
     finally:
         SERVER.shutdown()
         cleanup()
