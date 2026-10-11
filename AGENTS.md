@@ -37,7 +37,7 @@ The [documentation map](docs/README.md) lists the rest.
 
 - **No new external dependencies or vendored code.** Apple frameworks and the bundled toolchain only. The one test target, `EscaleTests`, is not a precedent.
 - **WebKit only.** Where Chrome behaves differently, the fix belongs in Escale (see `ExtensionShims.swift`), not in another engine.
-- **Nothing phones home.** No analytics, telemetry or network traffic the user didn't ask for. The README's [Privacy](README.md#privacy) section lists every request Escale makes; a new one needs a reason and a row there.
+- **Nothing phones home.** No analytics, telemetry or network traffic the user didn't ask for. The one count is the update check's `first=` (`Updater.firsts`), the same words for every copy; never an identifier. The README's [Privacy](README.md#privacy) section lists every request Escale makes; a new one needs a reason and a row there.
 - **No force-unwraps (`!`, `try!`, `as!`) on anything that can fail at run time,** such as a network response, a file read or a keychain lookup.
 - **`swift build` adds zero new warnings.**
 - **Swift 5 language mode is on purpose** (`Package.swift`). No Swift 6 strict concurrency, no `Sendable` or actor ceremony.
@@ -72,7 +72,7 @@ A new concern gets its own file and a concrete owner; wiring it in stays a small
 - Commits are in English: `<type>(<scope>): <subject>`.
 - Report what changed, how it was verified and what it doesn't cover.
 
-Releases are the maintainer's: don't change `VERSION`, `NOTES.md` or `CHANGELOG.md` or run `build.sh release` or `publish.sh` unless asked.
+Releases are the maintainer's: don't change `VERSION`, `NOTES.md` or `CHANGELOG.md` or run `build.sh release` or `publish.sh` unless asked. `main` holds the next release; a pull request's milestone says which release it ships in, and only the maintainer sets it or merges. A fix or improvement to a feature not yet on `main` goes on that feature's branch. `./beta X.Y` builds a coming release whole to try it; the world `beta` is the maintainer's, so an agent names its own (`ESCALE_PROBE=qa ./beta X.Y`).
 
 ## Review guidelines
 
