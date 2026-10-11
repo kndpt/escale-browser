@@ -1318,8 +1318,10 @@ private struct ExtensionMenu: View {
                             .foregroundStyle(Palette.muted)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.bottom, 4)
-                        ForEach(Array(planned.enumerated()), id: \.offset) { _, item in
-                            PlannedRow(item: item, extensions: extensions) { extensions.menuOpen = false }
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(Array(planned.enumerated()), id: \.offset) { _, item in
+                                PlannedRow(item: item, extensions: extensions) { extensions.menuOpen = false }
+                            }
                         }
                     }
                     .padding(14)

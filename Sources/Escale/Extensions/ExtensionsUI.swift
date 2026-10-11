@@ -200,7 +200,7 @@ struct ExtensionsPage: View {
 /// again — in Settings and in the list behind the puzzle button alike. Its
 /// button turns into a ring while it is fetched and the others wait; once
 /// installed it leaves the list (`installedExtension`), and if it failed, the
-/// row says why.
+/// row says why. The cross takes it off the list without installing it.
 @available(macOS 15.4, *)
 struct PlannedRow: View {
     let item: PlannedExtension
@@ -217,7 +217,7 @@ struct PlannedRow: View {
                 Text(item.name)
                     .font(.system(size: metrics.length(density.detail + 1)))
                     .foregroundStyle(Palette.ink)
-                    .lineLimit(1)
+                    .lineLimit(2)
                 if let why {
                     Text(why)
                         .font(.system(size: metrics.length(density.detail)))
@@ -239,6 +239,15 @@ struct PlannedRow: View {
                         DispatchQueue.main.async { extensions.installFolder() }
                     }
                 }
+                Button { extensions.browser?.forgetPlannedExtension(item, in: extensions.space) } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: metrics.length(9.5), weight: .medium))
+                        .foregroundStyle(Palette.muted)
+                        .frame(width: metrics.length(20), height: metrics.length(20))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Don't reinstall")
             }
             .disabled(extensions.busy != nil)
             .fixedSize()

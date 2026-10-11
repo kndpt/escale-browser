@@ -1,1 +1,1 @@
-The Extensions button is always in the toolbar, even with nothing installed, and leads to the Chrome Web Store; after an import, it shows how many extensions are left to reinstall and installs them from its list, with progress and the reason when one fails (#130).
+The Extensions button is always in the toolbar, even with nothing installed, and leads to the Chrome Web Store; after an import, it shows how many extensions are left to reinstall and installs them from its list, with progress and the reason when one fails, or lets you drop the ones you don't want (#130).
