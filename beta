@@ -91,6 +91,9 @@ done
 swift "$HERE/Icon/icon.swift" --beta build/BetaIcon.iconset > /dev/null
 iconutil -c icns build/BetaIcon.iconset -o "$APP/Contents/Resources/AppIcon.icns"
 rm -rf build/BetaIcon.iconset
+# ditto keeps the build's date, and macOS keeps an icon until its app's date
+# changes: without this the Dock shows the release's white plate.
+touch "$APP"
 codesign --force --deep --sign - "$APP" 2>/dev/null
 open "$APP"
 echo "installed: $APP"
