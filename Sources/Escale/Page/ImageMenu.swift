@@ -88,7 +88,7 @@ extension Browser {
     /// promise doesn't always give it back on a paste.
     func copyImage(at url: URL) {
         Task {
-            guard let (data, _) = try? await URLSession.shared.data(from: url),
+            guard let data = await Browser.picture(url),
                   let image = NSImage(data: data)
             else {
                 announce("Couldn't copy that image")
@@ -98,6 +98,50 @@ extension Browser {
             NSPasteboard.general.writeObjects([image])
             announce("Image copied")
         }
+    }
+
+    /// No cache and no cookies, as the icons' (Icons.swift): a copied
+    /// picture leaves nothing behind.
+    nonisolated private static let pictures: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 15
+        config.timeoutIntervalForResource = 60
+        config.urlCache = nil
+        config.httpCookieAcceptPolicy = .never
+        config.httpShouldSetCookies = false
+        return URLSession(configuration: config)
+    }()
+
+    /// A picture past this is not read to its end: it would be held whole in
+    /// memory, then again as an image.
+    nonisolated static let pictureLimit = 32_000_000
+
+    /// The bytes at `url`, read as they come and off the main thread, or nil:
+    /// an error status, a length announced or reached past the limit, or no
+    /// answer in time.
+    nonisolated private static func picture(_ url: URL) async -> Data? {
+        guard let (bytes, response) = try? await pictures.bytes(from: url) else { return nil }
+        let expected = response.expectedContentLength
+        // A data: address announces its length too, without a status.
+        let refused = (response as? HTTPURLResponse).map { !(200..<300).contains($0.statusCode) } ?? false
+        if refused || expected > pictureLimit {
+            bytes.task.cancel()
+            return nil
+        }
+        var data = Data()
+        data.reserveCapacity(expected > 0 ? Int(expected) : 65_536)
+        do {
+            for try await byte in bytes {
+                data.append(byte)
+                if data.count > pictureLimit {
+                    bytes.task.cancel()
+                    return nil
+                }
+            }
+        } catch {
+            return nil
+        }
+        return data
     }
 
     /// The same WKDownload this app already knows how to finish — asked for
