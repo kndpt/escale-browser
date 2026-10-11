@@ -62,7 +62,7 @@ if [ ! -d build/Escale.app ] || [ "$(cat build/beta.tree 2>/dev/null)" != "$tree
   ./build.sh
   echo "$tree" > build/beta.tree
 fi
-[ -z "${ESCALE_PROBE:-}" ] || exec ./fresh.sh again
+[ "${ESCALE_PROBE:-beta}" = beta ] || exec ./fresh.sh again
 
 # The maintainer's beta is installed as /Applications/Escale Beta.app, to be
 # opened from the Dock beside the release it previews, on a green plate. It
