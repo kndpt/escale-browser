@@ -644,6 +644,10 @@ def updates(label, base, tabs, keys=42, swipes=5):
             for _ in range(swipes):
                 steps += ask("space", timeout=60, action="glide",
                              dx=-40.0 if layout == "column" else -20.0, steps=30)["ms"]
+                # The cancelled swipe springs back (Motion.settle, about half a
+                # second) while its offset already reads zero: nothing to poll,
+                # so the next one waits that spring out twice over.
+                time.sleep(1)
             result[layout] = {"hunt_first_rest_ms": hunt_first, "hunt_settled_ms": hunt_settled,
                               "swipe_step_ms": steps, "memory": sample_memory(set(launched["created_webkit_pids"]))}
             print(f"updates {layout}: key {statistics.median(hunt_settled):.2f} ms settled, "
