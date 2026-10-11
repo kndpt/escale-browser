@@ -38,7 +38,12 @@ git reset --quiet --hard origin/main
 echo "$TARGET = main $(git rev-parse --short HEAD)"
 
 while read -r milestone; do
+  # Read first, so a failed query stops the run instead of leaving its pull
+  # requests silently out of the beta.
+  prs=$(gh pr list --state open --search "milestone:\"$milestone\"" --limit 100 \
+          --json number,title --jq 'sort_by(.number)[] | "\(.number)\t\(.title)"')
   while IFS=$'\t' read -r number title; do
+    [ -n "$number" ] || continue
     git fetch --quiet origin "pull/$number/head"
     if ! git merge --quiet --no-edit -m "beta $TARGET: #$number" FETCH_HEAD; then
       git merge --abort
@@ -46,8 +51,7 @@ while read -r milestone; do
       exit 1
     fi
     echo "  + $milestone #$number $title"
-  done < <(gh pr list --state open --search "milestone:\"$milestone\"" --limit 100 \
-             --json number,title --jq 'sort_by(.number)[] | "\(.number)\t\(.title)"')
+  done <<< "$prs"
   [ "$milestone" = "$TARGET" ] && break
 done <<< "$milestones"
 
