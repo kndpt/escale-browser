@@ -1307,20 +1307,25 @@ private struct ExtensionMenu: View {
         VStack(alignment: .leading, spacing: 0) {
             let buttons = extensions.buttons
             if !planned.isEmpty {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("To reinstall")
-                        .font(.system(size: 12.5, weight: .medium))
-                        .foregroundStyle(Palette.ink)
-                    Text("Imported with this Space. Reinstall them to use them here.")
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(Palette.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.bottom, 4)
-                    ForEach(Array(planned.enumerated()), id: \.offset) { _, item in
-                        PlannedRow(item: item, extensions: extensions) { extensions.menuOpen = false }
+                // Bounded like the list below: an import can bring hundreds.
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("To reinstall")
+                            .font(.system(size: 12.5, weight: .medium))
+                            .foregroundStyle(Palette.ink)
+                        Text("Imported with this Space. Reinstall them to use them here.")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Palette.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.bottom, 4)
+                        ForEach(Array(planned.enumerated()), id: \.offset) { _, item in
+                            PlannedRow(item: item, extensions: extensions) { extensions.menuOpen = false }
+                        }
                     }
+                    .padding(14)
                 }
-                .padding(14)
+                .frame(maxHeight: 240)
+                .fixedSize(horizontal: false, vertical: true)
                 if !extensions.installed.isEmpty { Divider().overlay(Palette.hairline) }
             }
             if extensions.installed.isEmpty {
