@@ -244,7 +244,7 @@ struct WelcomePanel: View {
                 }
                 .buttonStyle(MigrationButton(kind: importedDuringSetup ? .primary : .secondary))
             }
-            .disabled(migration.busy || transfer.busy)
+            .disabled(migration.busy || transfer.bringingBusy)
             .animation(reduceMotion ? nil : Motion.arrival, value: importedDuringSetup)
         }
     }
