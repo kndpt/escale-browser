@@ -1,0 +1,64 @@
+#!/bin/bash
+# A release tried whole before it ships, like a beta: the maintainer's tool.
+#
+#   ./beta 0.11      build what 0.11 will be and open it in the test world "beta"
+#
+# What a release holds is said in one place, its GitHub milestone: a pull
+# request put in milestone 0.11 goes into 0.11, one taken out waits. The beta
+# is origin/main plus the open pull requests of every milestone up to the one
+# named, in milestone then number order, since 0.11 ships on top of 0.10.
+#
+# The branch `beta` is remade from them at each run and never pushed or
+# merged, so nothing has to be carried between release branches: a bug found
+# in the beta is fixed in its pull request, or on main, and ./beta runs again.
+#
+# It lives in its own worktree, .git/beta, so the checkout you work in and its
+# build/Escale.app are left alone. A beta whose files have not changed since
+# the last run opens without being built again.
+#
+# The world keeps its data from one beta to the next, as an update would:
+# ESCALE_PROBE=NAME picks another world, ./fresh.sh wipe empties one. Quit the
+# running beta first; fresh.sh refuses to open a world twice.
+set -euo pipefail
+
+cd "$(dirname "$0")"
+TARGET="${1:-}"
+[[ "$TARGET" =~ ^[0-9]+(\.[0-9]+)+$ ]] || { echo "usage: [ESCALE_PROBE=NAME] ./beta X.Y" >&2; exit 2; }
+TREE="$(git rev-parse --path-format=absolute --git-common-dir)/beta"
+
+milestones=$(gh api 'repos/{owner}/{repo}/milestones?state=open&per_page=100' --jq '.[].title' \
+  | grep -E '^[0-9]+(\.[0-9]+)+$' | sort -V || true)
+grep -qxF "$TARGET" <<< "$milestones" || { echo "no open milestone $TARGET" >&2; exit 1; }
+
+git fetch --quiet origin main
+[ -d "$TREE" ] || git worktree add --quiet -B beta "$TREE" origin/main
+cd "$TREE"
+# A reset also clears a merge an interrupted run left halfway.
+git reset --quiet --hard origin/main
+echo "$TARGET = main $(git rev-parse --short HEAD)"
+
+while read -r milestone; do
+  # Read first, so a failed query stops the run instead of leaving its pull
+  # requests silently out of the beta.
+  prs=$(gh pr list --state open --search "milestone:\"$milestone\"" --limit 100 \
+          --json number,title --jq 'sort_by(.number)[] | "\(.number)\t\(.title)"')
+  while IFS=$'\t' read -r number title; do
+    [ -n "$number" ] || continue
+    git fetch --quiet origin "pull/$number/head"
+    if ! git merge --quiet --no-edit -m "beta $TARGET: #$number" FETCH_HEAD; then
+      git merge --abort
+      echo "#$number does not merge onto the pull requests before it: settle it in its branch" >&2
+      exit 1
+    fi
+    echo "  + $milestone #$number $title"
+  done <<< "$prs"
+  [ "$milestone" = "$TARGET" ] && break
+done <<< "$milestones"
+
+# Merge commits change from run to run; the files are what was built.
+tree=$(git rev-parse 'HEAD^{tree}')
+if [ ! -d build/Escale.app ] || [ "$(cat build/beta.tree 2>/dev/null)" != "$tree" ]; then
+  ./build.sh
+  echo "$tree" > build/beta.tree
+fi
+ESCALE_PROBE="${ESCALE_PROBE:-beta}" exec ./fresh.sh again
