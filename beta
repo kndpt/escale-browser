@@ -25,6 +25,7 @@ cd "$(dirname "$0")"
 TARGET="${1:-}"
 [[ "$TARGET" =~ ^[0-9]+(\.[0-9]+)+$ ]] || { echo "usage: [ESCALE_PROBE=NAME] ./beta X.Y" >&2; exit 2; }
 TREE="$(git rev-parse --path-format=absolute --git-common-dir)/beta"
+HERE="$PWD"
 
 milestones=$(gh api 'repos/{owner}/{repo}/milestones?state=open&per_page=100' --jq '.[].title' \
   | grep -E '^[0-9]+(\.[0-9]+)+$' | sort -V || true)
@@ -64,8 +65,9 @@ fi
 [ -z "${ESCALE_PROBE:-}" ] || exec ./fresh.sh again
 
 # The maintainer's beta is installed as /Applications/Escale Beta.app, to be
-# opened from the Dock beside the release it previews. It carries the world's
-# id, so it lives in world "beta" and never reaches the real browser's data.
+# opened from the Dock beside the release it previews, on a green plate. It
+# carries the world's id, so it lives in world "beta" and never reaches the
+# real browser's data.
 APP="/Applications/Escale Beta.app"
 # One process per world, whichever copy it runs from.
 if pgrep -f "/(Escale Beta|build/probe/beta/Escale)\.app/Contents/MacOS/Escale" >/dev/null; then
@@ -85,6 +87,10 @@ for key in CFBundleName CFBundleDisplayName; do
   /usr/libexec/PlistBuddy -c "Set :$key Escale Beta" "$APP/Contents/Info.plist"
 done
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.kndpt.escale.probe.beta" "$APP/Contents/Info.plist"
+# Its icon is drawn by this checkout, the one that knows --beta.
+swift "$HERE/Icon/icon.swift" --beta build/BetaIcon.iconset > /dev/null
+iconutil -c icns build/BetaIcon.iconset -o "$APP/Contents/Resources/AppIcon.icns"
+rm -rf build/BetaIcon.iconset
 codesign --force --deep --sign - "$APP" 2>/dev/null
 open "$APP"
 echo "installed: $APP"
