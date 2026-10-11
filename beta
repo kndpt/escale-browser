@@ -16,9 +16,9 @@
 # build/Escale.app are left alone. A beta whose files have not changed since
 # the last run opens without being built again.
 #
-# The world keeps its data from one beta to the next, as an update would:
-# ESCALE_PROBE=NAME picks another world, ./fresh.sh wipe empties one. Quit the
-# running beta first; fresh.sh refuses to open a world twice.
+# The world keeps its data from one beta to the next, as an update would.
+# ESCALE_PROBE=NAME runs it in another world through fresh.sh instead of
+# installing it; ./fresh.sh wipe empties one. Quit the running beta first.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -61,4 +61,30 @@ if [ ! -d build/Escale.app ] || [ "$(cat build/beta.tree 2>/dev/null)" != "$tree
   ./build.sh
   echo "$tree" > build/beta.tree
 fi
-ESCALE_PROBE="${ESCALE_PROBE:-beta}" exec ./fresh.sh again
+[ -z "${ESCALE_PROBE:-}" ] || exec ./fresh.sh again
+
+# The maintainer's beta is installed as /Applications/Escale Beta.app, to be
+# opened from the Dock beside the release it previews. It carries the world's
+# id, so it lives in world "beta" and never reaches the real browser's data.
+APP="/Applications/Escale Beta.app"
+# One process per world, whichever copy it runs from.
+if pgrep -f "/(Escale Beta|build/probe/beta/Escale)\.app/Contents/MacOS/Escale" >/dev/null; then
+  echo "the beta is running: quit it first" >&2
+  exit 1
+fi
+# A copy fresh.sh left would answer for the id too.
+if [ -d build/probe/beta ]; then
+  /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
+    -u build/probe/beta/Escale.app 2>/dev/null || true
+  rm -rf build/probe/beta
+fi
+rm -rf "$APP"
+ditto build/Escale.app "$APP"
+rm -f "$APP/Contents/embedded.provisionprofile"
+for key in CFBundleName CFBundleDisplayName; do
+  /usr/libexec/PlistBuddy -c "Set :$key Escale Beta" "$APP/Contents/Info.plist"
+done
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.kndpt.escale.probe.beta" "$APP/Contents/Info.plist"
+codesign --force --deep --sign - "$APP" 2>/dev/null
+open "$APP"
+echo "installed: $APP"
