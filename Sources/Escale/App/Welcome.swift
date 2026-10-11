@@ -21,6 +21,7 @@ struct WelcomePanel: View {
     @ObservedObject var prefs: Preferences
     @ObservedObject private var migration: MigrationFlow
     @ObservedObject private var importWork: Migration
+    @ObservedObject private var transfer: TransferFlow
     @SwiftUI.Environment(\.chromeMetrics) private var metrics
     @SwiftUI.Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var advancing = true
@@ -37,6 +38,7 @@ struct WelcomePanel: View {
         self.prefs = prefs
         migration = browser.migration
         importWork = browser.migration.migration
+        transfer = browser.transfer
         _step = State(initialValue: browser.welcomeReturn.step ?? .personalise)
         _importedDuringSetup = State(initialValue: browser.welcomeReturn.imported)
     }
@@ -80,6 +82,10 @@ struct WelcomePanel: View {
                !receipt.completed.isEmpty || receipt.passwordAdds > 0 {
                 importedDuringSetup = true
             }
+        }
+        .onChange(of: transfer.bringing) { _, state in
+            // An Escale file counts too: it is imported by its own flow.
+            if case .finished(let report) = state, report.changed { importedDuringSetup = true }
         }
         .alert("Continue without importing?", isPresented: $confirmingSkip) {
             Button("Cancel", role: .cancel) {}
@@ -238,7 +244,7 @@ struct WelcomePanel: View {
                 }
                 .buttonStyle(MigrationButton(kind: importedDuringSetup ? .primary : .secondary))
             }
-            .disabled(migration.busy)
+            .disabled(migration.busy || transfer.busy)
             .animation(reduceMotion ? nil : Motion.arrival, value: importedDuringSetup)
         }
     }
