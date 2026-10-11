@@ -166,6 +166,15 @@ def wakeups(pid):
             "interrupt": usage.interrupt_wakeups}
 
 
+def counters(pid):
+    """CPU seconds and wakeups, or None once the process has exited: WebKit
+    lets an idle helper go, and a hidden window gives back its GPU work."""
+    try:
+        return cpu_seconds(pid), wakeups(pid)
+    except (RuntimeError, OSError):
+        return None
+
+
 def owned_files(pid):
     output = run("lsof", "-p", str(pid), "-Fn", timeout=15, check=False)
     return f"com.kndpt.escale.probe.{WORLD}" in output
@@ -396,18 +405,22 @@ def idle(label, base, seconds, background=False):
         pid = result["memory"]["app_pid"]
         helpers = [int(key) for key in result["memory"]["helpers"]]
         pids = [pid] + helpers
-        before = {str(pid): cpu_seconds(pid) for pid in pids}
-        before_wakeups = {str(pid): wakeups(pid) for pid in pids}
+        before = {str(pid): counters(pid) for pid in pids}
         # No bench traffic, footprint or ps polling during the timed interval.
         time.sleep(seconds)
-        after = {str(pid): cpu_seconds(pid) for pid in pids}
-        after_wakeups = {str(pid): wakeups(pid) for pid in pids}
+        after = {str(pid): counters(pid) for pid in pids}
+        alive = [key for key in before if before[key] and after[key]]
+        if str(pid) not in alive:
+            raise RuntimeError(f"the browser process {pid} exited during the idle interval")
+        # What an exited helper spent before it went is not known: it is
+        # listed, not counted.
+        result["exited_pids"] = sorted(set(before) - set(alive))
         result["idle_seconds"] = seconds
-        result["cpu_seconds_by_pid"] = {key: round(after[key] - before[key], 3) for key in before}
+        result["cpu_seconds_by_pid"] = {key: round(after[key][0] - before[key][0], 3) for key in alive}
         result["cpu_percent_one_core"] = round(100 * sum(result["cpu_seconds_by_pid"].values()) / seconds, 3)
-        result["wakeups_by_pid"] = {key: {name: after_wakeups[key][name] - before_wakeups[key][name]
+        result["wakeups_by_pid"] = {key: {name: after[key][1][name] - before[key][1][name]
                                          for name in ["package_idle", "interrupt"]}
-                                    for key in before_wakeups}
+                                    for key in alive}
         result["wakeups_total"] = {name: sum(value[name] for value in result["wakeups_by_pid"].values())
                                    for name in ["package_idle", "interrupt"]}
         result["after_memory"] = sample_memory(set(result["created_webkit_pids"]))
@@ -454,8 +467,9 @@ def churn(label, base, cycles):
         for block in range(3):
             started = time.monotonic()
             for i in range(cycles):
-                opened = ask("bookmark", timeout=30, url=f"{base}/churn-{block}-{i}", new=True)
-                check(f"churn {block}:{i} stayed in new tab", opened["sameTab"], True)
+                # New Tab opens the field first and makes the tab as the page
+                # starts, so the page lands in a second tab, not the first.
+                ask("bookmark", timeout=30, url=f"{base}/churn-{block}-{i}", new=True)
                 check(f"churn {block}:{i} tab count", len(ask("tabs")["tabs"]), 2)
                 ask("press", timeout=15, code=13, chars="w", mods=["cmd"])
                 # Old Bench.press leaves Command in NSApp.currentEvent. Clear it
@@ -527,10 +541,12 @@ def features(label, base, seconds):
             check("dynamic page failure", loaded.get("failure"), None)
             check("dynamic page address", page["url"], f"{base}/dynamic/tab-0")
             pids = [trial["memory"]["app_pid"]] + [int(p) for p in trial["memory"]["helpers"]]
-            before = {str(pid): cpu_seconds(pid) for pid in pids}
+            before = {str(pid): counters(pid) for pid in pids}
             time.sleep(seconds)
-            after = {str(pid): cpu_seconds(pid) for pid in pids}
-            trial["cpu_seconds_by_pid"] = {key: round(after[key] - before[key], 3) for key in before}
+            after = {str(pid): counters(pid) for pid in pids}
+            alive = [key for key in before if before[key] and after[key]]
+            trial["exited_pids"] = sorted(set(before) - set(alive))
+            trial["cpu_seconds_by_pid"] = {key: round(after[key][0] - before[key][0], 3) for key in alive}
             trial["cpu_percent_one_core"] = round(100 * sum(trial["cpu_seconds_by_pid"].values()) / seconds, 3)
             trial["seconds"] = seconds
             trial["after_memory"] = sample_memory(set(trial["created_webkit_pids"]))
