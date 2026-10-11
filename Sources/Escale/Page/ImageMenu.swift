@@ -122,7 +122,9 @@ extension Browser {
     nonisolated private static func picture(_ url: URL) async -> Data? {
         guard let (bytes, response) = try? await pictures.bytes(from: url) else { return nil }
         let expected = response.expectedContentLength
-        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) || expected > pictureLimit {
+        // A data: address announces its length too, without a status.
+        let refused = (response as? HTTPURLResponse).map { !(200..<300).contains($0.statusCode) } ?? false
+        if refused || expected > pictureLimit {
             bytes.task.cancel()
             return nil
         }
