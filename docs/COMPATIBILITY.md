@@ -50,7 +50,7 @@ is a gap, not a failure.
   frontend's process for measurements.
 - `_developerExtrasEnabled` and `_isPlayingAudio` reads: `bench probe`.
 - `_setWindowOcclusionDetectionEnabled:`: `bench picture`.
-- `_setMockCaptureDevicesEnabled:` (`Web.mockCapture`, test runs only): WebKit's
+- `_setMockCaptureDevicesEnabled:` (`Web.mockCapture`, test runs but the beta): WebKit's
   synthetic camera and microphone for `space_media.py` and `call_float.py`.
   Without it those scenarios fail rather than skip.
 

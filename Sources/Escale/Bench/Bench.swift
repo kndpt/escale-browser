@@ -64,7 +64,7 @@ final class Bench {
         guard !running else { return }
         self.browser = browser
         // Nor App Nap, which a test run behind other windows falls into.
-        if Store.testing, !Store.measuring, awake == nil {
+        if Store.testing, !Store.measuring, !Store.beta, awake == nil {
             awake = ProcessInfo.processInfo.beginActivity(options: .userInitiated, reason: "Bench")
         }
         let path = Bench.socket.path
