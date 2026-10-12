@@ -103,7 +103,12 @@ final class Browser: NSObject, ObservableObject {
     @Published var shelfOpen: Set<Bookmark.ID> = []
     @Published var shelfNaming: Bookmark.ID?
     /// Where a tab held over the column's bookmarks would land (see Shelf.swift).
-    @Published var shelfAim: Shelf.Drop?
+    /// Set on every move of a drag, drawn again only when it changes.
+    var shelfAim: Shelf.Drop? {
+        get { aimed }
+        set { if newValue != aimed { aimed = newValue } }
+    }
+    @Published private var aimed: Shelf.Drop?
     /// The tabs that are bookmarks' own, and whose (see Shelf.swift).
     @Published var shelfTabs: [Tab.ID: Bookmark.ID] = [:]
 
@@ -359,7 +364,12 @@ final class Browser: NSObject, ObservableObject {
     @Published var hoarding = false
     /// The update's panel: boarding a waiting build, or what one brought (Gate.swift).
     @Published var gate: Gate?
-    @Published var recallHunt = ""
+    /// What History's search holds, watched by its panel alone (Recall.swift).
+    let recall = Recall()
+    var recallHunt: String {
+        get { recall.hunt }
+        set { recall.hunt = newValue }
+    }
 
     /// Cookies, caches, local storage — everything a site left on this Mac,
     /// in every space. Clearing it signs you out of everything, which is
@@ -539,7 +549,9 @@ final class Browser: NSObject, ObservableObject {
     /// Clicking the tab you are already on turns it into the address, short
     /// form, ready to be changed.
     @Published private(set) var editingTab: Tab.ID?
-    @Published var tabDraft = ""
+    /// Not published: only the field reads it, and every key went to the
+    /// whole window. Opening and closing the field publish `editingTab`.
+    var tabDraft = ""
     /// Set while that field is being used to name the tab rather than to go
     /// somewhere: the same field, the same keys, a different thing at the end.
     @Published private(set) var renamingTab = false

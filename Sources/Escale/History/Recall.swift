@@ -40,8 +40,17 @@ enum When {
     }
 }
 
+/// What History's search holds. Every key changes it, so it has an owner of
+/// its own, as the address field does (Field.swift): in `Browser`, each key
+/// drew the whole window again, every tab included.
+@MainActor
+final class Recall: ObservableObject {
+    @Published var hunt = ""
+}
+
 struct HistoryPanel: View {
     @ObservedObject var browser: Browser
+    @ObservedObject var recall: Recall
 
     @FocusState private var hunting: Bool
     @State private var days: [Day] = []
@@ -56,13 +65,13 @@ struct HistoryPanel: View {
     var body: some View {
         Plate("History", width: 600, close: { browser.recalling = false }) {
             VStack(alignment: .leading, spacing: 14) {
-                Hunt(text: $browser.recallHunt, prompt: "Search everywhere you have been", focus: $hunting)
+                Hunt(text: $recall.hunt, prompt: "Search everywhere you have been", focus: $hunting)
                     .walking(move: move, open: { apart in traces.first { $0.id == chosen }.map { go($0, apart: apart) } },
                              remove: walked ? { traces.first { $0.id == chosen }.map(forget) } : nil,
                              while: { !browser.tuning })
 
                 if days.isEmpty {
-                    Card { Nothing(browser.recallHunt.isEmpty ? "Nothing yet." : "Nothing matches.") }
+                    Card { Nothing(recall.hunt.isEmpty ? "Nothing yet." : "Nothing matches.") }
                 } else {
                     ScrollViewReader { list in
                         ScrollView(showsIndicators: false) {
@@ -113,7 +122,7 @@ struct HistoryPanel: View {
         // Shown again before its closing has finished, the panel is the same
         // view, and nothing appears.
         .onChange(of: browser.recalling) { _, open in if open { start() } }
-        .onChange(of: browser.recallHunt) { _, _ in top() }
+        .onChange(of: recall.hunt) { _, _ in top() }
     }
 
     private func start() {
@@ -192,7 +201,7 @@ struct HistoryPanel: View {
     }
 
     private func refresh() {
-        let traces = browser.history.everything(matching: browser.recallHunt)
+        let traces = browser.history.everything(matching: recall.hunt)
         let calendar = Calendar.current
         // Newest first already, so the days come in order and each keeps
         // its lines in theirs.
