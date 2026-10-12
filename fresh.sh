@@ -46,13 +46,15 @@ if [ "$WORLD" = test ]; then SUITE=com.kndpt.escale.test; else SUITE="com.kndpt.
 ID="com.kndpt.escale.probe.$WORLD"                   # Store.probeBundle
 COPY="$PWD/build/probe/$WORLD/Escale.app"
 BINARY="$COPY/Contents/MacOS/Escale"
+# ./beta installs world "beta" in /Applications too: the same world, run from there.
+INSTALLED="/Applications/Escale Beta.app/Contents/MacOS/Escale"
 LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 
 # The world's processes, known by the path of the copy's executable: nothing
 # else runs from there, so nothing else is ever stopped.
 running() {
   ps -axo pid=,comm= | while read -r pid comm; do
-    [ "$comm" = "$BINARY" ] && echo "$pid"
+    if [ "$comm" = "$BINARY" ] || { [ "$WORLD" = beta ] && [ "$comm" = "$INSTALLED" ]; }; then echo "$pid"; fi
   done || true
 }
 

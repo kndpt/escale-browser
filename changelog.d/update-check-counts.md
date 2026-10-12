@@ -1,0 +1,1 @@
+The update check now says whether it is this copy's first today, this week or this month, and on a new install, so Escale can count its users; nothing in it tells one copy from another, and the Privacy section says exactly what is sent.
