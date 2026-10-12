@@ -46,8 +46,10 @@ final class TransferFlow: ObservableObject {
     /// afterwards is ignored instead of bringing the file back.
     private var generation = 0
 
-    var busy: Bool {
-        if saving == .working { return true }
+    var busy: Bool { saving == .working || bringingBusy }
+
+    /// Only the file coming in: an export may still run after Settings closes.
+    var bringingBusy: Bool {
         switch bringing {
         case .opening, .applying: return true
         default: return false
