@@ -201,6 +201,12 @@ final class Preferences: ObservableObject {
     @Published var welcomed: Bool {
         didSet { store.set(welcomed, forKey: "welcomed") }
     }
+    /// ⌘L has opened the address from the keyboard at least once. Until then
+    /// the bar shows its keys beside the title (see `Where`); a click or the
+    /// menu doesn't count.
+    @Published var addressLearned: Bool {
+        didSet { store.set(addressLearned, forKey: "address.learned") }
+    }
     /// A click of the wheel scrolls the page as on Windows (see AutoScroll.swift).
     /// On unless turned off.
     @Published var autoScroll: Bool {
@@ -307,6 +313,7 @@ final class Preferences: ObservableObject {
         // Anyone who already has a session was here before the welcome
         // existed; they are not asked to sit through it.
         welcomed = store.bool(forKey: "welcomed") || store.object(forKey: "glyph") != nil
+        addressLearned = store.bool(forKey: "address.learned")
         usesSpaces = store.object(forKey: "spaces") as? Bool ?? true
         let links = store.object(forKey: "links.show") as? Bool ?? true
         showsLinks = links

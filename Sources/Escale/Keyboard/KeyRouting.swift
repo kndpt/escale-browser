@@ -101,7 +101,9 @@ extension Browser {
         case .splitLeft: chooseSplit(.left)
         case .splitTop: chooseSplit(.top)
         case .splitBottom: chooseSplit(.bottom)
-        case .openAddress: edit()
+        case .openAddress:
+            if Motion.fromKeyboard, !prefs.addressLearned { prefs.addressLearned = true }
+            edit()
         case .back: back()
         case .forward: forward()
         case .reload: reload()
