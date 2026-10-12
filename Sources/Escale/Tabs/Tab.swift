@@ -332,6 +332,8 @@ final class Tab: ObservableObject, Identifiable {
     var onImageMenu: ((Tab, URL) -> Void)?
     var searchName: (() -> String?)?
     var onSearch: ((Tab, String) -> Void)?
+    /// Inspect Element was chosen in this page's right-click menu.
+    var onInspect: ((Tab) -> Void)?
     /// "Add to Escale" was pressed on the Chrome Web Store page this tab shows.
     var onStoreAdd: ((Tab) -> Void)?
     /// The middle button was let go over a link. The browser opens it in a
@@ -486,6 +488,10 @@ final class Tab: ObservableObject, Identifiable {
         web.onSearch = { [weak self] text in
             guard let self else { return }
             self.onSearch?(self, text)
+        }
+        web.onInspect = { [weak self] in
+            guard let self else { return }
+            self.onInspect?(self)
         }
         web.holdForFirstFrame()
         // Pages follow the appearance of the window they are drawn in, and the
@@ -1322,6 +1328,7 @@ final class Tab: ObservableObject, Identifiable {
         web.onTouch = nil
         web.searchName = nil
         web.onSearch = nil
+        web.onInspect = nil
         web.stopLoading()
         web.navigationDelegate = nil
         web.uiDelegate = nil
@@ -1431,6 +1438,12 @@ final class PageView: WKWebView {
             item.target = self
             item.action = #selector(searchSelection(_:))
         }
+        if let item = menu.items.first(where: { $0.identifier?.rawValue == "WKMenuItemIdentifierInspectElement" }),
+           onInspect != nil {
+            inspectNode = (item.target, item.action)
+            item.target = self
+            item.action = #selector(inspectElement(_:))
+        }
         guard #available(macOS 15.4, *),
               let tab = Extensions.shared.browser?.tab(for: self)
         else { return }
@@ -1461,6 +1474,17 @@ final class PageView: WKWebView {
         }
         let words = selection.trimmingCharacters(in: .whitespacesAndNewlines)
         if !words.isEmpty { onSearch?(words) }
+    }
+
+    /// Inspect Element in the right-click menu: the Web Inspector is first
+    /// made Escale's, as ⌥⌘C does, so it follows the tab (Inspector.swift);
+    /// WebKit's own action then picks the node that was clicked.
+    var onInspect: (() -> Void)?
+    private var inspectNode: (target: AnyObject?, action: Selector?) = (nil, nil)
+
+    @objc private func inspectElement(_ item: NSMenuItem) {
+        onInspect?()
+        if let action = inspectNode.action { NSApp.sendAction(action, to: inspectNode.target, from: item) }
     }
 
     /// Told where a sideways swipe has got to, and nil when there is none.

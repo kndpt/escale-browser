@@ -223,6 +223,12 @@ CHECKS = {
               "app", ("bundle",),
               paths=("Sources/Escale/Spaces/Link*.swift", "Tests/EscaleTests/LinkRuleTests.swift"),
               foreground=True),
+        Check("inspector", ("python3", "Tests/Bench/inspector_follow.py"),
+              BENCH + ("Tests/Bench/inspector_follow.py",),
+              "Web Inspector from right-click and ⌥⌘I: tab and Space switches, own window, floating video, closing",
+              "app", ("bundle",),
+              paths=("Sources/Escale/Page/Inspector.swift", "Sources/Escale/Window/Stage.swift"),
+              foreground=True),
         Check("calls", ("python3", "Tests/Bench/network_calls.py"),
               BENCH + ("Tests/Bench/network_calls.py",),
               "API Calls: 15 loopback exchanges, bodies, shared Web Inspector session and teardown",
@@ -359,7 +365,7 @@ def plan(paths, risks=(), checks=(), quick=False, acknowledge=None):
     # Dependencies are small and explicit; no scoring or model-specific workflow.
     order = ["icons", "harness", "portable", "links", "whitespace", "changelog", "build", "swift",
              "bundle", "app", "wake", "sleeping", "tabs", "closed-tabs", "shortcut-motion", "sidebar-rows", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus",
-             "routes", "tab-source", "environments", "bookmarked-page", "calls", "calls-browse", "extension-speech", "extension-bar", "space-media", "space-reorder", "call-float", "warnings"]
+             "routes", "tab-source", "environments", "bookmarked-page", "inspector", "calls", "calls-browse", "extension-speech", "extension-bar", "space-media", "space-reorder", "call-float", "warnings"]
     return {"checks": [n for n in order if n in chosen], "reasons": chosen,
             "risks": list(risks), "requested": list(checks),
             "unknown": unknown, "acknowledge": acknowledge, "quick": quick,

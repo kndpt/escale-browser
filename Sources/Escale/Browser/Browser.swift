@@ -1753,6 +1753,7 @@ final class Browser: NSObject, ObservableObject {
                 self.floating = tab.id
                 self.floatingMeeting = call
                 tab.floating = true
+                self.inspection.leave(tab.id)
                 self.floater.lift(tab.web, call: call)
             }
         }
@@ -1838,6 +1839,7 @@ final class Browser: NSObject, ObservableObject {
             // From a private tab, the search is private too (see open(_:foreground:atEnd:from:)).
             self.open(url, foreground: true, from: tab)
         }
+        tab.onInspect = { [weak self] tab in self?.inspectFromMenu(tab) }
         tab.onStoreAdd = { [weak self] tab in self?.addFromStore(tab) }
         // The middle button on a link opens it beside the tab you are on, as
         // it does in every other browser (see MiddleRelay).

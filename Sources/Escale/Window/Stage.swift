@@ -215,6 +215,15 @@ final class StageView: NSView {
         settle()
     }
 
+    /// WebKit takes its docked inspector away without a layout here, and can
+    /// leave the page as narrow as it was beside it: the page gets the whole
+    /// stage back once the inspector has gone.
+    override func willRemoveSubview(_ subview: NSView) {
+        super.willRemoveSubview(subview)
+        guard let kind = Self.inspectorClass, subview.isKind(of: kind) else { return }
+        DispatchQueue.main.async { [weak self] in self?.settle() }
+    }
+
     /// The page's corner, cut by the stage's own layer: the web view inside is
     /// neither replaced nor told, and its scroll, zoom and drafts stay put.
     func round(_ corner: CGFloat) {

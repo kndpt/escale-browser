@@ -1,0 +1,1 @@
+Web Inspector opened from a page's right-click menu now follows the tab like ⌥⌘I, opens again after it was detached into its own window, and no longer leaves an empty panel or a narrowed page after a tab switch, a floating video or closing it (#141).
