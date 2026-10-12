@@ -742,6 +742,10 @@ struct ContentView: View {
                 browser.field.leaveEnvironments(cancel: true)
                 return true
             }
+            if browser.field.parameter != nil {
+                browser.field.pick(nil)
+                return true
+            }
             if browser.field.picked != nil {
                 browser.field.picked = nil
                 return true
@@ -767,10 +771,14 @@ struct ContentView: View {
             if browser.editingTab != nil { return true }
             guard browser.fieldShowing else { return false }
             if browser.switchBearing() { return true }
-            guard !browser.field.offers.isEmpty else { return false }
+            guard !browser.field.offers.isEmpty || browser.field.query != nil else { return false }
             browser.field.walk(flags.contains(.shift) ? -1 : 1)
             return true
         }
+
+        // Space turns ⌘L's walked-to parameter off or on: an address has no
+        // space to type.
+        if event.keyCode == 49, flags.isEmpty, browser.editing, browser.field.toggle() { return true }
 
         return false
     }

@@ -717,6 +717,8 @@ enum Metrics {
     static let searchDetail: CGFloat = 10
     static let searchIcon: CGFloat = 14
     static let searchRowRadius: CGFloat = 7
+    /// ⌘L's parameter names, one column wide, so values line up (Parameters.swift).
+    static let queryKey: CGFloat = 92
     static let searchLift: CGFloat = 30
     /// Bearings' field sits at this share of the page's height, top edge fixed:
     /// results grow below it (at most half the height), so it never jumps.

@@ -58,7 +58,7 @@ back to its tab, or reopens its last address.
 | <kbd>⌘T</kbd> <kbd>></kbd> | Run a command by its name, its shortcut beside it. |
 | <kbd>⌘K</kbd> | Switch to an open tab, by name. |
 | <kbd>⇧⌘K</kbd> | Find a pull request or issue you have seen on GitHub. |
-| <kbd>⌘L</kbd> | Change where this page goes: an address takes you there, words search. |
+| <kbd>⌘L</kbd> | Change where this page goes: an address takes you there, words search. An address with a query lists its parameters: ↓ walks them, Space turns one off or on. |
 
 Bearings works from what is already on your Mac, and learns which result you
 pick for what you type. That stays on your Mac; nothing is sent until you
