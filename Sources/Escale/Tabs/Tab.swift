@@ -93,9 +93,9 @@ enum Web {
         // did nothing at all: the page asks, and WebKit refuses without a word.
         config.preferences.isElementFullscreenEnabled = true
         config.mediaTypesRequiringUserActionForPlayback = .audio
-        if Store.testing, !Store.measuring { config.preferences.inactiveSchedulingPolicy = .none }
+        if Store.testing, !Store.measuring, !Store.beta { config.preferences.inactiveSchedulingPolicy = .none }
         inspector(config.preferences)
-        if Store.testing { mockCapture(config.preferences) }
+        if Store.testing, !Store.beta { mockCapture(config.preferences) }
         return config
     }
 

@@ -84,6 +84,12 @@ enum Store {
         testing && ProcessInfo.processInfo.environment["ESCALE_MEASURE"] != nil
     }
 
+    /// The world "beta": a coming release the maintainer uses as people will
+    /// (see ./beta). It keeps what the shipped browser does where test runs
+    /// otherwise differ, down to the real camera and microphone, which a
+    /// call in it would otherwise not get.
+    static var beta: Bool { world == "beta" }
+
     /// Cookies, sign-ins, caches. WebKit keeps its default store per bundle,
     /// not per folder, so a test run got every site already signed in — and
     /// "sign out of everything" in a test run signed the real browser out.
