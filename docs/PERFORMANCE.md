@@ -53,7 +53,7 @@ ESCALE_PROBE=perf-baseline ./fresh.sh wipe    # stops it and removes everything 
 
 `ESCALE_MEASURE=1` (`Store.measuring`) keeps what the shipped browser does
 where test runs otherwise differ: WebKit slows hidden pages and App Nap stays
-available. Drop it for functional runs. Three caveats:
+available. Drop it for functional runs. Four caveats:
 
 - `fresh.sh stop` is a SIGTERM, which skips the session save. A restart
   scenario quits from the app (`./bench --world NAME press 12 q cmd`).
@@ -64,6 +64,8 @@ available. Drop it for functional runs. Three caveats:
   off-screen window. Use ordinary tabs (`bookmark URL new`, UI actions or
   session fixtures) to measure tab memory or sleep. In `space`, `pages` counts
   views, not WebKit processes.
+- `./verify run` leaves a debug build in `build/Escale.app` (its `bundle`
+  check). Measure first, or run `./build.sh` again before measuring.
 
 | Scenario | Fixed workload | What to establish |
 |---|---|---|
@@ -76,6 +78,12 @@ available. Drop it for functional runs. Three caveats:
 | Idle | Blank, static and dynamic fixtures, foreground and background | At least 120 s of CPU and wakeups with no bench traffic. |
 | Features | Off, on, dismissed; 0, 1 then 3 extensions | Incremental cost and no residual work after disable. |
 | Persistence | Rapid edits, quit during queued writes, parked navigation | Latest state wins, every Space flushed, no UI stall. |
+| Window updates | 100 restored tabs, both layouts: keys in History's search, steps of a Space swipe | Ms to rest per key and per step: what one change costs with many tabs. |
+| Title churn | 40 tabs, the page on screen renaming itself four times a second | Browser CPU after the page has named itself. |
+
+`Tests/Bench/resource_baseline.py` collects these from a release build into
+a local archive: `--only` picks a scenario, `--root` measures another
+checkout's build for the comparison.
 
 Use local fixtures for repeatability; report a real-project workload
 separately. Use at least 10 launches for launch figures and 100 samples across
