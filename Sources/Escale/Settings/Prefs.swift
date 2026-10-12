@@ -202,8 +202,8 @@ final class Preferences: ObservableObject {
         didSet { store.set(welcomed, forKey: "welcomed") }
     }
     /// ⌘L has opened the address from the keyboard at least once. Until then
-    /// the bar shows its keys beside the title (see `Where`); a click or the
-    /// menu doesn't count.
+    /// the bar shows its keys beside the title (see `Where`); a click, the
+    /// menu or Bearings doesn't count.
     @Published var addressLearned: Bool {
         didSet { store.set(addressLearned, forKey: "address.learned") }
     }

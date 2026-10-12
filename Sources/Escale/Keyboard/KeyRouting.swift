@@ -102,7 +102,9 @@ extension Browser {
         case .splitTop: chooseSplit(.top)
         case .splitBottom: chooseSplit(.bottom)
         case .openAddress:
-            if Motion.fromKeyboard, !prefs.addressLearned { prefs.addressLearned = true }
+            // Only the binding passes its event: Return on Bearings' command
+            // or a menu walked by keys is a key-down too, not ⌘L learned.
+            if event != nil, !prefs.addressLearned { prefs.addressLearned = true }
             edit()
         case .back: back()
         case .forward: forward()
