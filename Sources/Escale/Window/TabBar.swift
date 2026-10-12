@@ -93,7 +93,10 @@ struct TabBar: View {
                                                 width: width(in: geo.size.width),
                                                 room: geo.size.width - lead - metrics.length(12),
                                                 pill: pill,
-                                                close: { browser.close(tab) }
+                                                editing: browser.editingTab == tab.id,
+                                                lettering: browser.editingPin == tab.id,
+                                                refusals: browser.refusals,
+                                                closes: true
                                             )
                                             }
                                             }
@@ -264,7 +267,10 @@ struct TabBar: View {
                         width: each,
                         room: strip - lead - metrics.length(12),
                         pill: pill,
-                        close: {}
+                        editing: false,
+                        lettering: false,
+                        refusals: 0,
+                        closes: false
                     )
                     }
                 }
@@ -454,7 +460,8 @@ struct Helm: View {
 }
 
 private struct TabPill: View {
-    @ObservedObject var browser: Browser
+    /// Not watched, as in SideRow.
+    let browser: Browser
     @ObservedObject var prefs: Preferences
     @ObservedObject var tab: Tab
     let live: Bool
@@ -462,13 +469,18 @@ private struct TabPill: View {
     /// How much of the strip there is, for the field that grows over it.
     let room: CGFloat
     let pill: Namespace.ID
-    let close: () -> Void
+    /// Its address being typed into, its letter being typed, and how often
+    /// an address typed was refused.
+    let editing: Bool
+    let lettering: Bool
+    let refusals: Int
+    /// Only a pill of the space on screen closes its tab.
+    let closes: Bool
     @SwiftUI.Environment(\.chromeMetrics) private var metrics
 
     @State private var hovering = false
     @State private var shake: CGFloat = 0
 
-    private var editing: Bool { browser.editingTab == tab.id }
     private var pinned: Bool { tab.pin != nil && !editing }
     /// Too narrow for a title: the site's mark alone, the title in the
     /// tooltip, and ⌘W or the menu to close it — a cross on something this
@@ -488,7 +500,7 @@ private struct TabPill: View {
         Group {
             if pinned {
                 Group {
-                    if browser.editingPin == tab.id {
+                    if lettering {
                         PinField(browser: browser, tab: tab)
                     } else if prefs.glyph == .icons, let icon = tab.icon {
                         Mark(icon: icon, letter: tab.pin ?? "", size: metrics.length(Metrics.navigationIcon), dim: tab.asleep)
@@ -542,13 +554,17 @@ private struct TabPill: View {
         .animation(Motion.quick, value: hovering)
         .animation(Motion.glide, value: editing)
         .animation(Motion.glide, value: tab.pin)
-        .onChange(of: browser.refusals) { _, _ in
+        .onChange(of: refusals) { _, _ in
             guard editing else { return }
             shake = 0
             withAnimation(.easeOut(duration: 0.5)) { shake = 1 }
         }
         // Arriving and leaving from the strip rather than from nowhere.
         .transition(.scale(scale: 0.9, anchor: .leading).combined(with: .opacity))
+    }
+
+    private func close() {
+        if closes { browser.close(tab) }
     }
 
     @ViewBuilder
