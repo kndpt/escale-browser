@@ -5,6 +5,7 @@
 // background or not.
 //
 //   swift Icon/icon.swift [dir]          the Dock's iconset (build.sh)
+//   swift Icon/icon.swift --beta [dir]   the same on the beta's plate (./beta)
 //   swift Icon/icon.swift --kit [dir]    the brand kit, docs/brand by default:
 //                                        every file docs/BRAND.md lists
 
@@ -25,6 +26,10 @@ let markShare = 0.70
 /// the site, favicons, avatars — is the warm pair, espresso and cream.
 let white = "#ffffff", ink = "#171717"
 let espresso = "#221b16", cream = "#efe7dc", sand = "#e7ddd0"
+
+/// The beta's plate, a matte green under a white mark, so the beta in the
+/// Dock is never taken for the release beside it.
+let beta = "#3f6b58"
 
 func color(_ hex: String) -> NSColor {
     let v = Int(hex.dropFirst(), radix: 16)!
@@ -100,7 +105,7 @@ func markPath(width: CGFloat, center: NSPoint) -> NSBezierPath {
 
 /// The Dock icon on Apple's grid: the shape takes 824 of 1024, its corners
 /// are 22.37%, and a soft shadow sits under it as under every Dock icon.
-func drawIcon(_ size: CGFloat) {
+func drawIcon(_ size: CGFloat, colors: (plate: String, mark: String) = (white, ink)) {
     let s = size / 1024
     let plate = NSRect(x: 100 * s, y: 100 * s, width: 824 * s, height: 824 * s)
     let radius = 824 * 0.2237 * s
@@ -112,11 +117,11 @@ func drawIcon(_ size: CGFloat) {
     shadow.shadowBlurRadius = 24 * s
     shadow.shadowOffset = NSSize(width: 0, height: -10 * s)
     shadow.set()
-    color(white).setFill()
+    color(colors.plate).setFill()
     shape.fill()
     NSGraphicsContext.restoreGraphicsState()
 
-    color(ink).setFill()
+    color(colors.mark).setFill()
     markPath(width: plate.width * markShare, center: NSPoint(x: plate.midX, y: plate.midY)).fill()
 }
 
@@ -177,12 +182,12 @@ func write(_ data: Data, _ url: URL) {
 }
 
 /// Every size macOS asks an iconset for.
-func iconset(_ out: URL) {
+func iconset(_ out: URL, colors: (plate: String, mark: String) = (white, ink)) {
     for points in [16, 32, 128, 256, 512] {
         for scale in [1, 2] {
             let pixels = points * scale
             let name = scale == 1 ? "icon_\(points)x\(points).png" : "icon_\(points)x\(points)@2x.png"
-            write(png(pixels, pixels) { drawIcon(CGFloat(pixels)) }, out.appendingPathComponent(name))
+            write(png(pixels, pixels) { drawIcon(CGFloat(pixels), colors: colors) }, out.appendingPathComponent(name))
         }
     }
 }
@@ -268,8 +273,9 @@ if args.first == "--kit" {
     kit(out)
     print("drew: \(out.path)")
 } else {
-    let out = URL(fileURLWithPath: args.first ?? "AppIcon.iconset")
+    let isBeta = args.first == "--beta"
+    let out = URL(fileURLWithPath: args.dropFirst(isBeta ? 1 : 0).first ?? "AppIcon.iconset")
     try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
-    iconset(out)
+    iconset(out, colors: isBeta ? (beta, white) : (white, ink))
     print("drew: \(out.path)")
 }

@@ -31,7 +31,8 @@ Return to a project, find its pages and recognise the environment before acting.
 - Mac only. Swift and SwiftUI for the app, WebKit for pages. No new dependencies.
 - Keep frequent actions quick and reachable from the keyboard.
 - Avoid background work for features the user is not using.
-- Keep data local. No telemetry or accounts required.
+- Keep data local. No tracking or accounts required; the only count is the
+  update check's anonymous `first=` (README, Privacy).
 - WebKit's inspector and extension support define compatibility; document
   tested limits. Escale does not replace a full set of developer tools: the
   API Calls panel reads what WebKit's own inspector records, for the common
