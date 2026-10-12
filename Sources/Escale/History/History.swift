@@ -220,10 +220,16 @@ final class History: ObservableObject {
         save()
     }
 
-    /// A page's title usually lands a beat after the page does.
-    func retitle(_ url: URL, _ title: String) {
+    /// How long after a visit its page's title is still taken as its name.
+    static let naming: TimeInterval = 10
+
+    /// A page's title usually lands a beat after the page does. Later, a
+    /// title is the page talking — an unread count, a timer — and taking it
+    /// redrew the window and rewrote this file each time it changed.
+    func retitle(_ url: URL, _ title: String, at now: Date = Date()) {
         let key = Address.pretty(url).lowercased()
-        guard !title.isEmpty, var seen = visits[key], seen.title != title else { return }
+        guard !title.isEmpty, var seen = visits[key], seen.title != title,
+              now.timeIntervalSince(seen.last) < History.naming else { return }
         seen.title = title
         visits[key] = seen
         save()
