@@ -48,7 +48,7 @@ import Testing
         let loaded = KeyBindings.read(saved)
         #expect(loaded.keys(.network).isEmpty)
         #expect(loaded.keys(.passwords) == [KeyStroke("n", [.command, .option])])
-        #expect(loaded.keys(.developer).isEmpty)
+        #expect(loaded.keys(.developer) == [KeyStroke("i", [.command, .shift])])
     }
     @Test func collisionRequiresConsentAndKeepsUnrelatedAlternative() {
         var bindings = KeyBindings()

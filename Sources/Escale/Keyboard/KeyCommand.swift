@@ -98,7 +98,7 @@ struct KeyCommand: Identifiable {
         .init(.capture, "Capture Visible Page", .tools, "", [.init("s", [.command, .option])]),
         .init(.captureArea, "Select Area to Capture", .tools, "", []),
         .init(.captureFull, "Capture Full Page", .tools, "Subject to the page capture limits.", []),
-        .init(.developer, "Developer Mode", .tools, "Capture, element selection and Network, in a dock at the window’s foot.", []),
+        .init(.developer, "Developer Mode", .tools, "Capture, element selection and Network, in a dock at the window’s foot.", [.init("i", [.command, .shift])]),
         .init(.network, "Network", .tools, "Inspect the page’s API calls.", [.init("n", [.command, .option])]),
         .init(.localhost, "Show Localhost", .tools, "", []),
         .init(.closeWindow, "Close Window", .app, "Close the focused browser window.", [.init("w", [.command, .shift])]),
