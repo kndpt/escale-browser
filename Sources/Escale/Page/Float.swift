@@ -205,6 +205,9 @@ final class Float {
                 }
             }
         }
+        // A progress bar and a closed page can wait a tenth of a second: the
+        // system may then wake for this beside its other work.
+        ticker?.tolerance = 0.1
     }
 
     /// The window's last place and size, kept across closing it and quitting,

@@ -1,0 +1,99 @@
+#!/bin/bash
+# A release tried whole before it ships, like a beta: the maintainer's tool.
+#
+#   ./beta 0.11      build what 0.11 will be and open it in the test world "beta"
+#
+# What a release holds is said in one place, its GitHub milestone: a pull
+# request put in milestone 0.11 goes into 0.11, one taken out waits. The beta
+# is origin/main plus the open pull requests of every milestone up to the one
+# named, in milestone then number order, since 0.11 ships on top of 0.10.
+#
+# The branch `beta` is remade from them at each run and never pushed or
+# merged, so nothing has to be carried between release branches: a bug found
+# in the beta is fixed in its pull request, or on main, and ./beta runs again.
+#
+# It lives in its own worktree, .git/beta, so the checkout you work in and its
+# build/Escale.app are left alone. A beta whose files have not changed since
+# the last run opens without being built again.
+#
+# The world keeps its data from one beta to the next, as an update would.
+# ESCALE_PROBE=NAME runs it in another world through fresh.sh instead of
+# installing it; ./fresh.sh wipe empties one. Quit the running beta first.
+set -euo pipefail
+
+cd "$(dirname "$0")"
+TARGET="${1:-}"
+[[ "$TARGET" =~ ^[0-9]+(\.[0-9]+)+$ ]] || { echo "usage: [ESCALE_PROBE=NAME] ./beta X.Y" >&2; exit 2; }
+TREE="$(git rev-parse --path-format=absolute --git-common-dir)/beta"
+HERE="$PWD"
+
+milestones=$(gh api 'repos/{owner}/{repo}/milestones?state=open&per_page=100' --jq '.[].title' \
+  | grep -E '^[0-9]+(\.[0-9]+)+$' | sort -V || true)
+grep -qxF "$TARGET" <<< "$milestones" || { echo "no open milestone $TARGET" >&2; exit 1; }
+
+git fetch --quiet origin main
+[ -d "$TREE" ] || git worktree add --quiet -B beta "$TREE" origin/main
+cd "$TREE"
+# A reset also clears a merge an interrupted run left halfway.
+git reset --quiet --hard origin/main
+echo "$TARGET = main $(git rev-parse --short HEAD)"
+
+while read -r milestone; do
+  # Read first, so a failed query stops the run instead of leaving its pull
+  # requests silently out of the beta.
+  prs=$(gh pr list --state open --search "milestone:\"$milestone\"" --limit 100 \
+          --json number,title --jq 'sort_by(.number)[] | "\(.number)\t\(.title)"')
+  while IFS=$'\t' read -r number title; do
+    [ -n "$number" ] || continue
+    git fetch --quiet origin "pull/$number/head"
+    if ! git merge --quiet --no-edit -m "beta $TARGET: #$number" FETCH_HEAD; then
+      git merge --abort
+      echo "#$number does not merge onto the pull requests before it: settle it in its branch" >&2
+      exit 1
+    fi
+    echo "  + $milestone #$number $title"
+  done <<< "$prs"
+  [ "$milestone" = "$TARGET" ] && break
+done <<< "$milestones"
+
+# Merge commits change from run to run; the files are what was built.
+tree=$(git rev-parse 'HEAD^{tree}')
+if [ ! -d build/Escale.app ] || [ "$(cat build/beta.tree 2>/dev/null)" != "$tree" ]; then
+  ./build.sh
+  echo "$tree" > build/beta.tree
+fi
+[ "${ESCALE_PROBE:-beta}" = beta ] || exec ./fresh.sh again
+
+# The maintainer's beta is installed as /Applications/Escale Beta.app, to be
+# opened from the Dock beside the release it previews, on a green plate. It
+# carries the world's id, so it lives in world "beta" and never reaches the
+# real browser's data.
+APP="/Applications/Escale Beta.app"
+# One process per world, whichever copy it runs from.
+if pgrep -f "/(Escale Beta|build/probe/beta/Escale)\.app/Contents/MacOS/Escale" >/dev/null; then
+  echo "the beta is running: quit it first" >&2
+  exit 1
+fi
+# A copy fresh.sh left would answer for the id too.
+if [ -d build/probe/beta ]; then
+  /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
+    -u build/probe/beta/Escale.app 2>/dev/null || true
+  rm -rf build/probe/beta
+fi
+rm -rf "$APP"
+ditto build/Escale.app "$APP"
+rm -f "$APP/Contents/embedded.provisionprofile"
+for key in CFBundleName CFBundleDisplayName; do
+  /usr/libexec/PlistBuddy -c "Set :$key Escale Beta" "$APP/Contents/Info.plist"
+done
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.kndpt.escale.probe.beta" "$APP/Contents/Info.plist"
+# Its icon is drawn by this checkout, the one that knows --beta.
+swift "$HERE/Icon/icon.swift" --beta build/BetaIcon.iconset > /dev/null
+iconutil -c icns build/BetaIcon.iconset -o "$APP/Contents/Resources/AppIcon.icns"
+rm -rf build/BetaIcon.iconset
+# ditto keeps the build's date, and macOS keeps an icon until its app's date
+# changes: without this the Dock shows the release's white plate.
+touch "$APP"
+codesign --force --deep --sign - "$APP" 2>/dev/null
+open "$APP"
+echo "installed: $APP"

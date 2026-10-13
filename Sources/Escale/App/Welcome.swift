@@ -12,8 +12,10 @@
 //
 // Every control here is drawn by Escale (MigrationButton, ArrivalChoice) rather
 // than taken from AppKit, so the first screen already looks like the browser
-// it opens onto. One scrollable column keeps the minimum window usable; while
-// it fits, it sits in the middle of the window instead of hugging the top.
+// it opens onto. The column has one height at every step: the mark and the
+// progress stay at its top, Back and the step's actions on one row at its
+// bottom, and only the step between them changes, scrolling if it must. What
+// is pressed to move on is never somewhere else on the next step.
 import SwiftUI
 
 struct WelcomePanel: View {
@@ -21,6 +23,7 @@ struct WelcomePanel: View {
     @ObservedObject var prefs: Preferences
     @ObservedObject private var migration: MigrationFlow
     @ObservedObject private var importWork: Migration
+    @ObservedObject private var transfer: TransferFlow
     @SwiftUI.Environment(\.chromeMetrics) private var metrics
     @SwiftUI.Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var advancing = true
@@ -29,6 +32,7 @@ struct WelcomePanel: View {
     @State private var defaultResult: String?
     @State private var importedDuringSetup: Bool
     @State private var confirmingSkip = false
+    @State private var githubMode = GitHubSpecimen.Mode.github
 
     enum Step: Int { case personalise, bring, importing, github, done }
 
@@ -37,6 +41,7 @@ struct WelcomePanel: View {
         self.prefs = prefs
         migration = browser.migration
         importWork = browser.migration.migration
+        transfer = browser.transfer
         _step = State(initialValue: browser.welcomeReturn.step ?? .personalise)
         _importedDuringSetup = State(initialValue: browser.welcomeReturn.imported)
     }
@@ -45,9 +50,10 @@ struct WelcomePanel: View {
         ZStack {
             Envelope()
             GeometryReader { window in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: metrics.length(Metrics.arrivalGap)) {
-                        header
+                let inset = metrics.length(Metrics.arrivalInset)
+                VStack(alignment: .leading, spacing: metrics.length(Metrics.arrivalGap)) {
+                    header
+                    ScrollView {
                         ZStack(alignment: .topLeading) {
                             Group {
                                 switch step {
@@ -61,13 +67,16 @@ struct WelcomePanel: View {
                             .id(step)
                             .transition(pageTransition)
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .font(.system(size: metrics.length(Metrics.arrivalText)))
-                    .foregroundStyle(Palette.ink)
-                    .frame(maxWidth: metrics.length(Metrics.arrivalWidth), alignment: .leading)
-                    .padding(metrics.length(Metrics.arrivalInset))
-                    .frame(maxWidth: .infinity, minHeight: window.size.height)
+                    ZStack { footer.id(step).transition(.opacity) }
                 }
+                .font(.system(size: metrics.length(Metrics.arrivalText)))
+                .foregroundStyle(Palette.ink)
+                .frame(maxWidth: metrics.length(Metrics.arrivalWidth), alignment: .leading)
+                .frame(height: min(window.size.height - inset * 2, metrics.length(Metrics.arrivalHeight)))
+                .padding(inset)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .onAppear(perform: recommend)
@@ -80,6 +89,10 @@ struct WelcomePanel: View {
                !receipt.completed.isEmpty || receipt.passwordAdds > 0 {
                 importedDuringSetup = true
             }
+        }
+        .onChange(of: transfer.bringing) { _, state in
+            // An Escale file counts too: it is imported by its own flow.
+            if case .finished(let report) = state, report.changed { importedDuringSetup = true }
         }
         .alert("Continue without importing?", isPresented: $confirmingSkip) {
             Button("Cancel", role: .cancel) {}
@@ -155,10 +168,6 @@ struct WelcomePanel: View {
                 note("Escale is built around the sidebar: Spaces, bookmarks and tabs in one column.")
             }
             defaultBrowser
-            Button("Continue") { go(.bring) }
-                .buttonStyle(MigrationButton())
-                .keyboardShortcut(.defaultAction)
-                .padding(.top, metrics.length(Metrics.arrivalRowGap))
         }
     }
 
@@ -199,27 +208,8 @@ struct WelcomePanel: View {
                 feature("key", "Passwords", "Added to your Mac's keychain, never shown here")
                 feature("lock", "Stays on this Mac", "Your other browser and its files are left as they are")
             }
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: metrics.length(Metrics.arrivalRowGap)) { choices }
-                VStack(alignment: .leading, spacing: metrics.length(Metrics.arrivalRowGap)) { choices }
-            }
-            .padding(.top, metrics.length(Metrics.arrivalRowGap))
-            HStack(alignment: .firstTextBaseline) {
-                Button { go(.personalise) } label: { Label("Back", systemImage: "chevron.left") }
-                    .buttonStyle(MigrationButton(kind: .quiet))
-                    .padding(.leading, -metrics.length(Metrics.arrivalRowGap))
-                Spacer()
-                note("You can import later in Settings → Import Data.")
-            }
+            note("You can import later in Settings → Import Data.")
         }
-    }
-
-    @ViewBuilder private var choices: some View {
-        Button("Import from another browser") { go(.importing) }
-            .buttonStyle(MigrationButton())
-            .keyboardShortcut(.defaultAction)
-        Button("Continue without importing") { go(.github) }
-            .buttonStyle(MigrationButton(kind: .secondary))
     }
 
     // MARK: - step three: the import itself
@@ -227,19 +217,6 @@ struct WelcomePanel: View {
     private var importing: some View {
         VStack(alignment: .leading, spacing: metrics.length(Metrics.arrivalGap)) {
             MigrationPanel(browser: browser, flow: browser.migration, showsDone: false) { go(.github) }
-            Divider().overlay(Palette.hairline)
-            HStack(spacing: metrics.length(Metrics.arrivalRowGap)) {
-                Button("Back") { browser.migration.pause(); go(.bring) }
-                    .buttonStyle(MigrationButton(kind: .secondary))
-                Spacer(minLength: 0)
-                Button(importedDuringSetup ? "Continue" : "Continue without importing…") {
-                    if importedDuringSetup { browser.migration.pause(); go(.github) }
-                    else { confirmingSkip = true }
-                }
-                .buttonStyle(MigrationButton(kind: importedDuringSetup ? .primary : .secondary))
-            }
-            .disabled(migration.busy)
-            .animation(reduceMotion ? nil : Motion.arrival, value: importedDuringSetup)
         }
     }
 
@@ -250,20 +227,18 @@ struct WelcomePanel: View {
         return VStack(alignment: .leading, spacing: metrics.length(Metrics.arrivalGap)) {
             heading("Your pull requests, one keystroke away.",
                     "Bearings finds the pull requests and issues you visit, by a few words or a number, and takes you back to their tab.")
-            WelcomeGitHub(access: access,
-                          stroke: prefs.keyBindings.keys(.searchGitHub).first) { address in
-                guard let address else { go(.done); return }
-                browser.welcomeReturn.imported = importedDuringSetup
-                browser.welcomeReturn.pause(browser, for: access, at: address)
-            }
-            HStack(alignment: .firstTextBaseline) {
-                Button { go(.bring) } label: { Label("Back", systemImage: "chevron.left") }
-                    .buttonStyle(MigrationButton(kind: .quiet))
-                    .padding(.leading, -metrics.length(Metrics.arrivalRowGap))
-                Spacer()
-                if access.canConnect { note("You can connect later in Settings → GitHub.") }
-            }
+            WelcomeGitHub(access: access, mode: $githubMode,
+                          stroke: prefs.keyBindings.keys(.searchGitHub).first)
+            if access.canConnect { note("You can connect later in Settings → GitHub.") }
         }
+    }
+
+    /// Where GitHub's answer, or no GitHub at all, leads.
+    private func leaveGitHub(_ address: URL?) {
+        guard let address else { go(.done); return }
+        let access = browser.github.owner(for: browser.spaceID).access
+        browser.welcomeReturn.imported = importedDuringSetup
+        browser.welcomeReturn.pause(browser, for: access, at: address)
     }
 
     // MARK: - step five: all set
@@ -275,17 +250,64 @@ struct WelcomePanel: View {
             WelcomeDone(prefs: prefs, access: browser.github.owner(for: browser.spaceID).access,
                         imported: importedDuringSetup, isDefault: isDefault,
                         stroke: prefs.keyBindings.keys(.searchGitHub).first)
+            note("Welcome stays in the Escale menu.")
+        }
+    }
+
+    // MARK: - the row at the bottom
+
+    /// Back on the left, the step's actions on the right with the one that
+    /// moves on last, at the same place on every step.
+    private var footer: some View {
+        HStack(spacing: metrics.length(Metrics.arrivalRowGap)) {
+            if let back {
+                Button(action: back) { Label("Back", systemImage: "chevron.left") }
+                    .buttonStyle(MigrationButton(kind: .quiet))
+                    .padding(.leading, -metrics.length(Metrics.arrivalRowGap))
+                    .disabled(step == .importing && (migration.busy || transfer.bringingBusy))
+            }
+            Spacer(minLength: 0)
+            actions
+        }
+    }
+
+    private var back: (() -> Void)? {
+        switch step {
+        case .personalise: return nil
+        case .bring: return { go(.personalise) }
+        case .importing: return { browser.migration.pause(); go(.bring) }
+        case .github: return { go(.bring) }
+        case .done: return { go(.github) }
+        }
+    }
+
+    @ViewBuilder private var actions: some View {
+        switch step {
+        case .personalise:
+            Button("Continue") { go(.bring) }
+                .buttonStyle(MigrationButton())
+                .keyboardShortcut(.defaultAction)
+        case .bring:
+            Button("Continue without importing") { go(.github) }
+                .buttonStyle(MigrationButton(kind: .secondary))
+            Button("Import from another browser") { go(.importing) }
+                .buttonStyle(MigrationButton())
+                .keyboardShortcut(.defaultAction)
+        case .importing:
+            Button(importedDuringSetup ? "Continue" : "Continue without importing…") {
+                if importedDuringSetup { browser.migration.pause(); go(.github) }
+                else { confirmingSkip = true }
+            }
+            .buttonStyle(MigrationButton(kind: importedDuringSetup ? .primary : .secondary))
+            .disabled(migration.busy || transfer.bringingBusy)
+            .animation(reduceMotion ? nil : Motion.arrival, value: importedDuringSetup)
+        case .github:
+            WelcomeGitHubActions(access: browser.github.owner(for: browser.spaceID).access,
+                                 mode: $githubMode, next: leaveGitHub)
+        case .done:
             Button("Start Browsing") { finish() }
                 .buttonStyle(MigrationButton())
                 .keyboardShortcut(.defaultAction)
-                .padding(.top, metrics.length(Metrics.arrivalRowGap))
-            HStack(alignment: .firstTextBaseline) {
-                Button { go(.github) } label: { Label("Back", systemImage: "chevron.left") }
-                    .buttonStyle(MigrationButton(kind: .quiet))
-                    .padding(.leading, -metrics.length(Metrics.arrivalRowGap))
-                Spacer()
-                note("Welcome stays in the Escale menu.")
-            }
         }
     }
 

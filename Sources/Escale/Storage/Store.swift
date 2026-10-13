@@ -18,16 +18,21 @@ enum Store {
     static func probeBundle(_ world: String) -> String { "\(product).probe.\(world)" }
 
     /// A run is a test run if it says so, if it is a test world's copy, or
-    /// if it is being run straight out of the build folder rather than from
-    /// an installed app. The last is not belt and braces: a development build
-    /// launched from a terminal once wrote over somebody's real session, and
-    /// asking a person to remember a flag is not a safeguard. Nor is it for a
-    /// test copy opened from the Finder, without the flag.
+    /// if this code is loaded straight out of the build folder rather than
+    /// from an installed app: a bare binary, or the unit tests' bundle, whose
+    /// runner lives in the toolchain. The last is not belt and braces: a
+    /// development build launched from a terminal once wrote over somebody's
+    /// real session, and asking a person to remember a flag is not a
+    /// safeguard. Nor is it for a test copy opened from the Finder, without
+    /// the flag.
     static var testing: Bool {
         if ProcessInfo.processInfo.environment["ESCALE_PROBE"] != nil { return true }
         if Bundle.main.bundleIdentifier?.hasPrefix(probeBundle("")) == true { return true }
-        return Bundle.main.executablePath?.contains("/.build/") == true
+        return Bundle(for: Here.self).bundlePath.contains("/.build/")
     }
+
+    /// Where this code was loaded from: `Bundle(for:)` needs a class.
+    private final class Here {}
 
     /// Which test world a test run lives in. ESCALE_PROBE=1, or a run from
     /// the build folder, is the test world, "Escale (test)". ESCALE_PROBE=
@@ -83,6 +88,12 @@ enum Store {
     static var measuring: Bool {
         testing && ProcessInfo.processInfo.environment["ESCALE_MEASURE"] != nil
     }
+
+    /// The world "beta": a coming release the maintainer uses as people will
+    /// (see ./beta). It keeps what the shipped browser does where test runs
+    /// otherwise differ, down to the real camera and microphone, which a
+    /// call in it would otherwise not get.
+    static var beta: Bool { world == "beta" }
 
     /// Cookies, sign-ins, caches. WebKit keeps its default store per bundle,
     /// not per folder, so a test run got every site already signed in — and

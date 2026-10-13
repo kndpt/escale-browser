@@ -368,18 +368,24 @@ struct Fold: View {
 
 /// The pointer's moves, wherever it goes, while something is folded: over
 /// this app's windows, and over everything else while another app is in
-/// front, since the edge is still the edge with Escale behind.
+/// front, since the edge is still the edge with Escale behind. Everything
+/// else only while some of the window is on screen: hidden, minimised, on
+/// another desktop or covered whole, it has no edge to reach, and every move
+/// over the other apps woke Escale for nothing.
 @MainActor
 private final class Pointer {
     weak var window: NSWindow?
     private var local: Any?
     private var global: Any?
+    private var shown: Any?
+    private var moved: (@MainActor () -> Void)?
     /// The window's own say on mouse-moved events, given back when the
     /// watch ends.
     private var accepted = false
 
     func start(_ moved: @escaping @MainActor () -> Void) {
-        guard local == nil, let window else { return }
+        guard shown == nil, let window else { return }
+        self.moved = moved
         // The pointer's moves reach the monitor wherever it is over the
         // window, not only over what tracks it — for as long as the watch
         // lasts, and no longer.
@@ -389,17 +395,38 @@ private final class Pointer {
             MainActor.assumeIsolated { moved() }
             return event
         }
-        global = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { _ in
-            MainActor.assumeIsolated { moved() }
+        shown = NotificationCenter.default.addObserver(
+            forName: NSWindow.didChangeOcclusionStateNotification, object: window, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.reach() }
+        }
+        reach()
+    }
+
+    /// The moves over other apps, while the window can be seen.
+    private func reach() {
+        let visible = window?.occlusionState.contains(.visible) == true
+        if visible, global == nil, let moved {
+            global = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { _ in
+                MainActor.assumeIsolated { moved() }
+            }
+        } else if !visible, let global {
+            NSEvent.removeMonitor(global)
+            self.global = nil
         }
     }
 
+    /// `shown` marks a watch under way: the observer is always made, where
+    /// a monitor may not be.
     func stop() {
-        guard local != nil || global != nil else { return }
+        guard shown != nil else { return }
         if let local { NSEvent.removeMonitor(local) }
         if let global { NSEvent.removeMonitor(global) }
+        if let shown { NotificationCenter.default.removeObserver(shown) }
         local = nil
         global = nil
+        shown = nil
+        moved = nil
         window?.acceptsMouseMovedEvents = accepted
     }
 }

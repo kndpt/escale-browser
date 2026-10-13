@@ -1,13 +1,13 @@
-// Developer mode: the column beside the page that holds Escale's developer
-// tools, opened and closed by the hammer door, Page Tools › Developer Mode or
+// The network column beside the page that holds Escale's API Calls tool,
+// opened and closed by Network in Developer mode's dock (Workbench.swift) or
 // ⌥⌘N. A light row of tabs on the envelope names the tools; the chosen one
 // stands below in a frame of Escale's glass, the page's inset between them as
-// between the column and the page, beside the page's frame and never over
-// it. API Calls (Calls.swift) is the first tool; the next ones join the row
-// rather than getting a door each.
+// between the column and the page, beside the page's frame and never over it.
+// API Calls (Calls.swift) is the first tool; the next ones join the row rather
+// than getting a door each.
 //
 // It belongs to the tab it was opened for. With one tool, being open is that
-// tool's collection being open, and the mode keeps no state of its own; a
+// tool's collection being open, and the column keeps no state of its own; a
 // second tool will give the tab a choice to remember.
 import SwiftUI
 
@@ -172,18 +172,28 @@ private struct ToolTab: View {
     }
 }
 
-/// The page tool's door, beside visual inspection and capture. Lit while the
-/// tab on screen has Developer mode open.
+/// The hammer, at the end of the bar: Developer mode, the dock of page tools
+/// at the window's foot. Lit while the dock is up.
 struct DeveloperDoor: View {
+    @ObservedObject var browser: Browser
+
+    var body: some View {
+        Door(icon: "hammer", on: browser.developing, help: browser.prefs.keyHelp(.developer)) { browser.toggleWorkbench() }
+            .accessibilityLabel("Developer Mode")
+    }
+}
+
+/// Network in the dock: the API Calls column beside the page. On while the
+/// tab on screen has it open.
+struct NetworkTool: View {
     @ObservedObject var browser: Browser
 
     var body: some View {
         if let tab = browser.active {
             Lit(browser: browser, tab: tab, calls: tab.calls)
         } else {
-            Door(icon: "hammer", help: browser.prefs.keyHelp(.developer)) {}
+            WorkbenchTool(icon: "network", title: "Network", help: browser.prefs.keyHelp(.network)) {}
                 .disabled(true)
-                .opacity(0.3)
         }
     }
 
@@ -193,11 +203,8 @@ struct DeveloperDoor: View {
         @ObservedObject var calls: Calls
 
         var body: some View {
-            let available = tab.built != nil && !tab.isBlank
-            Door(icon: "hammer", on: calls.open, help: browser.prefs.keyHelp(.developer)) { browser.toggleCalls() }
-                .disabled(!available && !calls.open)
-                .opacity(available || calls.open ? 1 : 0.3)
-                .accessibilityLabel("Developer Mode")
+            WorkbenchTool(icon: "network", title: "Network", on: calls.open, help: browser.prefs.keyHelp(.network)) { browser.toggleCalls() }
+                .disabled(tab.built == nil || tab.isBlank ? !calls.open : false)
         }
     }
 }

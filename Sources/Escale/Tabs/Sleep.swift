@@ -68,16 +68,12 @@ extension Browser {
         Browser.sleepAfter(prefs.sleepDelay, bench: Store.settings.double(forKey: "sleep.after"))
     }
 
-    /// Started once, at launch. Every choice in Settings ticks once a
-    /// minute; only the bench's short delays tick faster.
+    /// Started once, at launch. The tick runs only while tabs may sleep: a
+    /// switched-off feature keeps no timer.
     func watchForSleep() {
-        let every = min(60, max(5, sleepAfter / 4))
-        let timer = Timer(timeInterval: every, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.sleepIdle() }
+        dozeSwitch = prefs.$sleepsTabs.removeDuplicates().sink { [weak self] on in
+            MainActor.assumeIsolated { self?.doze(on) }
         }
-        timer.tolerance = every / 4
-        RunLoop.main.add(timer, forMode: .common)
-        dozing = timer
 
         let source = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
         source.setEventHandler { [weak self] in
@@ -88,6 +84,21 @@ extension Browser {
         }
         source.resume()
         pressure = source
+    }
+
+    /// Every choice in Settings ticks once a minute; only the bench's short
+    /// delays tick faster.
+    private func doze(_ on: Bool) {
+        dozing?.invalidate()
+        dozing = nil
+        guard on else { return }
+        let every = min(60, max(5, sleepAfter / 4))
+        let timer = Timer(timeInterval: every, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.sleepIdle() }
+        }
+        timer.tolerance = every / 4
+        RunLoop.main.add(timer, forMode: .common)
+        dozing = timer
     }
 
     /// macOS said memory is short. Also what `bench idle warning|critical`

@@ -93,9 +93,9 @@ enum Web {
         // did nothing at all: the page asks, and WebKit refuses without a word.
         config.preferences.isElementFullscreenEnabled = true
         config.mediaTypesRequiringUserActionForPlayback = .audio
-        if Store.testing, !Store.measuring { config.preferences.inactiveSchedulingPolicy = .none }
+        if Store.testing, !Store.measuring, !Store.beta { config.preferences.inactiveSchedulingPolicy = .none }
         inspector(config.preferences)
-        if Store.testing { mockCapture(config.preferences) }
+        if Store.testing, !Store.beta { mockCapture(config.preferences) }
         return config
     }
 
@@ -254,7 +254,7 @@ final class Tab: ObservableObject, Identifiable {
 
     private func adoptIcon() {
         guard let host = address?.host()?.lowercased() else { return }
-        icon = Favicons.shared.cached(host)
+        icon = Favicons.shared.cached(host, page: address)
     }
 
     /// True while the caret is in something on the page that takes typing.
@@ -332,6 +332,8 @@ final class Tab: ObservableObject, Identifiable {
     var onImageMenu: ((Tab, URL) -> Void)?
     var searchName: (() -> String?)?
     var onSearch: ((Tab, String) -> Void)?
+    /// Inspect Element was chosen in this page's right-click menu.
+    var onInspect: ((Tab) -> Void)?
     /// "Add to Escale" was pressed on the Chrome Web Store page this tab shows.
     var onStoreAdd: ((Tab) -> Void)?
     /// The middle button was let go over a link. The browser opens it in a
@@ -486,6 +488,10 @@ final class Tab: ObservableObject, Identifiable {
         web.onSearch = { [weak self] text in
             guard let self else { return }
             self.onSearch?(self, text)
+        }
+        web.onInspect = { [weak self] in
+            guard let self else { return }
+            self.onInspect?(self)
         }
         web.holdForFirstFrame()
         // Pages follow the appearance of the window they are drawn in, and the
@@ -835,7 +841,7 @@ final class Tab: ObservableObject, Identifiable {
     /// page before it, and saying so would undo the navigation.
     private func adopt(_ fresh: URL) {
         guard failedAddress == nil else { return }
-        let moved = fresh.host() != address?.host()
+        let moved = Favicons.part(fresh) != address.flatMap(Favicons.part)
         address = fresh
         if moved { adoptIcon() }
     }
@@ -1271,9 +1277,14 @@ final class Tab: ObservableObject, Identifiable {
         web.go(to: item)
     }
 
+    /// Thrown away for good (close). The stage still watching it for a frame
+    /// built it a new view, which nothing ever let go of.
+    private(set) var closed = false
+
     /// Called when the tab is thrown away. Without it the view keeps running
     /// whatever the page left behind — timers, video, sockets.
     func close() {
+        closed = true
         onPanelEnd?(self)
         onPanelEnd = nil
         onPanelFocus = nil
@@ -1317,6 +1328,7 @@ final class Tab: ObservableObject, Identifiable {
         web.onTouch = nil
         web.searchName = nil
         web.onSearch = nil
+        web.onInspect = nil
         web.stopLoading()
         web.navigationDelegate = nil
         web.uiDelegate = nil
@@ -1426,6 +1438,12 @@ final class PageView: WKWebView {
             item.target = self
             item.action = #selector(searchSelection(_:))
         }
+        if let item = menu.items.first(where: { $0.identifier?.rawValue == "WKMenuItemIdentifierInspectElement" }),
+           onInspect != nil {
+            inspectNode = (item.target, item.action)
+            item.target = self
+            item.action = #selector(inspectElement(_:))
+        }
         guard #available(macOS 15.4, *),
               let tab = Extensions.shared.browser?.tab(for: self)
         else { return }
@@ -1456,6 +1474,17 @@ final class PageView: WKWebView {
         }
         let words = selection.trimmingCharacters(in: .whitespacesAndNewlines)
         if !words.isEmpty { onSearch?(words) }
+    }
+
+    /// Inspect Element in the right-click menu: the Web Inspector is first
+    /// made Escale's, as ⌥⌘C does, so it follows the tab (Inspector.swift);
+    /// WebKit's own action then picks the node that was clicked.
+    var onInspect: (() -> Void)?
+    private var inspectNode: (target: AnyObject?, action: Selector?) = (nil, nil)
+
+    @objc private func inspectElement(_ item: NSMenuItem) {
+        onInspect?()
+        if let action = inspectNode.action { NSApp.sendAction(action, to: inspectNode.target, from: item) }
     }
 
     /// Told where a sideways swipe has got to, and nil when there is none.

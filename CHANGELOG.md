@@ -11,6 +11,24 @@ Search before that is in
 
 ## Unreleased
 
+## 0.10 — 2026-10-12
+
+### Highlights
+
+- **Edit a page's query parameters in ⌘L.** The parameters at the end of a web address are listed one per line, to read, change or turn off.
+- **Pages that rename themselves stay quiet.** A page whose title keeps changing, like an unread count, no longer makes the window redraw each time.
+- **A closed tab leaves nothing behind.** Closing a tab gives back all of it, instead of keeping a little for the rest of the session.
+
+### What changed
+
+- ⌘L on an address with a query lists its parameters under the field, decoded and in order: ↓ walks to one and selects its value in the address to type over, Space turns it off or on without losing it, and tracking parameters are folded at the end with one button to remove them.
+- A page whose title keeps changing, such as an unread count or a timer, no longer redraws the window and rewrites the history each time: History keeps the name the page gave itself as it loaded, and Escale uses about a third of the CPU it did on such a page.
+- Typing in History's search no longer redraws the whole window on every key: with 100 tabs, a key takes 2 to 4 ms instead of 17 to 19. Typing an address into a tab, and dragging over the column's bookmarks, no longer redraw it either.
+- With many tabs open, a change elsewhere in the window no longer draws every tab again: with 100 tabs, a key typed in History's search is handled 20 to 40 % sooner.
+- Closing a tab no longer leaves part of it in memory: each tab opened and closed kept about 80 KB in Escale and as much in WebKit for the rest of the session.
+- Welcome now offers Continue after an Escale file is imported, instead of Continue without importing, and keeps Back and Continue unavailable while the file is being imported.
+- The update check now says whether it is this copy's first today, this week or this month, and on a new install, so Escale can count its users; nothing in it tells one copy from another, and the Privacy section says exactly what is sent.
+
 ## 0.9 — 2026-10-10
 
 ### Highlights

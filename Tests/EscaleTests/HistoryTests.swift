@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import Testing
 @testable import Escale
@@ -325,4 +326,30 @@ func suggestionsRankAsTheFieldExpects(_ ranking: Ranking) {
 
     #expect(history.last(try #require(URL(string: "https://docs.example.test/guide"))) == then)
     #expect(history.last(try #require(URL(string: "https://docs.example.test/other"))) == nil)
+}
+
+// MARK: - titles
+
+@MainActor
+@Test func aTitleIsTakenWhileThePageNamesItselfThenLeftAlone() throws {
+    let root = folder()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let file = root.appendingPathComponent("history.json")
+    let history = History(file: file)
+    let url = try #require(URL(string: "https://mail.example.test/inbox"))
+    history.record(url, title: "")
+    let visited = try #require(history.last(url))
+    var changes = 0
+    let watch = history.objectWillChange.sink { changes += 1 }
+    defer { watch.cancel() }
+
+    history.retitle(url, "Inbox", at: visited.addingTimeInterval(History.naming - 1))
+    #expect(changes == 1)
+    // An unread count ticking long after the page arrived: not a name.
+    history.retitle(url, "(3) Inbox", at: visited.addingTimeInterval(History.naming))
+    history.retitle(url, "(4) Inbox", at: visited.addingTimeInterval(600))
+    #expect(changes == 1)
+    #expect(history.everything().first { $0.key == "mail.example.test/inbox" }?.title == "Inbox")
+    history.flush()
+    #expect(History(file: file).everything().first { $0.key == "mail.example.test/inbox" }?.title == "Inbox")
 }

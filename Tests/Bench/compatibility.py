@@ -12,8 +12,8 @@ Private names, on an ordinary tab of a local page:
 - `_setDeveloperExtrasEnabled:` (Tab.inspector): the page's WebKit says its
   developer extras are on (`probe.inspector`, read through
   `_developerExtrasEnabled`).
-- `_inspector`, `show`, `close`, `webView`, `InspectorFrontendHost` and
-  `WKInspectorWKWebView` (Inspector.swift): ⌥⌘I docks the Web Inspector at
+- `_inspector`, `show`, `close`, `inspectorWebView`, `InspectorFrontendHost`
+  (Inspector.swift) and `WKInspectorWKWebView` (Stage.swift): ⌥⌘I docks the Web Inspector at
   the right, which the page sees as a narrower viewport; ⌥⌘I again puts it
   away and the page has its width back.
 - `connect`, `hide` and `inspectorWebView` on `_WKInspector`, and the Web

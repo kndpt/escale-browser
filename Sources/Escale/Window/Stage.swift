@@ -36,13 +36,15 @@ struct Page: View {
     var body: some View {
         ZStack {
             // A tab put down with ⌘W has no view, and asking for one here
-            // would build an empty one a frame before the stage moves on.
+            // would build an empty one a frame before the stage moves on. A
+            // tab closed for good is the same: the view built then kept its
+            // handlers and scripts for the rest of the session.
             //
             // Nor is a floating page asked for. Handing the same view over
             // before and after the float changes nothing SwiftUI can see, so
             // the stage was never told to take it back when it landed, and
             // the tab stayed empty. Nothing, then the page, is a change.
-            JSONPage(reader: tab.jsonReader, page: tab.isBlank || tab.asleep || tab.floating ? nil : tab.web, corner: corner, opening: { tab.visual.stop(); tab.area.stop(); tab.capture.close() })
+            JSONPage(reader: tab.jsonReader, page: tab.isBlank || tab.asleep || tab.floating || tab.closed ? nil : tab.web, corner: corner, opening: { tab.visual.stop(); tab.area.stop(); tab.capture.close() })
                 // A disappearing ZStack child can move behind its siblings.
                 // Keep WebKit below the preview for the entire removal fade.
                 .zIndex(-1)
@@ -211,6 +213,15 @@ final class StageView: NSView {
     func show(_ page: NSView?) {
         wanted = page
         settle()
+    }
+
+    /// WebKit takes its docked inspector away without a layout here, and can
+    /// leave the page as narrow as it was beside it: the page gets the whole
+    /// stage back once the inspector has gone.
+    override func willRemoveSubview(_ subview: NSView) {
+        super.willRemoveSubview(subview)
+        guard let kind = Self.inspectorClass, subview.isKind(of: kind) else { return }
+        DispatchQueue.main.async { [weak self] in self?.settle() }
     }
 
     /// The page's corner, cut by the stage's own layer: the web view inside is

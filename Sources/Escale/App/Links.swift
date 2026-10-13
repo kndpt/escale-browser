@@ -16,6 +16,9 @@ final class Links: NSObject, NSApplicationDelegate {
     static weak var window: NSWindow?
     /// Whether the window has been asked for on a link's behalf (summon).
     private static var summoned = false
+    /// Whether a link came before the browser was ready: the launch was
+    /// made for it, and nothing should keep it waiting (Intro.swift).
+    private(set) static var calledByLink = false
     /// The session and the rest, written now rather than whenever their
     /// debounces were going to get to them (see Browser.flush). ⌘Q, the Dock's
     /// Quit and an update's relaunch all end the process the same way, and
@@ -179,6 +182,7 @@ final class Links: NSObject, NSApplicationDelegate {
             deliver(url)
         } else {
             waiting.append(url)
+            calledByLink = true
             DispatchQueue.main.async { summon() }
         }
     }

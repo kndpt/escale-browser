@@ -135,6 +135,14 @@ import Testing
         #expect(summary.skipped == 2 + 1 + 1)
     }
 
+    @Test func knownIconsTravelAndUnknownOnesAreDropped() throws {
+        var added = space("Added"), unknown = space("Unknown")
+        added.icon = "server.rack"
+        unknown.icon = "not.a.symbol"
+        let checked = try payload([space("Old"), added, unknown]).checked().payload
+        #expect(checked.spaces.map(\.icon) == ["briefcase", "server.rack", nil])
+    }
+
     @Test func passwordsTravelOnlyWhenTheFileSaysSo() throws {
         var made = space()
         made.logins = [TransferLogin(host: "example.com", user: "a", password: "x", used: nil)]

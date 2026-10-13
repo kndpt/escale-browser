@@ -103,7 +103,12 @@ final class Browser: NSObject, ObservableObject {
     @Published var shelfOpen: Set<Bookmark.ID> = []
     @Published var shelfNaming: Bookmark.ID?
     /// Where a tab held over the column's bookmarks would land (see Shelf.swift).
-    @Published var shelfAim: Shelf.Drop?
+    /// Set on every move of a drag, drawn again only when it changes.
+    var shelfAim: Shelf.Drop? {
+        get { aimed }
+        set { if newValue != aimed { aimed = newValue } }
+    }
+    @Published private var aimed: Shelf.Drop?
     /// The tabs that are bookmarks' own, and whose (see Shelf.swift).
     @Published var shelfTabs: [Tab.ID: Bookmark.ID] = [:]
 
@@ -353,13 +358,21 @@ final class Browser: NSObject, ObservableObject {
         }
     }
 
+    /// Developer mode: the page tools' dock at the window's foot (Workbench.swift).
+    @Published var developing = false
+
     // MARK: - what is kept, and getting rid of it
 
     @Published var recalling = false
     @Published var hoarding = false
     /// The update's panel: boarding a waiting build, or what one brought (Gate.swift).
     @Published var gate: Gate?
-    @Published var recallHunt = ""
+    /// What History's search holds, watched by its panel alone (Recall.swift).
+    let recall = Recall()
+    var recallHunt: String {
+        get { recall.hunt }
+        set { recall.hunt = newValue }
+    }
 
     /// Cookies, caches, local storage — everything a site left on this Mac,
     /// in every space. Clearing it signs you out of everything, which is
@@ -539,7 +552,9 @@ final class Browser: NSObject, ObservableObject {
     /// Clicking the tab you are already on turns it into the address, short
     /// form, ready to be changed.
     @Published private(set) var editingTab: Tab.ID?
-    @Published var tabDraft = ""
+    /// Not published: only the field reads it, and every key went to the
+    /// whole window. Opening and closing the field publish `editingTab`.
+    var tabDraft = ""
     /// Set while that field is being used to name the tab rather than to go
     /// somewhere: the same field, the same keys, a different thing at the end.
     @Published private(set) var renamingTab = false
@@ -679,6 +694,8 @@ final class Browser: NSObject, ObservableObject {
     /// The minute-by-minute look for tabs to put to sleep, and the ear for
     /// macOS saying memory is short. See Sleep.swift.
     var dozing: Timer?
+    /// Starts and stops `dozing` with Settings › Tabs.
+    var dozeSwitch: AnyCancellable?
     var pressure: DispatchSourceMemoryPressure?
     /// The pictures sleeping tabs keep, taken one at a time. See Pictures.swift.
     let pictures = Pictures()
@@ -722,11 +739,12 @@ final class Browser: NSObject, ObservableObject {
         FormRelay.saving = prefs.savesPasswords
         FormRelay.filling = prefs.fillsPasswords
 
-        // An icon that arrives is put on every tab showing that site, not only
-        // the one that happened to ask for it.
-        Favicons.shared.arrived = { [weak self] host, image in
+        // An icon that arrives is put on every tab showing that site, or that
+        // part of it, not only the one that happened to ask for it.
+        Favicons.shared.arrived = { [weak self] site, image in
             guard let self else { return }
-            for tab in tabs + parkedTabs where tab.address?.host()?.lowercased() == host {
+            for tab in tabs + parkedTabs
+            where tab.address.flatMap(Favicons.part) == site || tab.address?.host()?.lowercased() == site {
                 tab.icon = image
             }
         }
@@ -1739,6 +1757,7 @@ final class Browser: NSObject, ObservableObject {
                 self.floating = tab.id
                 self.floatingMeeting = call
                 tab.floating = true
+                self.inspection.leave(tab.id)
                 self.floater.lift(tab.web, call: call)
             }
         }
@@ -1824,6 +1843,7 @@ final class Browser: NSObject, ObservableObject {
             // From a private tab, the search is private too (see open(_:foreground:atEnd:from:)).
             self.open(url, foreground: true, from: tab)
         }
+        tab.onInspect = { [weak self] tab in self?.inspectFromMenu(tab) }
         tab.onStoreAdd = { [weak self] tab in self?.addFromStore(tab) }
         // The middle button on a link opens it beside the tab you are on, as
         // it does in every other browser (see MiddleRelay).
@@ -1945,11 +1965,11 @@ final class Browser: NSObject, ObservableObject {
     // MARK: - the address field
 
     /// ⌘L. The current address comes up selected, so typing over it replaces it
-    /// and Escape puts it back.
+    /// and Escape puts it back; its parameters are listed under it.
     func edit() {
         field.stopOpening()
         field.stopSummoning()
-        field.typed = active?.address?.absoluteString ?? ""
+        field.unfold(active?.address?.absoluteString ?? "")
         editing = true
         field.askFocus()
     }

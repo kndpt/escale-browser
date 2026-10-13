@@ -52,7 +52,8 @@
     ./bench media [ID [JSON]]          test run: sources/listeners; action pause/play/previous/next/volume/dismiss/return, value 0...1
     ./bench popover [X Y]              test world: the open popover's size, or a click X Y points from its top left,
                                        through the app's event dispatch (the pointer stays where it is)
-    ./bench probe                      the window's own state: panels, pageFrame, active transfers/progress/observers, address results and focus
+    ./bench probe                      the window's own state: panels, pageFrame beside its stageFrame and inspectorFrames,
+                                       active transfers/progress/observers, address results and focus
     ./bench extensions                 installed extensions, their warnings and live speech state
     ./bench ext-add ID|LINK [--yes]    install from the Chrome Web Store (--yes only in a --test run)
     ./bench ext-folder PATH [--yes]    install an unpacked extension

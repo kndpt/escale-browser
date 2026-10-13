@@ -24,7 +24,7 @@ is a gap, not a failure.
 | Name | File | Purpose | Check and fallback | Scenario |
 |---|---|---|---|---|
 | `_setDeveloperExtrasEnabled:` on `WKPreferences` | `Tab.swift` (`Web.inspector`) | Inspect Element and Web Inspector from the View menu | `responds(to:)`; without it only Safari's Develop menu reaches a page | `compatibility.py` |
-| `_inspector`, then `show`, `close`, `webView`, `setDelegate:`; delegate `inspectorFrontendLoaded:`, `_webView:willCloseLocalInspector:`; class `WKInspectorWKWebView`; `InspectorFrontendHost.supportsDockSide` / `requestSetDockSide` | `Inspector.swift`, `Stage.swift` | ⌥⌘I, a right-docked Web Inspector that follows the tab | Selectors checked; frontend lookup and dock request are bounded; failure closes the panel | `compatibility.py`, `inspector_layout.py` |
+| `_inspector`, then `show`, `close`, `inspectorWebView`, `setDelegate:`; delegate `inspectorFrontendLoaded:`, `_webView:willCloseLocalInspector:`; class `WKInspectorWKWebView`; `InspectorFrontendHost.supportsDockSide` / `requestSetDockSide`; menu item `WKMenuItemIdentifierInspectElement` | `Inspector.swift`, `Stage.swift`, `Tab.swift` (`PageView`) | ⌥⌘I and right-click › Inspect Element, a right-docked Web Inspector that follows the tab | Selectors checked; frontend lookup and dock request are bounded; failure closes the panel; an unknown menu item is left to WebKit | `compatibility.py`, `inspector_layout.py`, `inspector_follow.py` |
 | `showConsole`, `toggleElementSelection` | `Inspector.swift` | ⌥⌘J, ⌥⌘C | As above; a missing one does nothing | — |
 | `isVisible` on `_WKInspector` | `Inspector.swift` | A page too narrow to dock keeps WebKit's separate inspector window | `responds(to:)`; otherwise the panel closes | — |
 | `connect`, `hide`, `isConnected`, `inspectorWebView` on `_WKInspector` | `Inspector.swift`, `Calls.swift` | API Calls reads WebKit's network collection with the inspector loaded but unseen, at most `Calls.limit` at once | Checked with `close` and `setDelegate:`; a missing one stops the panel, names it and offers Web Inspector. A leftover connected session is closed first | `compatibility.py`, `network_calls.py` |
@@ -50,7 +50,7 @@ is a gap, not a failure.
   frontend's process for measurements.
 - `_developerExtrasEnabled` and `_isPlayingAudio` reads: `bench probe`.
 - `_setWindowOcclusionDetectionEnabled:`: `bench picture`.
-- `_setMockCaptureDevicesEnabled:` (`Web.mockCapture`, test runs only): WebKit's
+- `_setMockCaptureDevicesEnabled:` (`Web.mockCapture`, test runs but the beta): WebKit's
   synthetic camera and microphone for `space_media.py` and `call_float.py`.
   Without it those scenarios fail rather than skip.
 

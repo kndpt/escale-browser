@@ -196,7 +196,15 @@ Reuse or extend a component before creating one:
 - **Bearings modes.** The `Modes` capsule ends the field
   (`Address/Omnibox.swift`) at the width of its longest name. The field's top
   is fixed at `Metrics.searchTop` of the page's height; results grow down.
-- **Developer mode.** A glass column (`.glass(.panel, lifted: false,
+- **Developer mode.** The hammer, the last door of the bar, raises a dock of
+  page tools on `chip` glass, centred on the window at `Metrics.dockFoot` so
+  it stays put when the column or Network opens, moved by its grip
+  (`Workbench.swift`). An off tool is a symbol; an on tool wears `Chosen` and
+  its name, arriving as the selection menu does (`Bubble.swift`). While the
+  mode is on, a line of `Palette.developing` runs outside the page's frame,
+  behind it, the envelope takes a wash of the same, and a light sweeps the
+  line once; nothing moves at rest, and Reduce Motion drops the sweep.
+- **Network.** A glass column (`.glass(.panel, lifted: false,
   edgeOutside: true)`) beside the page, `pageInset` apart, with the page's
   radius; the page shrinks, nothing covers it. An unavailable body says why.
 - **Mini player.** At the column's foot, on `chip` glass, with `Motion.arrival`.

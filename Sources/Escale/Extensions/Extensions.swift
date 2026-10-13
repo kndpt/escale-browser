@@ -163,7 +163,7 @@ final class Extensions: NSObject, ObservableObject {
         // A test run sits behind other windows, where WebKit slows its views
         // to a crawl and messages between an extension's popup and its
         // worker stop arriving. Not what anyone is testing.
-        if Store.testing, !Store.measuring { views.preferences.inactiveSchedulingPolicy = .none }
+        if Store.testing, !Store.measuring, !Store.beta { views.preferences.inactiveSchedulingPolicy = .none }
         configuration.webViewConfiguration = views
         controller = WKWebExtensionController(configuration: configuration)
         super.init()

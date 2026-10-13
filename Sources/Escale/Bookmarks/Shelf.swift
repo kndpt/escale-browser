@@ -618,7 +618,7 @@ private struct ShelfRow: View {
                     .foregroundStyle(Palette.muted)
                     .frame(width: metrics.length(Metrics.navigationIcon), height: metrics.length(Metrics.navigationIcon))
             } else {
-                SiteMark(host: node.host ?? "",
+                SiteMark(host: node.host ?? "", page: node.url.flatMap(URL.init(string:)),
                      letter: String((node.host ?? "•").prefix(1)).uppercased(), size: metrics.length(Metrics.navigationIcon))
             }
             if naming {

@@ -1,7 +1,9 @@
 // WebKit owns the inspector for each live page. Escale asks for the active
-// page's inspector only on an explicit action, then uses WebKit's own dock
-// request to put it at the right of that page. The frontend-loaded callback
-// is the first point at which that request can be made. A tab switch puts
+// page's inspector only on an explicit action (Inspect Element in the page's
+// menu included, so no inspector is left behind in a page host that is gone),
+// then uses WebKit's own dock request to put it at the right of that page,
+// wherever WebKit last left it. The frontend-loaded callback is the first
+// point at which that request can be made. A tab switch puts
 // the old inspector away and opens the new page's after it wakes; no
 // recurring polling or extra page is kept alive by this owner (only a
 // bounded readiness query while an API Calls collection connects, below).
@@ -69,17 +71,21 @@ final class InspectorSession: NSObject, ObservableObject {
         }
     }
 
-    func showConsole(tab: Tab?, split: Bool = false) {
-        guard let tab else { return }
+    /// Opens Web Inspector on the tab unless it is already there or on its way.
+    func reveal(_ tab: Tab, split: Bool = false) {
         allowsDetached = split
         if visibleTab != tab.id && openingTab != tab.id { open(tab) }
+    }
+
+    func showConsole(tab: Tab?, split: Bool = false) {
+        guard let tab else { return }
+        reveal(tab, split: split)
         if let inspector = currentInspector { send(inspector, "showConsole") }
     }
 
     func inspectElement(tab: Tab?, split: Bool = false) {
         guard let tab else { return }
-        allowsDetached = split
-        if visibleTab != tab.id && openingTab != tab.id { open(tab) }
+        reveal(tab, split: split)
         if let inspector = currentInspector { send(inspector, "toggleElementSelection") }
     }
 
@@ -92,6 +98,12 @@ final class InspectorSession: NSObject, ObservableObject {
             guard let browser, browser.activeID == next else { return }
             self?.open(browser.active)
         }
+    }
+
+    /// The tab's page leaves the stage for the floating window: Web
+    /// Inspector, docked beside it on the stage, is put away.
+    func leave(_ tab: Tab.ID) {
+        if visibleTab == tab || openingTab == tab { close() }
     }
 
     /// WebKit closed an inspector, from its own panel or under a page.
@@ -304,28 +316,14 @@ final class InspectorSession: NSObject, ObservableObject {
 
     private func dock(_ inspector: NSObject, tab: Tab.ID, attempts: Int) {
         guard inspector === currentInspector, openingTab == tab else { return }
-        let getter = NSSelectorFromString("webView")
-        let inspected = inspector.responds(to: getter)
+        // Asked of the inspector rather than looked for beside the page: one
+        // the person detached last time comes back in its own window.
+        let getter = NSSelectorFromString("inspectorWebView")
+        let inspectorFrontend = inspector.responds(to: getter)
             ? inspector.perform(getter)?.takeUnretainedValue() as? WKWebView : nil
-        let inspectorFrontend: WKWebView?
-        if let inspected, let root = inspected.superview {
-            inspectorFrontend = frontend(in: root, depth: 0)
-        } else {
-            inspectorFrontend = nil
-        }
         guard let inspectorFrontend else {
             guard attempts > 0 else {
-                let visible = NSSelectorFromString("isVisible")
-                // Beside the API Calls panel too, the page can be narrower
-                // than WebKit docks against: its own window then stays.
-                if allowsDetached || holder(of: inspector) != nil, inspector.responds(to: visible),
-                   inspector.value(forKey: "visible") as? Bool == true {
-                    openingTab = nil
-                    visibleTab = tab
-                } else {
-                    failure = "Inspector frontend not mounted"
-                    close()
-                }
+                undocked(inspector, tab: tab, "Inspector frontend not mounted")
                 return
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self, weak inspector] in
@@ -339,8 +337,7 @@ final class InspectorSession: NSObject, ObservableObject {
                 guard let self, let inspector, inspector === self.currentInspector,
                       self.openingTab == tab else { return }
                 guard error == nil, result as? Bool == true else {
-                    self.failure = error?.localizedDescription ?? "Requested dock unavailable"
-                    self.close()
+                    self.undocked(inspector, tab: tab, error?.localizedDescription ?? "Requested dock unavailable")
                     return
                 }
                 self.openingTab = nil
@@ -349,18 +346,19 @@ final class InspectorSession: NSObject, ObservableObject {
         }
     }
 
-    /// The inspector frontend is WebKit's own WKWebView attached beside the
-    /// inspected page. Its concrete class keeps us from mistaking another
-    /// page in the window for a developer tool.
-    private func frontend(in view: NSView, depth: Int) -> WKWebView? {
-        guard depth < 20 else { return nil }
-        if let kind = NSClassFromString("WKInspectorWKWebView"), view.isKind(of: kind) {
-            return view as? WKWebView
+    /// WebKit would not dock. Beside the API Calls panel or in a split pane
+    /// the page can be narrower than WebKit docks against: its own window
+    /// then stays. Anywhere else the panel closes.
+    private func undocked(_ inspector: NSObject, tab: Tab.ID, _ reason: String) {
+        let visible = NSSelectorFromString("isVisible")
+        if allowsDetached || holder(of: inspector) != nil, inspector.responds(to: visible),
+           inspector.value(forKey: "visible") as? Bool == true {
+            openingTab = nil
+            visibleTab = tab
+        } else {
+            failure = reason
+            close()
         }
-        for child in view.subviews {
-            if let found = frontend(in: child, depth: depth + 1) { return found }
-        }
-        return nil
     }
 
     private func inspector(for web: WKWebView) -> NSObject? {
@@ -381,6 +379,13 @@ extension Browser {
     func toggleInspector() { inspection.toggle(tab: active, split: panels.group(activeID) != nil) }
     func showConsole() { inspection.showConsole(tab: active, split: panels.group(activeID) != nil) }
     func inspectElement() { inspection.inspectElement(tab: active, split: panels.group(activeID) != nil) }
+
+    /// Inspect Element from a page's menu, perhaps a split pane's not yet
+    /// picked: that page becomes the one on screen, then WebKit picks the node.
+    func inspectFromMenu(_ tab: Tab) {
+        if activeID != tab.id { select(tab) }
+        inspection.reveal(tab, split: panels.group(tab.id) != nil)
+    }
 
     /// WebKit can also close the inspector from inside its own panel.
     @objc(_webView:willCloseLocalInspector:)

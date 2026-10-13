@@ -64,7 +64,7 @@ final class Bench {
         guard !running else { return }
         self.browser = browser
         // Nor App Nap, which a test run behind other windows falls into.
-        if Store.testing, !Store.measuring, awake == nil {
+        if Store.testing, !Store.measuring, !Store.beta, awake == nil {
             awake = ProcessInfo.processInfo.beginActivity(options: .userInitiated, reason: "Bench")
         }
         let path = Bench.socket.path
@@ -713,6 +713,17 @@ final class Bench {
                 if let web = browser.active?.built, web.window === window {
                     let rect = web.convert(web.bounds, to: nil)
                     out["pageFrame"] = [rect.minX, window.frame.height - rect.maxY, rect.width, rect.height]
+                    // The stage the page is in, and WebKit's inspector views
+                    // beside it: a page narrower than its stage needs one.
+                    if let stage = web.superview {
+                        func place(_ view: NSView) -> [CGFloat] {
+                            let rect = view.convert(view.bounds, to: nil)
+                            return [rect.minX, window.frame.height - rect.maxY, rect.width, rect.height]
+                        }
+                        let kind: AnyClass? = NSClassFromString("WKInspectorWKWebView")
+                        out["stageFrame"] = place(stage)
+                        out["inspectorFrames"] = stage.subviews.filter { view in kind.map { view.isKind(of: $0) } ?? false }.map(place)
+                    }
                     // The menu over selected text, where it stands in the window (see SelectionMenu.swift).
                     if let shown = browser.selectionMenu.shown, shown.tab == browser.active?.id {
                         let at = shown.origin
