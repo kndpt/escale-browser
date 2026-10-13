@@ -128,7 +128,7 @@ extension Browser {
             }
         }
         collect(space.bookmarks)
-        let made = Space(id: id, name: space.name, colour: space.colour, icon: space.icon, sharesSignIns: nil,
+        let made = Space(id: id, name: space.name, colour: space.colour, icon: space.icon, swatch: space.swatch, sharesSignIns: nil,
                          downloads: nil, plannedExtensions: space.extensions.isEmpty ? nil : space.extensions)
         let written = !TransferApply.fails("files")
             && Session.copy(space.session, to: id, bookmarks: bookmarkIDs)

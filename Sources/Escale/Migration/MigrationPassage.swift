@@ -44,7 +44,7 @@ struct MigrationPassage: View {
     private var space: Space? { browser.spaces.first { $0.id == flow.destination } }
 
     private var receiving: some View {
-        let tint = space.flatMap { Spaces.colours.indices.contains($0.colour) ? Spaces.colours[$0.colour] : nil } ?? Palette.muted
+        let tint = space?.tint?.ink ?? Palette.muted
         return end(caption: "Into Escale", tint: tint) {
             tile { Image(systemName: space?.symbol ?? "square.dashed").foregroundStyle(tint) }
                 .background(tint.opacity(0.14), in: tileShape)

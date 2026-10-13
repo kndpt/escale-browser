@@ -11,6 +11,16 @@ enum Swatch: String, CaseIterable, Codable, Identifiable {
     var title: String { rawValue.capitalized }
     var fill: Color { Palette.swatch(self) }
     var ink: Color { Palette.swatchInk(self) }
+
+    /// The dot for a menu item, drawn in colour: a menu greys out symbols.
+    var dot: NSImage {
+        let side = Metrics.swatchDot
+        return NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
+            Palette.swatchColour(self, ink: false).setFill()
+            NSBezierPath(ovalIn: rect.insetBy(dx: 1, dy: 1)).fill()
+            return true
+        }
+    }
 }
 
 struct SwatchPicker: View {

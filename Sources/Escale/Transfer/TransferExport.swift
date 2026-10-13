@@ -24,7 +24,7 @@ extension Browser {
                 }
             }
             out.append(TransferSpace(
-                id: space.id, name: space.name, colour: space.colour, icon: space.icon, extensions: extensions,
+                id: space.id, name: space.name, colour: space.colour, icon: space.icon, swatch: space.swatch, extensions: extensions,
                 session: Session.read(space: space.id),
                 // A Space nobody opened is read and let go, not kept loaded for good.
                 bookmarks: (shelves[space.id]?.list ?? Bookmarks(space: space.id)).roots,
