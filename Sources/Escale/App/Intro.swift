@@ -1,13 +1,16 @@
-// The first launch opens on Welcome in a window of its own, and the browser
-// arrives only once Welcome is done. Each change is a relay between windows:
+// Two launches open on a window of their own before the browser: the first
+// one, on Welcome, and the first of each new build, on what it brings (the
+// arrival's plate, GatePanel.swift). The browser arrives once that window is
+// done with, its session restoring meanwhile. Each change is a relay between windows:
 // a borderless overlay above everything draws the motion, and on its last
 // frame the real window is put at exactly the overlay card's frame, corner
 // and ground, and the card fades off it. The eye follows one surface.
 //
-// The opening is a moment of its own, once: the screen dims a little, a tile
+// The opening is a moment of its own, rare: the screen dims a little, a tile
 // rises and stands up while the mark draws itself on it, dot by dot to the
-// next stop (Landing), then the tile opens into Welcome and the screen
-// lights up again. At the end, Welcome grows into the browser.
+// next stop (Landing), then the tile opens into the window and the screen
+// lights up again. At the end, the window grows into the browser. A launch
+// made to open a link skips all of it, so the page is not kept waiting.
 //
 // A real window, not the overlay, holds Welcome because it has to take the
 // keyboard, move and stay behind other apps like any window. The overlay
@@ -24,37 +27,80 @@ final class Intro {
 
     private var played = false
     private var overlay: NSWindow?
+    /// The window the browser waits behind: Welcome, or the arrival.
     private var welcome: NSWindow?
+    private var corner = Metrics.introCorner
     private weak var browserWindow: NSWindow?
     private var ending: AnyCancellable?
 
-    /// Takes over the browser's first window on a first arrival only, and
-    /// keeps it unseen until Welcome is done.
+    /// What the window before the browser holds.
+    private enum Stop {
+        case welcome
+        case arrival(Arrival)
+    }
+
+    /// Takes over the browser's first window on a first launch or a new
+    /// build's, and keeps it unseen until that launch's window is done.
     func begin(_ browser: Browser, window: NSWindow) {
         // The bench drives the browser's own window from its first frame.
-        guard !played, browser.welcoming, !browser.prefs.welcomed, !browser.prefs.bench,
+        guard !played, !browser.prefs.bench, !Links.calledByLink, let stop = stop(browser),
               let screen = window.screen ?? NSScreen.main else { return }
         played = true
         browserWindow = window
         window.alphaValue = 0
         window.ignoresMouseEvents = true
-        // Welcome ends however it ends: its last button, or stepping aside.
-        ending = browser.$welcoming.dropFirst().filter { !$0 }.first()
-            .receive(on: RunLoop.main)
-            .sink { _ in self.finish(browser) }
+        // It ends however it ends: its last button, Esc, or stepping aside.
+        let ended: AnyPublisher<Void, Never>
+        switch stop {
+        case .welcome: ended = browser.$welcoming.dropFirst().filter { !$0 }.map { _ in }.eraseToAnyPublisher()
+        case .arrival: ended = browser.$gate.dropFirst().filter { $0 == nil }.map { _ in }.eraseToAnyPublisher()
+        }
+        ending = ended.first().receive(on: RunLoop.main).sink { self.finish(browser) }
         // The window is still being put together; the flight waits a turn.
-        DispatchQueue.main.async { self.depart(browser, on: screen) }
+        DispatchQueue.main.async { self.depart(browser, to: stop, on: screen) }
     }
 
-    private func depart(_ browser: Browser, on screen: NSScreen) {
+    private func stop(_ browser: Browser) -> Stop? {
+        if browser.welcoming, !browser.prefs.welcomed { return .welcome }
+        if case .arrived(let arrival) = browser.gate { return .arrival(arrival) }
+        return nil
+    }
+
+    /// The window's contents, its corner, and its size: Welcome's is set,
+    /// the arrival's plate is as tall as what it says.
+    private func card(_ browser: Browser, _ stop: Stop) -> (NSHostingView<AnyView>, CGFloat, NSSize) {
+        let metrics = ChromeMetrics(size: browser.prefs.interfaceSize)
+        let corner: CGFloat
+        let content: AnyView
+        switch stop {
+        case .welcome:
+            corner = Metrics.introCorner
+            content = AnyView(WelcomePanel(browser: browser, prefs: browser.prefs))
+        case .arrival(let arrival):
+            corner = metrics.plateRadius
+            content = AnyView(GatePanel(browser: browser, gate: .arrived(arrival)).background(Envelope()))
+        }
+        let host = NSHostingView(rootView: AnyView(content
+            .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
+            .environment(\.depth, browser.prefs.depth)
+            .environment(\.chromeMetrics, metrics)))
+        var size = Metrics.introSize
+        if case .arrival = stop { size = host.fittingSize }
+        host.sizingOptions = []
+        return (host, corner, size)
+    }
+
+    private func depart(_ browser: Browser, to stop: Stop, on screen: NSScreen) {
         guard ending != nil else { return }
+        // Measured on a copy: the window gets its own, built when it opens,
+        // so what plays once on appearing (the plane landing) plays then.
+        let (_, corner, size) = card(browser, stop)
         let area = screen.visibleFrame
-        let size = Metrics.introSize
         let target = NSRect(x: area.midX - size.width / 2, y: area.midY - size.height / 2,
                             width: size.width, height: size.height).integral
         let tile = NSRect(x: area.midX - Metrics.introTile / 2, y: area.midY - Metrics.introTile / 2,
                           width: Metrics.introTile, height: Metrics.introTile)
-        if still { return open(browser, at: target) }
+        if still { return open(browser, stop, at: target) }
         let flight = Flight(frame: tile.offsetBy(dx: 0, dy: -Metrics.introRise), corner: Metrics.introTileCorner, on: screen)
         flight.marked = true
         flight.scale = Metrics.introSeed
@@ -72,11 +118,11 @@ final class Intro {
                     guard self.ending != nil else { return }
                     flight.arrive(Motion.introGrow) {
                         flight.frame = target
-                        flight.corner = Metrics.introCorner
+                        flight.corner = corner
                         flight.mark = 0
                         flight.markScale = Metrics.introMarkExit
                     } then: {
-                        self.open(browser, at: target)
+                        self.open(browser, stop, at: target)
                     }
                 }
             }
@@ -121,8 +167,8 @@ final class Intro {
         }
     }
 
-    private func open(_ browser: Browser, at frame: NSRect) {
-        // Welcome may have ended while its tile was flying (Settings, ⌘,).
+    private func open(_ browser: Browser, _ stop: Stop, at frame: NSRect) {
+        // It may have ended while its tile was flying (Settings, ⌘,).
         guard ending != nil else { return }
         let window = Sheet(contentRect: frame, styleMask: .borderless, backing: .buffered, defer: false)
         window.isOpaque = false
@@ -133,11 +179,8 @@ final class Intro {
         // AppKit would grow a new window in from a little smaller; this one
         // has to start exactly where the card stopped.
         window.animationBehavior = .none
-        let host = NSHostingView(rootView: WelcomePanel(browser: browser, prefs: browser.prefs)
-            .clipShape(RoundedRectangle(cornerRadius: Metrics.introCorner, style: .continuous))
-            .environment(\.depth, browser.prefs.depth)
-            .environment(\.chromeMetrics, ChromeMetrics(size: browser.prefs.interfaceSize)))
-        host.sizingOptions = []
+        let (host, corner, _) = card(browser, stop)
+        self.corner = corner
         window.contentView = host
         window.makeKeyAndOrderFront(nil)
         window.displayIfNeeded()
@@ -155,7 +198,7 @@ final class Intro {
             welcome.orderOut(nil)
             return reveal(browserWindow)
         }
-        let flight = Flight(frame: welcome.frame, corner: Metrics.introCorner, on: screen)
+        let flight = Flight(frame: welcome.frame, corner: corner, on: screen)
         flight.shown = 1
         fly(flight, depth: browser.prefs.depth) {
             welcome.orderOut(nil)

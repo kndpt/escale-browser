@@ -906,7 +906,7 @@ enum Motion {
     /// The tile rises and stands up; the mark draws itself meanwhile
     /// (`landing`), and the tile holds a beat after it has; then it opens.
     static let introPop = Animation.timingCurve(0.34, 1.45, 0.64, 1, duration: 0.7)
-    static let introHold: TimeInterval = 0.75
+    static let introHold: TimeInterval = 0.6
     static let introGrow = Animation.timingCurve(0.30, 1.18, 0.45, 1, duration: 0.75)
     /// The card fades off the window it landed on, and the screen lights up.
     static let introHand: TimeInterval = 0.25
