@@ -739,11 +739,12 @@ final class Browser: NSObject, ObservableObject {
         FormRelay.saving = prefs.savesPasswords
         FormRelay.filling = prefs.fillsPasswords
 
-        // An icon that arrives is put on every tab showing that site, not only
-        // the one that happened to ask for it.
-        Favicons.shared.arrived = { [weak self] host, image in
+        // An icon that arrives is put on every tab showing that site, or that
+        // part of it, not only the one that happened to ask for it.
+        Favicons.shared.arrived = { [weak self] site, image in
             guard let self else { return }
-            for tab in tabs + parkedTabs where tab.address?.host()?.lowercased() == host {
+            for tab in tabs + parkedTabs
+            where tab.address.flatMap(Favicons.part) == site || tab.address?.host()?.lowercased() == site {
                 tab.icon = image
             }
         }
