@@ -242,3 +242,52 @@ import Testing
         #expect(favicons.counts["absent"] == known)
     }
 }
+
+// One host, several apps, each with its own icon: docs.google.com serves Docs
+// and Sheets. A part keeps a file only when its page declares another icon
+// than the host's, and is looked up before the host. The fetches themselves
+// run in Tests/Bench/icon_alignment.py.
+@Suite @MainActor struct IconPartTests {
+    @Test func aPartIsTheHostAndTheFirstSegment() throws {
+        let part = { (address: String) in Favicons.part(try #require(URL(string: address))) }
+        #expect(try part("https://Docs.Google.com/spreadsheets/d/1/edit") == "docs.google.com~spreadsheets")
+        #expect(try part("https://docs.google.com/document/d/1") == "docs.google.com~document")
+        #expect(try part("https://github.com") == "github.com~")
+        #expect(try part("https://github.com/") == "github.com~")
+        #expect(try part("https://example.com/caf%C3%A9/x") == "example.com~")
+        #expect(try part("https://example.com/" + String(repeating: "a", count: 65)) == "example.com~")
+    }
+
+    @Test func aPageLooksForItsPartBeforeItsHost() throws {
+        let doc = try #require(URL(string: "https://docs.google.com/document/d/1"))
+        #expect(Favicons.names("docs.google.com", doc) == ["docs.google.com~document", "docs.google.com"])
+        #expect(Favicons.names("docs.google.com", nil) == ["docs.google.com"])
+    }
+
+    @Test func twoPagesOnOneHostWithDifferentIconsKeepTwoFiles() {
+        let sheets = "https://docs.google.com/sheets.ico", docs = "https://docs.google.com/docs.ico"
+        // The sheet came first: the host's file is its icon.
+        #expect(!Favicons.apart(has: false, kept: nil, declared: sheets))
+        // The doc declares another: a file of its own.
+        #expect(Favicons.apart(has: false, kept: sheets, declared: docs))
+        // Another sheet, or a site with one icon: the host's file.
+        #expect(!Favicons.apart(has: false, kept: sheets, declared: sheets))
+        // A part with a file keeps it.
+        #expect(Favicons.apart(has: true, kept: sheets, declared: sheets))
+    }
+
+    @Test func aFileSaysWhereItsIconWasDeclared() throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("escale-icon-\(UUID().uuidString).png")
+        defer { try? FileManager.default.removeItem(at: file) }
+        let bitmap = try #require(NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: 32, pixelsHigh: 32, bitsPerSample: 8, samplesPerPixel: 4,
+            hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+        let image = NSImage(size: NSSize(width: 16, height: 16))
+        image.addRepresentation(bitmap)
+        try #require(Favicons.png(image, source: "https://example.com/icon.png")).write(to: file)
+        #expect(Favicons.source(file) == "https://example.com/icon.png")
+        #expect(Favicons.read(file) != nil)
+        try #require(Favicons.png(image)).write(to: file)
+        #expect(Favicons.source(file) == nil)
+    }
+}

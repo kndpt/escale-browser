@@ -254,7 +254,7 @@ final class Tab: ObservableObject, Identifiable {
 
     private func adoptIcon() {
         guard let host = address?.host()?.lowercased() else { return }
-        icon = Favicons.shared.cached(host)
+        icon = Favicons.shared.cached(host, page: address)
     }
 
     /// True while the caret is in something on the page that takes typing.
