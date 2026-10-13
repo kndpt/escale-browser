@@ -9,8 +9,11 @@
 # nothing is downloaded. Tests keep a separate scratch directory: switching
 # these flags on/off in the app's .build recompiles it at every build/test turn.
 # Extra arguments go to `swift test`; an explicit --scratch-path takes priority.
+# The tests live in a world of their own, "Escale (unit)", never one a bench
+# run wipes (see Store.testing).
 set -euo pipefail
 cd "$(dirname "$0")"
+export ESCALE_PROBE=unit
 
 flags=()
 scratch=(--scratch-path .build/tests)
