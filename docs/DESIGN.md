@@ -61,6 +61,9 @@ its frame is opaque. Controls laid over a page are Escale's UI and use glass.
 - Fine edges, diffuse shadows, restrained highlights. No heavy frames, needless
   nested cards or animated shine. A card in a panel is `Palette.raised`.
 - Popovers keep macOS's material; `.popoverGround()` fills them at Solid.
+- The first launch's Welcome window stands on macOS's Liquid Glass (Clear
+  before macOS 26), whatever the Transparency setting: it is seen over the
+  desktop before the browser opens (`Intro.swift`).
 - Settings take the page's place in its frame, with no card (`SettingsGround`).
 
 **Transparency** (`Depth`): Solid, Subtle (default, also for unknown values)

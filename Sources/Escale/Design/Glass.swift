@@ -129,15 +129,31 @@ extension EnvironmentValues {
 struct Envelope: View {
     @SwiftUI.Environment(\.depth) private var depth
     @SwiftUI.Environment(\.accessibilityReduceTransparency) private var reducing
+    @SwiftUI.Environment(\.envelopeAside) private var aside
 
     var body: some View {
         let drawn = depth.drawn(reducing: reducing)
-        ZStack {
-            if drawn.sees { Backdrop(depth: drawn) }
-            (drawn.sees ? Palette.envelopeTint : Palette.envelope).opacity(drawn.tint(.envelope))
+        if !aside {
+            ZStack {
+                if drawn.sees { Backdrop(depth: drawn) }
+                (drawn.sees ? Palette.envelopeTint : Palette.envelope).opacity(drawn.tint(.envelope))
+            }
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
         }
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
+    }
+}
+
+private struct EnvelopeAsideKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// Another ground is drawn under the envelope, the first launch's
+    /// Welcome (Intro.swift), so the envelope draws nothing.
+    var envelopeAside: Bool {
+        get { self[EnvelopeAsideKey.self] }
+        set { self[EnvelopeAsideKey.self] = newValue }
     }
 }
 
