@@ -66,8 +66,13 @@ struct WelcomeGitHubActions: View {
     var body: some View {
         switch access.connection {
         case .connecting, .disconnecting:
+            // Connect stays where it was, unpressable, so the second click
+            // of a double click on it does not land on Cancel.
             Button("Cancel") { access.cancelConnection() }
                 .buttonStyle(MigrationButton(kind: .secondary))
+            Button("Connect GitHub") {}
+                .buttonStyle(MigrationButton())
+                .disabled(true)
         case .authorizing(let code, _):
             Button("Cancel") { access.cancelConnection() }
                 .buttonStyle(MigrationButton(kind: .secondary))
