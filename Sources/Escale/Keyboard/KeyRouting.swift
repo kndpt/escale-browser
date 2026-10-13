@@ -101,7 +101,11 @@ extension Browser {
         case .splitLeft: chooseSplit(.left)
         case .splitTop: chooseSplit(.top)
         case .splitBottom: chooseSplit(.bottom)
-        case .openAddress: edit()
+        case .openAddress:
+            // Only the binding passes its event: Return on Bearings' command
+            // or a menu walked by keys is a key-down too, not ⌘L learned.
+            if event != nil, !prefs.addressLearned { prefs.addressLearned = true }
+            edit()
         case .back: back()
         case .forward: forward()
         case .reload: reload()
