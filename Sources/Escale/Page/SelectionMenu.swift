@@ -33,10 +33,9 @@ import Translation
 //
 // The arrival is drawn rather than animated by SwiftUI: Copy's pop and
 // Translate being pulled out of it are two springs on one clock, and the two
-// shapes are one piece of glass while they touch — blurred together, then
-// cut at half their opacity, which is what makes the join stretch and snap
-// like a drop. The clock runs for the arrival's 0.37 s and then stops; Reduce
-// Motion skips it for a fade.
+// shapes are one piece of glass while they touch (Bubble.swift, shared with
+// Developer mode's dock). The clock runs for the arrival's 0.37 s and then
+// stops; Reduce Motion skips it for a fade.
 
 /// Reports a finished mouse selection in the main frame to the tab that owns
 /// the page. WebKit retains this relay; the tab is weak so closing it
@@ -143,25 +142,22 @@ struct SelectionFrame: Equatable {
     var opacity: Double
 
     /// From the first frame to the last.
-    static let total = max(Motion.selectionPop, Motion.selectionPullDelay + Motion.selectionPull)
+    static let total = Bubble.total
 
     static func at(_ elapsed: TimeInterval, pill width: CGFloat?) -> SelectionFrame {
         let size = Metrics.selectionButton
-        let popped = clamp(elapsed / Motion.selectionPop)
-        let pop = spring(Motion.selectionPopBounce)
-        let wide = pop(popped)
-        let tall = popped >= 1 ? 1 : pop(max(0, popped - Motion.selectionWobble))
+        let popped = Bubble.popped(elapsed)
+        let scale = Bubble.pop(elapsed)
         var frame = SelectionFrame(
-            copy: CGSize(width: wide, height: tall), pill: nil,
+            copy: scale, pill: nil,
             label: 0, edge: popped, opacity: min(1, popped * 5)
         )
         guard let width else { return frame }
 
         // Translate starts as the copy button itself, as big as it is so far,
         // and is pulled out to the right to its own size.
-        let pulled = clamp((elapsed - Motion.selectionPullDelay) / Motion.selectionPull)
-        let out = spring(Motion.selectionPullBounce)(pulled)
-        let base = min(1, wide)
+        let out = Bubble.pull(elapsed)
+        let base = min(1, scale.width)
         let startLeft = size / 2 * (1 - base), startSize = size * base
         let left = startLeft + (size + Metrics.selectionGap - startLeft) * out
         let height = startSize + (size - startSize) * out
@@ -169,26 +165,9 @@ struct SelectionFrame: Equatable {
             x: left, y: (size - height) / 2,
             width: startSize + (width - startSize) * out, height: height
         )
-        frame.label = clamp((pulled - 0.35) / 0.4)
-        frame.edge = clamp((left - size) / (Metrics.selectionGap * 0.75))
+        frame.label = Bubble.label(elapsed)
+        frame.edge = Bubble.clamp((left - size) / (Metrics.selectionGap * 0.75))
         return frame
-    }
-
-    /// A damped spring from 0 to 1 over a unit of time, settled at its end.
-    /// `bounce` 0 barely overshoots; 1 swings back and forth a few times.
-    static func spring(_ bounce: Double) -> (Double) -> Double {
-        let damping = max(0.3, min(0.99, 1 - bounce * 0.7))
-        let natural = 4.6 / damping
-        let damped = natural * (1 - damping * damping).squareRoot()
-        return { t in
-            guard t < 1 else { return 1 }
-            let decay = exp(-damping * natural * t)
-            return 1 - decay * (cos(damped * t) + damping * natural / damped * sin(damped * t))
-        }
-    }
-
-    private static func clamp(_ value: Double) -> Double {
-        value.isFinite ? min(1, max(0, value)) : (value > 0 ? 1 : 0)
     }
 }
 
@@ -342,18 +321,7 @@ private struct SelectionBubble: View {
         let pill = frame.pill.map { $0.offsetBy(dx: pad, dy: pad) }
         return ZStack(alignment: .topLeading) {
             ground
-                .mask {
-                    Canvas { context, _ in
-                        context.addFilter(.alphaThreshold(min: 0.5, color: .black))
-                        context.addFilter(.blur(radius: 4))
-                        context.drawLayer { layer in
-                            layer.fill(Path(ellipseIn: copyShape), with: .color(.black))
-                            if let pill {
-                                layer.fill(Path(roundedRect: pill, cornerRadius: pill.height / 2), with: .color(.black))
-                            }
-                        }
-                    }
-                }
+                .mask { BubbleMask(round: copyShape, pill: pill) }
                 .compositingGroup()
                 .shadow(color: Palette.shadow, radius: 16, y: 5)
                 .allowsHitTesting(false)

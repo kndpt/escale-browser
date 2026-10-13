@@ -48,18 +48,25 @@ struct Space: Codable, Identifiable, Equatable {
 
 enum Spaces {
     /// The icons a space can wear: Apple's own symbols, drawn in one weight
-    /// and one grey, grouped as work, thinking, leisure and life.
+    /// and one grey, grouped as work, thinking, leisure and life, then clients
+    /// and projects, and dev. Only ever appended to: a transfer file names
+    /// its icons and an import drops one it doesn't know, and `freeIcon`
+    /// hands out the first unused, so an existing Space keeps its icon.
     static let icons = [
         "briefcase", "building.2", "desktopcomputer", "laptopcomputer", "chevron.left.forwardslash.chevron.right", "terminal",
         "sparkles", "brain.head.profile", "lightbulb", "gamecontroller", "beach.umbrella", "cup.and.saucer",
         "music.note", "film", "paintpalette", "camera", "house", "book",
         "graduationcap", "cart", "airplane", "dumbbell", "leaf", "heart",
+        "person", "person.2", "folder", "shippingbox", "hammer", "wrench.and.screwdriver",
+        "server.rack", "cloud", "globe", "ant", "star", "flag",
     ]
     static let iconNames = [
         "Work", "Office", "Desktop", "Laptop", "Code", "Terminal",
         "AI", "Thinking", "Ideas", "Games", "Leisure", "Café",
         "Music", "Film", "Art", "Photos", "Home", "Reading",
         "Studies", "Shopping", "Travel", "Sport", "Nature", "Personal",
+        "Client", "Team", "Project", "Delivery", "Build", "Tools",
+        "Server", "Cloud", "Web", "Bugs", "Starred", "Flag",
     ]
 
     private static var file: URL { Store.file("spaces.json") }

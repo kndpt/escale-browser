@@ -358,6 +358,9 @@ final class Browser: NSObject, ObservableObject {
         }
     }
 
+    /// Developer mode: the page tools' dock at the window's foot (Workbench.swift).
+    @Published var developing = false
+
     // MARK: - what is kept, and getting rid of it
 
     @Published var recalling = false
@@ -736,11 +739,12 @@ final class Browser: NSObject, ObservableObject {
         FormRelay.saving = prefs.savesPasswords
         FormRelay.filling = prefs.fillsPasswords
 
-        // An icon that arrives is put on every tab showing that site, not only
-        // the one that happened to ask for it.
-        Favicons.shared.arrived = { [weak self] host, image in
+        // An icon that arrives is put on every tab showing that site, or that
+        // part of it, not only the one that happened to ask for it.
+        Favicons.shared.arrived = { [weak self] site, image in
             guard let self else { return }
-            for tab in tabs + parkedTabs where tab.address?.host()?.lowercased() == host {
+            for tab in tabs + parkedTabs
+            where tab.address.flatMap(Favicons.part) == site || tab.address?.host()?.lowercased() == site {
                 tab.icon = image
             }
         }
@@ -1753,6 +1757,7 @@ final class Browser: NSObject, ObservableObject {
                 self.floating = tab.id
                 self.floatingMeeting = call
                 tab.floating = true
+                self.inspection.leave(tab.id)
                 self.floater.lift(tab.web, call: call)
             }
         }
@@ -1838,6 +1843,7 @@ final class Browser: NSObject, ObservableObject {
             // From a private tab, the search is private too (see open(_:foreground:atEnd:from:)).
             self.open(url, foreground: true, from: tab)
         }
+        tab.onInspect = { [weak self] tab in self?.inspectFromMenu(tab) }
         tab.onStoreAdd = { [weak self] tab in self?.addFromStore(tab) }
         // The middle button on a link opens it beside the tab you are on, as
         // it does in every other browser (see MiddleRelay).

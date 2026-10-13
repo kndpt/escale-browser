@@ -173,9 +173,7 @@ struct TabBar: View {
                         // Without the rail, a waiting update leads the row.
                         GateDoor(browser: browser)
                         DownloadDoor(downloads: browser.downloads) { browser.hoarding = true }
-                        ExtensionSlot(space: browser.spaceID)
-                        VisualDoor(browser: browser)
-                        CaptureDoor(browser: browser)
+                        ExtensionSlot(space: browser.spaceID, planned: browser.space.plannedExtensions ?? [])
                         DeveloperDoor(browser: browser)
                         if let tab = browser.active {
                             BookmarkDoor(browser: browser, bookmarks: browser.bookmarks, tab: tab)

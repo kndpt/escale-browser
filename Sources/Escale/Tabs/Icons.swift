@@ -39,6 +39,15 @@ import WebKit
 // pressure lets every icon held in memory go (see Browser.pressed).
 // The PNG carries a raster version: old 32-pixel files drew only their
 // lower-left quarter, recovered on read without refetching or rewriting them.
+//
+// An icon is kept per host, and per part of a host only where a part shows
+// another: docs.google.com serves Docs, Sheets and Slides, each with its own.
+// A part is the host and the first segment of the path
+// (`docs.google.com~spreadsheets`). The host's file says which address the
+// page declared for it; a part whose page declares the same wears the host's
+// icon and keeps no file, so a site with one icon still has one file. Only
+// hosts with a part of their own are looked up past the host, listed from the
+// folder once, the first time a list draws.
 
 @MainActor
 final class Favicons: ObservableObject {
@@ -48,8 +57,8 @@ final class Favicons: ObservableObject {
     /// them (`SiteMark`): the number itself means nothing.
     @Published private(set) var arrivals = 0
 
-    /// Called with a host and its icon whenever one arrives, so every tab on
-    /// that host can put it on at once.
+    /// Called with a host or a part (`Favicons.part`) and its icon whenever
+    /// one arrives, so every tab there can put it on at once.
     var arrived: ((String, NSImage) -> Void)?
 
     /// The bounds. `icons.memory` and `icons.files` change the first two for
@@ -76,17 +85,27 @@ final class Favicons: ObservableObject {
     private var reading = false
     private var pending = false
     private var signalled = Date.distantPast
+    /// Parts found this run to declare their host's icon, and the hosts with
+    /// a part that keeps its own (`listed` once the folder was read).
+    private var plain = Recent<Bool>(cap: Favicons.missingCap)
+    /// The address a host's icon was declared at, once a part claimed it:
+    /// its file is written a moment later, and another part may ask before.
+    private var claimed = Recent<String>(cap: Favicons.missingCap)
+    private var split: Set<String> = []
+    private var listed = false
+    private var listing = false
 
     /// A fetch waiting for its turn. The tab is held weakly and asked again
     /// when the turn comes: gone, or on another site, and it is dropped.
     private struct Job {
-        let host: String
+        let part: String
         let key: String
+        let source: String?
         let candidates: [URL]
         let shy: Bool
         weak var tab: Tab?
 
-        @MainActor var wanted: Bool { tab?.address?.host()?.lowercased() == host }
+        @MainActor var wanted: Bool { tab?.address.flatMap(Favicons.part) == part }
     }
     private var waiting: [Job] = []
     private var fetching = 0
@@ -139,11 +158,28 @@ final class Favicons: ObservableObject {
     /// variant a site offered. Sites without one keep one file for both.
     private static func key(_ host: String, dark: Bool) -> String { dark ? host + "@dark" : host }
 
+    /// The part of a site a page is in: its host and the first segment of its
+    /// path, empty at the root or when it would not make a plain file name.
+    nonisolated static func part(_ url: URL) -> String? {
+        guard let host = url.host()?.lowercased() else { return nil }
+        let first = url.pathComponents.dropFirst().first?.lowercased() ?? ""
+        let plain = first.count <= 64 && first.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || "-_.".contains($0)) }
+        return host + "~" + (plain ? first : "")
+    }
+
+    /// Where to look, most specific first: the page's part, then its host.
+    static func names(_ host: String, _ page: URL?) -> [String] {
+        [page.flatMap(part), host].compactMap { $0 }
+    }
+
     /// What is already known, and nothing fetched. In the dark, the dark
     /// variant when there is one, the ordinary icon otherwise.
-    func cached(_ host: String) -> NSImage? {
-        if Favicons.dark, let hit = known(Favicons.key(host, dark: true)) { return hit }
-        return known(host)
+    func cached(_ host: String, page: URL? = nil) -> NSImage? {
+        for name in Favicons.names(host, page) {
+            if Favicons.dark, let hit = known(Favicons.key(name, dark: true)) { return hit }
+            if let hit = known(name) { return hit }
+        }
+        return nil
     }
 
     private func known(_ key: String) -> NSImage? {
@@ -156,12 +192,37 @@ final class Favicons: ObservableObject {
     /// What is in memory now, for a list drawing its rows: never the disk. A
     /// key that is neither held nor known to have no file is queued to be read,
     /// and `arrivals` changes when it has been.
-    func shown(_ host: String) -> NSImage? {
-        for key in Favicons.dark ? [Favicons.key(host, dark: true), host] : [host] {
-            if let hit = memory.get(key) { return hit }
-            ask(key)
+    func shown(_ host: String, page: URL? = nil) -> NSImage? {
+        if !listed { list() }
+        for name in split.contains(host) ? Favicons.names(host, page) : [host] {
+            let keys = Favicons.dark ? [Favicons.key(name, dark: true), name] : [name]
+            for key in keys {
+                if let hit = memory.get(key) { return hit }
+                ask(key)
+            }
+            // A part's own icon on its way: not the host's in the meantime.
+            if name != host, keys.contains(where: queued.contains) { return nil }
         }
         return nil
+    }
+
+    /// Which hosts have a part with its own file, read once off the main
+    /// thread; the lists are told when it is known.
+    private func list() {
+        guard !listing else { return }
+        listing = true
+        let folder = Favicons.folder.path
+        DispatchQueue.global(qos: .utility).async {
+            let names = (try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []
+            let hosts = names.compactMap { name in name.firstIndex(of: "~").map { String(name[..<$0]) } }
+            DispatchQueue.main.async { [self] in
+                MainActor.assumeIsolated {
+                    split.formUnion(hosts)
+                    listed = true
+                    arrivals += 1
+                }
+            }
+        }
     }
 
     private func remember(_ key: String, _ image: NSImage) {
@@ -254,7 +315,7 @@ final class Favicons: ObservableObject {
         absent.removeAll()
         for tab in tabs {
             guard let host = tab.address?.host()?.lowercased() else { continue }
-            tab.icon = cached(host)
+            tab.icon = cached(host, page: tab.address)
             fetch(for: tab)
         }
     }
@@ -264,7 +325,7 @@ final class Favicons: ObservableObject {
     func adopt(_ data: Data, for host: String) async {
         guard cached(host) == nil, let image = await Favicons.square(data) else { return }
         remember(host, image)
-        keep(image, for: host)
+        keep(image, for: host, from: nil)
         arrived?(host, image)
         arrivals += 1
     }
@@ -274,19 +335,22 @@ final class Favicons: ObservableObject {
     func fetch(for tab: Tab) {
         // The page is asked, so only a page that exists: never built for this.
         guard let web = tab.built, let url = tab.address, let host = url.host()?.lowercased(),
-              url.scheme?.hasPrefix("http") == true
+              let part = Favicons.part(url), url.scheme?.hasPrefix("http") == true
         else { return }
 
         let dark = Favicons.dark
-        // Fresh and right for this look: nothing to do. In the dark, a fresh
-        // light icon is not enough on its own — the site may offer a dark
-        // one that has never been asked for — so the page is asked.
-        if Favicons.fresh(Favicons.key(host, dark: dark)), let known = known(Favicons.key(host, dark: dark)) {
+        // Fresh and right for this look: nothing to do. The part's own icon,
+        // or the host's where the part was found to declare that one; a part
+        // not seen yet this run asks its page. In the dark, a fresh light
+        // icon is not enough on its own — the site may offer a dark one that
+        // has never been asked for — so the page is asked.
+        let worn = Favicons.key(plain.contains(part) ? host : part, dark: dark)
+        if Favicons.fresh(worn), let known = known(worn) {
             tab.icon = known
             return
         }
-        guard !busy.contains(host), !missing.contains(host) else { return }
-        busy.insert(host)
+        guard !busy.contains(part), !missing.contains(part) else { return }
+        busy.insert(part)
 
         web.evaluateJavaScript(Favicons.probe) { [weak self, weak tab] answer, _ in
             MainActor.assumeIsolated {
@@ -294,16 +358,28 @@ final class Favicons: ObservableObject {
                 let declared = (answer as? [[String: String]]) ?? []
                 let offersDark = declared.contains { Favicons.media($0["media"]) == .dark }
                 let wantDark = dark && offersDark
-                let key = Favicons.key(host, dark: wantDark)
-                // No dark variant here after all, and the ordinary one is
-                // fresh: it is the one to wear.
-                if !wantDark, Favicons.fresh(key), let known = self.known(key) {
+                let candidates = Array(Favicons.rank(declared, page: url, dark: wantDark).prefix(Favicons.tries))
+                let source = candidates.first?.absoluteString
+                let mine = Favicons.key(part, dark: wantDark)
+                let shared = Favicons.key(host, dark: wantDark)
+                let kept = self.claimed.get(shared) ?? Favicons.source(Favicons.file(shared))
+                let own = Favicons.apart(has: FileManager.default.fileExists(atPath: Favicons.file(mine).path),
+                                         kept: kept, declared: source)
+                let key = own ? mine : shared
+                if !own {
+                    self.plain.set(part, true)
+                    if let source { self.claimed.set(shared, source) }
+                }
+                // Fresh after all — no dark variant here, or the host's: it is
+                // the one to wear. A host's file from before sources were
+                // written is fetched once more, to say where it came from.
+                if own || kept != nil, Favicons.fresh(key), let known = self.known(key) {
                     tab?.icon = known
-                    self.busy.remove(host)
+                    self.busy.remove(part)
                     return
                 }
-                let candidates = Array(Favicons.rank(declared, page: url, dark: wantDark).prefix(Favicons.tries))
-                self.line(Job(host: host, key: key, candidates: candidates, shy: tab?.shy ?? false, tab: tab))
+                self.line(Job(part: part, key: key, source: source, candidates: candidates,
+                              shy: tab?.shy ?? false, tab: tab))
             }
         }
     }
@@ -313,7 +389,7 @@ final class Favicons: ObservableObject {
     private func line(_ job: Job) {
         waiting.append(job)
         while waiting.count > Favicons.waitingCap {
-            busy.remove(waiting.removeFirst().host)
+            busy.remove(waiting.removeFirst().part)
         }
         next()
     }
@@ -323,7 +399,7 @@ final class Favicons: ObservableObject {
         while fetching < Favicons.atOnce, !waiting.isEmpty {
             let job = waiting.removeFirst()
             guard job.wanted else {
-                busy.remove(job.host)
+                busy.remove(job.part)
                 continue
             }
             fetching += 1
@@ -348,7 +424,7 @@ final class Favicons: ObservableObject {
     }
 
     private func download(_ job: Job) async {
-        defer { busy.remove(job.host) }
+        defer { busy.remove(job.part) }
         for candidate in job.candidates {
             // The tab went elsewhere meanwhile: the rest can wait for a visit.
             guard job.wanted else { return }
@@ -356,14 +432,14 @@ final class Favicons: ObservableObject {
                   let image = await Favicons.square(data)
             else { continue }
             remember(job.key, image)
-            if !job.shy { keep(image, for: job.key) }
-            arrived?(job.host, image)
+            if !job.shy { keep(image, for: job.key, from: job.source) }
+            arrived?(job.part, image)
             arrivals += 1
             return
         }
         // Not asked again this session: hammering a site for an icon it
         // doesn't have is exactly the kind of thing a quiet browser doesn't do.
-        missing.set(job.host, true)
+        missing.set(job.part, true)
     }
 
     /// The body at `url`, read as it comes, or nil: an error status, a
@@ -430,21 +506,40 @@ final class Favicons: ObservableObject {
         }.value
     }
 
-    private func keep(_ image: NSImage, for key: String) {
-        guard let png = Favicons.png(image) else { return }
+    private func keep(_ image: NSImage, for key: String, from source: String?) {
+        guard let png = Favicons.png(image, source: source) else { return }
+        if let mark = key.firstIndex(of: "~") { split.insert(String(key[..<mark])) }
         disk.write(png, to: Favicons.file(key), cap: Favicons.filesCap)
     }
 
-    /// The per-file version distinguishes corrected pixels from old cache entries.
-    static func png(_ image: NSImage) -> Data? {
+    /// Whether a part keeps an icon of its own: it already does, or its page
+    /// declares another than the one the host's file was `kept` from. A host
+    /// with no file, or one from before sources were written, takes the part's.
+    nonisolated static func apart(has: Bool, kept: String?, declared: String?) -> Bool {
+        has || (kept != nil && kept != declared)
+    }
+
+    /// The address the page declared for the icon in `file`, written in it:
+    /// the PNG's header, not its pixels.
+    nonisolated static func source(_ file: URL) -> String? {
+        guard let image = CGImageSourceCreateWithURL(file as CFURL, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(image, 0, nil) as? [CFString: Any],
+              let png = properties[kCGImagePropertyPNGDictionary] as? [CFString: Any]
+        else { return nil }
+        return png[kCGImagePropertyPNGDescription] as? String
+    }
+
+    /// The per-file version distinguishes corrected pixels from old cache
+    /// entries; the source is the address the icon was declared at.
+    static func png(_ image: NSImage, source: String? = nil) -> Data? {
         guard let bitmap = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
         else { return nil }
         let data = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(data, "public.png" as CFString, 1, nil)
         else { return nil }
-        CGImageDestinationAddImage(destination, bitmap, [
-            kCGImagePropertyPNGDictionary: [kCGImagePropertyPNGSoftware: rasterVersion],
-        ] as CFDictionary)
+        var png: [CFString: Any] = [kCGImagePropertyPNGSoftware: rasterVersion]
+        png[kCGImagePropertyPNGDescription] = source
+        CGImageDestinationAddImage(destination, bitmap, [kCGImagePropertyPNGDictionary: png] as CFDictionary)
         guard CGImageDestinationFinalize(destination) else { return nil }
         return data as Data
     }
@@ -585,6 +680,8 @@ private extension Int {
 /// rest has been read (see `Favicons.shown`).
 struct SiteMark: View {
     let host: String
+    /// The page, for a site whose parts show different icons.
+    var page: URL?
     let letter: String
     var size: CGFloat = 16
     var dim = false
@@ -592,7 +689,7 @@ struct SiteMark: View {
     @ObservedObject private var favicons = Favicons.shared
 
     var body: some View {
-        Mark(icon: favicons.shown(host), letter: letter, size: size, dim: dim)
+        Mark(icon: favicons.shown(host, page: page), letter: letter, size: size, dim: dim)
     }
 }
 

@@ -709,7 +709,8 @@ struct BookmarkOutline: View {
                         )
                 } else {
                     Spacer().frame(width: 10)
-                    SiteMark(host: node.host ?? "", letter: String((node.host ?? "•").prefix(1)).uppercased(), size: 15)
+                    SiteMark(host: node.host ?? "", page: node.url.flatMap(URL.init(string:)),
+                             letter: String((node.host ?? "•").prefix(1)).uppercased(), size: 15)
                 }
                 if naming {
                     TextField("Folder name", text: $folderName)

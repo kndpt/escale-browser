@@ -165,7 +165,7 @@ private struct FolderSearchRow: View {
     var body: some View {
         let url = site.url.flatMap(URL.init(string:))
         HStack(spacing: metrics.length(Metrics.searchInset)) {
-            SiteMark(host: site.host ?? "", letter: String((site.host ?? "•").prefix(1)).uppercased(),
+            SiteMark(host: site.host ?? "", page: url, letter: String((site.host ?? "•").prefix(1)).uppercased(),
                      size: metrics.length(Metrics.navigationIcon))
             VStack(alignment: .leading, spacing: metrics.length(1)) {
                 Text(site.title)

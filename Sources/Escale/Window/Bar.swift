@@ -106,7 +106,8 @@ struct AddressBar: View {
                 // the doors and the site are what must stay whole.
                 // A pinned tab keeps its link but is never the one a destination
                 // opens in (Browser.openEnvironment), so it offers none.
-                Where(browser: browser, tab: tab, bookmark: tab.pin == nil ? browser.shelfTabs[tab.id] : nil)
+                Where(browser: browser, tab: tab, bookmark: tab.pin == nil ? browser.shelfTabs[tab.id] : nil,
+                      keys: browser.prefs.keys(.openAddress), learned: browser.prefs.addressLearned)
                     .layoutPriority(1)
             }
             // What is left is title bar: the window is dragged by it, and a
@@ -116,9 +117,7 @@ struct AddressBar: View {
                 .frame(minWidth: metrics.length(40), maxWidth: .infinity)
             if browser.showsBar {
                 DownloadDoor(downloads: browser.downloads) { browser.hoarding = true }
-                ExtensionSlot(space: browser.spaceID)
-                VisualDoor(browser: browser)
-                CaptureDoor(browser: browser)
+                ExtensionSlot(space: browser.spaceID, planned: browser.space.plannedExtensions ?? [])
                 DeveloperDoor(browser: browser)
             }
         }
@@ -154,11 +153,18 @@ struct CopyDoor: View {
 ///
 /// With the pointer over the title's side, Copy Address comes in at its head,
 /// between the rule and the title, and the title steps right to make room.
+/// The title reads as a button then, with ⌘L at its end: the address it opens
+/// is what most people don't know the key for. Until the key has been used
+/// once, the hint stays at rest too (see `AddressBar.hint`).
 private struct Where: View {
     let browser: Browser
     @ObservedObject var tab: Tab
     /// The bookmark the tab was opened from, whose environment leads the line.
     let bookmark: Bookmark.ID?
+    /// What opens the address, and whether it has been used yet: passed in,
+    /// so a change to either redraws the line.
+    let keys: String
+    let learned: Bool
 
     @State private var open = false
     @State private var onSite = false
@@ -166,6 +172,7 @@ private struct Where: View {
     /// Anywhere over the title's side, the copy door included.
     @State private var onTitleSide = false
     @SwiftUI.Environment(\.chromeMetrics) private var metrics
+    @SwiftUI.Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 0) {
@@ -213,14 +220,28 @@ private struct Where: View {
                         .transition(.opacity)
                     }
                     Button { browser.edit() } label: {
-                        Text(tab.title.isEmpty ? Address.pretty(url) : tab.title)
-                            .font(.system(size: metrics.length(12.5)))
-                            .foregroundStyle(onTitle ? Palette.ink.opacity(0.7) : Palette.muted)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                            .padding(.horizontal, metrics.length(6))
-                            .frame(height: metrics.length(26))
-                            .contentShape(Rectangle())
+                        // The title gives way, never the keys.
+                        HStack(spacing: metrics.length(10)) {
+                            Text(tab.title.isEmpty ? Address.pretty(url) : tab.title)
+                                .font(.system(size: metrics.length(12.5)))
+                                .foregroundStyle(onTitle ? Palette.ink.opacity(0.7) : Palette.muted)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                            if let hint = AddressBar.hint(keys, learned: learned, hovering: onTitle) {
+                                Text(hint)
+                                    .font(.system(size: metrics.length(11)))
+                                    .foregroundStyle(Palette.muted)
+                                    .fixedSize()
+                                    .transition(.opacity)
+                            }
+                        }
+                        .padding(.horizontal, metrics.length(6))
+                        .frame(height: metrics.length(26))
+                        .background(
+                            RoundedRectangle(cornerRadius: metrics.length(8), style: .continuous)
+                                .fill(onTitle ? Palette.hover : .clear)
+                        )
+                        .contentShape(RoundedRectangle(cornerRadius: metrics.length(8), style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .onHover { onTitle = $0 }
@@ -231,7 +252,7 @@ private struct Where: View {
         }
         .padding(.leading, metrics.length(8))
         .animation(Motion.quick, value: onSite)
-        .animation(Motion.quick, value: onTitle)
+        .animation(reduceMotion ? nil : Motion.quick, value: onTitle)
         .animation(Motion.quick, value: onTitleSide)
         .animation(Motion.quick, value: open)
     }
@@ -240,6 +261,12 @@ private struct Where: View {
 extension AddressBar {
     /// The air at either end of the line.
     static func inset(_ metrics: ChromeMetrics) -> CGFloat { metrics.length(10) }
+
+    /// The keys shown at the title's end: under the pointer, or at rest until
+    /// they have been used once. Unbound, there is nothing to show.
+    static func hint(_ keys: String, learned: Bool, hovering: Bool) -> String? {
+        keys.isEmpty || (learned && !hovering) ? nil : keys
+    }
 
     /// The host as a person says it, without the www. A page with no host —
     /// a file, about:blank — is named by what it is.

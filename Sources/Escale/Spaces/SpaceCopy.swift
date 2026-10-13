@@ -89,12 +89,21 @@ extension Browser {
     }
 
     func installedExtension(_ item: Installed, in space: UUID) {
-        guard let index = spaces.firstIndex(where: { $0.id == space }) else { return }
-        var planned = spaces[index].plannedExtensions ?? []
-        planned.removeAll {
+        dropPlanned(in: space) {
             if item.fromStore { return $0.storeID == item.id }
             return $0.storeID == nil && $0.name == item.name
         }
+    }
+
+    /// One the person chose not to reinstall.
+    func forgetPlannedExtension(_ item: PlannedExtension, in space: UUID) {
+        dropPlanned(in: space) { $0 == item }
+    }
+
+    private func dropPlanned(in space: UUID, where match: (PlannedExtension) -> Bool) {
+        guard let index = spaces.firstIndex(where: { $0.id == space }) else { return }
+        var planned = spaces[index].plannedExtensions ?? []
+        planned.removeAll(where: match)
         guard planned != (spaces[index].plannedExtensions ?? []) else { return }
         spaces[index].plannedExtensions = planned
         Spaces.write(spaces)
