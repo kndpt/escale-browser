@@ -105,6 +105,8 @@ struct ContentView: View {
             // Black while a page has the screen, so the frame of our own window
             // that survives the transition is not a band across the top.
             if browser.active?.immersed == true && !browser.tuning { Color(nsColor: Palette.Film.ground) } else { Envelope() }
+            // Developer mode, said by the envelope (Workbench.swift).
+            if browser.showsWorkbench { DevelopingWash().transition(.opacity) }
 
             HStack(spacing: 0) {
                 // The room the rail and the column take, drawn over it by
@@ -155,6 +157,11 @@ struct ContentView: View {
                     .allowsHitTesting(!browser.tuning)
                     .accessibilityHidden(browser.tuning)
                     .overlay { if browser.tuning { settingsSurface } }
+                    // Developer mode's line, behind the frame so it never
+                    // falls on the page (Workbench.swift).
+                    .background {
+                        if browser.showsWorkbench { DevelopingRing(corner: pageCorner).transition(.opacity) }
+                    }
                     .overlay(alignment: .top) {
                         if let tab = readingTab {
                             ReadingLine(tab: tab)
@@ -183,8 +190,6 @@ struct ContentView: View {
                     Spacer(minLength: 0)
                     DownloadDoor(downloads: browser.downloads) { browser.hoarding = true }
                     ExtensionSlot(space: browser.spaceID)
-                    VisualDoor(browser: browser)
-                    CaptureDoor(browser: browser)
                     DeveloperDoor(browser: browser)
                 }
                 .frame(height: metrics.strip)
@@ -201,6 +206,7 @@ struct ContentView: View {
         .shortcutAnimation(Motion.glide, value: browser.prefs.sidebar, enabled: browser.prefs.fasterShortcuts, reduced: reduceMotion)
         .animation(Motion.settle, value: browser.prefs.interfaceSize)
         .animation(.easeOut(duration: 0.12), value: browser.active?.immersed)
+        .animation(reduceMotion ? Motion.quick : Motion.dock, value: browser.showsWorkbench)
     }
 
     /// Settings in the page's own frame, letting the envelope through in Clear:
@@ -240,7 +246,8 @@ struct ContentView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .padding(.bottom, 30)
+        // Above Developer mode's dock while it is up.
+        .padding(.bottom, 30 + (browser.showsWorkbench ? Workbench.height(metrics) : 0))
         .animation(Motion.settle, value: browser.veiling)
         .animation(Motion.settle, value: browser.asking)
     }
@@ -319,6 +326,8 @@ struct ContentView: View {
                     bars.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                 }
             }
+            // Developer mode's dock, centred on the window (Workbench.swift).
+            .overlay { Workbench(browser: browser) }
             .overlayPreferenceValue(DownloadFlightFrames.self) { anchors in
                 GeometryReader { bounds in
                     DownloadFlight(
