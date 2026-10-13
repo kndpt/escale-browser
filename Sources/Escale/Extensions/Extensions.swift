@@ -90,6 +90,8 @@ final class Extensions: NSObject, ObservableObject {
     /// Bumped when any extension's button changes — icon, badge, enabled.
     @Published private(set) var actionsChanged = 0
     @Published private(set) var busy: String?
+    /// Why the last store install of an id failed, for the row that asked.
+    @Published private(set) var failed: [String: String] = [:]
     /// Errors an extension's pages and worker ran into, newest last, a few
     /// dozen at most per extension.
     @Published private(set) var errors: [String: [String]] = [:]
@@ -365,6 +367,7 @@ final class Extensions: NSObject, ObservableObject {
             return
         }
         busy = id
+        failed[id] = nil
         Task {
             defer { busy = nil }
             do {
@@ -376,6 +379,7 @@ final class Extensions: NSObject, ObservableObject {
                 try ExtensionShims.prepare(staged)
                 try await admit(staged, as: id, fromStore: true, finalFolder: target, confirm: confirm || !Store.testing)
             } catch {
+                failed[id] = error.localizedDescription
                 browser?.announce(error.localizedDescription)
             }
         }
@@ -1110,8 +1114,9 @@ final class ExtensionWindow: NSObject, WKWebExtensionWindow {
 
 /// The extensions, behind one puzzle button — a list to press them from,
 /// pin them out of, reload or remove them. The pinned ones also sit in the
-/// row beside it, the way Chrome does it. Nothing at all below macOS 15.4
-/// or with nothing installed.
+/// row beside it, the way Chrome does it. The button is there with nothing
+/// installed too: it is where someone coming from another browser looks for
+/// extensions. Nothing at all below macOS 15.4.
 struct ExtensionSlot: View {
     /// The Space on screen, given by the bar. Read from `Extensions.shared`,
     /// the owner was looked up only when SwiftUI ran this body, and it does
@@ -1123,10 +1128,13 @@ struct ExtensionSlot: View {
     /// The side the list opens toward: down from the top row, out to the
     /// right from the sidebar.
     var edge: Edge = .bottom
+    /// The extensions the Space brought from another browser or Space, given
+    /// by the bar for the same reason as `space`.
+    var planned: [PlannedExtension] = []
 
     var body: some View {
         if #available(macOS 15.4, *) {
-            ExtensionButtons(extensions: .forSpace(space), edge: edge)
+            ExtensionButtons(extensions: .forSpace(space), edge: edge, planned: planned)
         }
     }
 }
@@ -1135,22 +1143,25 @@ struct ExtensionSlot: View {
 private struct ExtensionButtons: View {
     @ObservedObject var extensions: Extensions
     let edge: Edge
+    let planned: [PlannedExtension]
 
     var body: some View {
-        if !extensions.installed.isEmpty {
-            HStack(spacing: 2) {
-                ForEach(extensions.buttons.filter(\.pinned)) { button in
-                    ActionButton(button: button) { extensions.press(button.id) }
-                        .background(Anchor(id: button.id, owner: extensions))
-                        .contextMenu { ExtensionActions(id: button.id, name: button.name, extensions: extensions) }
-                }
-                Door(icon: "puzzlepiece.extension", on: extensions.menuOpen, help: "Extensions") {
-                    extensions.menuOpen.toggle()
-                }
-                .background(Anchor(id: Extensions.menuAnchor, owner: extensions))
-                .popover(isPresented: $extensions.menuOpen, arrowEdge: edge) {
-                    ExtensionMenu(extensions: extensions)
-                }
+        HStack(spacing: 2) {
+            ForEach(extensions.buttons.filter(\.pinned)) { button in
+                ActionButton(button: button) { extensions.press(button.id) }
+                    .background(Anchor(id: button.id, owner: extensions))
+                    .contextMenu { ExtensionActions(id: button.id, name: button.name, extensions: extensions) }
+            }
+            Door(
+                icon: "puzzlepiece.extension", on: extensions.menuOpen,
+                help: planned.isEmpty ? "Extensions" : "Extensions · \(planned.count) to reinstall",
+                count: planned.count
+            ) {
+                extensions.menuOpen.toggle()
+            }
+            .background(Anchor(id: Extensions.menuAnchor, owner: extensions))
+            .popover(isPresented: $extensions.menuOpen, arrowEdge: edge) {
+                ExtensionMenu(extensions: extensions, planned: planned)
             }
         }
     }
@@ -1271,7 +1282,9 @@ private struct ExtensionActions: View {
 @MainActor
 func extensionMenuPicture() -> NSBitmapImageRep? {
     // A popover's material has nothing to show through off screen.
-    let host = NSHostingView(rootView: ExtensionMenu(extensions: .shared).background(Palette.panel))
+    let extensions = Extensions.shared
+    let planned = extensions.browser?.space.plannedExtensions ?? []
+    let host = NSHostingView(rootView: ExtensionMenu(extensions: extensions, planned: planned).background(Palette.panel))
     host.frame = NSRect(origin: .zero, size: host.fittingSize)
     let window = NSWindow(contentRect: host.frame, styleMask: .borderless, backing: .buffered, defer: false)
     window.appearance = NSApp.effectiveAppearance
@@ -1282,16 +1295,60 @@ func extensionMenuPicture() -> NSBitmapImageRep? {
     return picture
 }
 
-/// The list behind the puzzle button: every running extension, a pin for
-/// each, and the way to Settings.
+/// The list behind the puzzle button: the extensions left to reinstall,
+/// every running extension with a pin for each, and the way to Settings.
+/// With neither, a word on what extensions are here and the way to the store.
 @available(macOS 15.4, *)
 private struct ExtensionMenu: View {
     @ObservedObject var extensions: Extensions
+    let planned: [PlannedExtension]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             let buttons = extensions.buttons
-            if buttons.isEmpty {
+            if !planned.isEmpty {
+                // Bounded like the list below: an import can bring hundreds.
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("To reinstall")
+                            .font(.system(size: 12.5, weight: .medium))
+                            .foregroundStyle(Palette.ink)
+                        Text("Imported with this Space. Reinstall them to use them here.")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Palette.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.bottom, 4)
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(Array(planned.enumerated()), id: \.offset) { _, item in
+                                PlannedRow(item: item, extensions: extensions) { extensions.menuOpen = false }
+                            }
+                        }
+                    }
+                    .padding(14)
+                }
+                .frame(maxHeight: 240)
+                .fixedSize(horizontal: false, vertical: true)
+                if !extensions.installed.isEmpty { Divider().overlay(Palette.hairline) }
+            }
+            if extensions.installed.isEmpty {
+                if planned.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("No extensions yet")
+                            .font(.system(size: 12.5, weight: .medium))
+                            .foregroundStyle(Palette.ink)
+                        Text("Escale runs extensions from the Chrome Web Store. Find one there and press Add to Escale on its page.")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Palette.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Pill("Open the Chrome Web Store", filled: true) {
+                            extensions.menuOpen = false
+                            extensions.browser?.open(Browser.webStore, foreground: true)
+                        }
+                        .padding(.top, 4)
+                    }
+                    .padding(14)
+                }
+            } else if buttons.isEmpty {
                 Text("None of your extensions is on")
                     .font(.system(size: 12.5))
                     .foregroundStyle(Palette.muted)

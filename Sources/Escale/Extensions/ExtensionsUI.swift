@@ -98,15 +98,7 @@ struct ExtensionsPage: View {
                                 .font(.system(size: metrics.length(density.detail)))
                                 .foregroundStyle(Palette.muted)
                             ForEach(Array(planned.enumerated()), id: \.offset) { _, item in
-                                HStack {
-                                    Text(item.name).font(.system(size: metrics.length(density.detail + 1)))
-                                    Spacer()
-                                    if let id = item.storeID {
-                                        Pill("Install") { extensions.install(from: id) }
-                                    } else {
-                                        Pill("Choose folder…") { extensions.installFolder() }
-                                    }
-                                }
+                                PlannedRow(item: item, extensions: extensions)
                             }
                         }
                         .padding(metrics.length(density.inset))
@@ -201,6 +193,66 @@ struct ExtensionsPage: View {
             if let errors = context?.errors, !errors.isEmpty { parts.append("\(errors.count) warning\(errors.count == 1 ? "" : "s")") }
             return parts.joined(separator: " · ")
         }
+    }
+}
+
+/// An extension a Space brought from another browser or Space, to install
+/// again — in Settings and in the list behind the puzzle button alike. Its
+/// button turns into a ring while it is fetched and the others wait; once
+/// installed it leaves the list (`installedExtension`), and if it failed, the
+/// row says why. The cross takes it off the list without installing it.
+@available(macOS 15.4, *)
+struct PlannedRow: View {
+    let item: PlannedExtension
+    @ObservedObject var extensions: Extensions
+    /// Before a folder panel opens over everything: the popover closes.
+    var leave: () -> Void = {}
+    @SwiftUI.Environment(\.chromeMetrics) private var metrics
+    @SwiftUI.Environment(\.cardDensity) private var density
+
+    var body: some View {
+        let why = item.storeID.flatMap { extensions.failed[$0] }
+        HStack(spacing: metrics.length(8)) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(item.name)
+                    .font(.system(size: metrics.length(density.detail + 1)))
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(2)
+                if let why {
+                    Text(why)
+                        .font(.system(size: metrics.length(density.detail)))
+                        .foregroundStyle(Palette.danger)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 8)
+            Group {
+                if let id = item.storeID {
+                    if extensions.busy == id {
+                        Ring(size: 12)
+                    } else {
+                        Pill(why == nil ? "Install" : "Try Again") { extensions.install(from: id) }
+                    }
+                } else {
+                    Pill("Choose Folder…") {
+                        leave()
+                        DispatchQueue.main.async { extensions.installFolder() }
+                    }
+                }
+                Button { extensions.browser?.forgetPlannedExtension(item, in: extensions.space) } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: metrics.length(9.5), weight: .medium))
+                        .foregroundStyle(Palette.muted)
+                        .frame(width: metrics.length(20), height: metrics.length(20))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Don't reinstall")
+            }
+            .disabled(extensions.busy != nil)
+            .fixedSize()
+        }
+        .frame(minHeight: metrics.length(26))
     }
 }
 
