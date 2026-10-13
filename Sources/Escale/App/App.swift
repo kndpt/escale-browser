@@ -377,6 +377,8 @@ struct ContentView: View {
             .environment(\.depth, browser.prefs.depth)
             .environment(\.chromeMetrics, metrics)
             .background(WindowSetup { window = $0; dress($0) })
+            // A first arrival opens on Welcome's own window instead (Intro.swift).
+            .background(IntroVeil(browser: browser))
             .onChange(of: seesThrough) { _, sees in
                 if let window { Glass.dress(window, sees: sees) }
             }

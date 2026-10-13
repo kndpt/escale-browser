@@ -632,6 +632,20 @@ enum Metrics {
     static let arrivalField: CGFloat = 27
     static let arrivalBadge: CGFloat = 8.5
     static let arrivalBadgeInset: CGFloat = 6
+    /// The first launch's own Welcome window (Intro.swift): its size, its
+    /// corner, and the tile the mark draws itself on before it opens.
+    static let introSize = CGSize(width: 600, height: 720)
+    static let introCorner: CGFloat = 16
+    static let introTile: CGFloat = 176
+    static let introTileCorner: CGFloat = 40
+    static let introMark: CGFloat = 108
+    /// How far below the centre the tile starts, how far it is tipped back
+    /// as it rises, and how small it starts.
+    static let introRise: CGFloat = 90
+    static let introTilt: Double = 40
+    static let introSeed: CGFloat = 0.5
+    /// The mark leaves by growing past the tile as the tile opens.
+    static let introMarkExit: CGFloat = 1.8
     static let arrivalBar: CGFloat = 4
     static let arrivalSpinner: CGFloat = 12
     static let arrivalSpinnerLine: CGFloat = 1.5
@@ -912,6 +926,16 @@ enum Motion {
     /// Arrival's plane coming in once over the pass and slowing to land.
     static let gateFlight = Animation.timingCurve(0.20, 0.70, 0.20, 1, duration: 0.9)
     static let gateFlightDelay: TimeInterval = 0.12
+    /// The first launch (Intro.swift). Curves rather than springs: the relay
+    /// waits for the card to stop, and a spring takes long to stop entirely
+    /// after it looks still. Both overshoot a little and end exactly.
+    /// The tile rises and stands up; the mark draws itself meanwhile
+    /// (`landing`), and the tile holds a beat after it has; then it opens.
+    static let introPop = Animation.timingCurve(0.34, 1.45, 0.64, 1, duration: 0.7)
+    static let introHold: TimeInterval = 0.6
+    static let introGrow = Animation.timingCurve(0.30, 1.18, 0.45, 1, duration: 0.75)
+    /// The card fades off the window it landed on, and the screen lights up.
+    static let introHand: TimeInterval = 0.25
     /// Welcome's last step: the mark's dots light up to the next stop once,
     /// and the summary's rows follow one after another.
     static let landing = Animation.timingCurve(0.35, 0.05, 0.25, 1, duration: 1.1).delay(0.15)
