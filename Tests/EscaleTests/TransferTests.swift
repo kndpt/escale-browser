@@ -135,6 +135,14 @@ import Testing
         #expect(summary.skipped == 2 + 1 + 1)
     }
 
+    @Test func knownColoursTravelAndUnknownOnesAreDropped() throws {
+        var mint = space("Mint"), unknown = space("Unknown")
+        mint.swatch = "mint"
+        unknown.swatch = "teal"
+        let checked = try payload([space("Grey"), mint, unknown]).checked().payload
+        #expect(checked.spaces.map(\.swatch) == [nil, "mint", nil])
+    }
+
     @Test func passwordsTravelOnlyWhenTheFileSaysSo() throws {
         var made = space()
         made.logins = [TransferLogin(host: "example.com", user: "a", password: "x", used: nil)]

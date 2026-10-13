@@ -18,11 +18,13 @@ import WebKit
 struct Space: Codable, Identifiable, Equatable {
     var id: UUID
     var name: String
-    /// Which of `Spaces.colours` — from before spaces had icons; kept so an
-    /// older list still reads.
+    /// An index from before spaces had icons, read by nothing; still
+    /// written, as an older Escale can't read a list without it.
     var colour: Int
     /// Its icon, one of `Spaces.icons`.
     var icon: String?
+    /// Its colour, a `Swatch` name; see `tint`.
+    var swatch: String?
     /// Legacy field read from old lists. Existing shared website data stays
     /// with the first space; no other space receives a copy during migration.
     var sharesSignIns: Bool?
@@ -38,13 +40,13 @@ struct Space: Codable, Identifiable, Equatable {
     /// The icon it shows: its own, or a house for the first and a
     /// briefcase for any other that has none yet.
     var symbol: String { icon.flatMap { Spaces.icons.contains($0) ? $0 : nil } ?? (isFirst ? "house" : "briefcase") }
+
+    /// The colour its icon wears. None is grey, and so is a name from a
+    /// newer Escale, rather than the whole list failing to read.
+    var tint: Swatch? { swatch.flatMap(Swatch.init(rawValue:)) }
 }
 
 enum Spaces {
-    /// By index, as stored: the order never changes (see Palette.spaces).
-    static let colours: [Color] = Palette.spaces
-    static let colourNames = ["Slate", "Blue", "Green", "Orange", "Red", "Violet"]
-
     /// The icons a space can wear: Apple's own symbols, drawn in one weight
     /// and one grey, grouped as work, thinking, leisure and life.
     static let icons = [
@@ -324,6 +326,12 @@ extension Browser {
         Spaces.write(spaces)
     }
 
+    func setSpaceTint(_ id: UUID, to tint: Swatch?) {
+        guard let at = spaces.firstIndex(where: { $0.id == id }) else { return }
+        spaces[at].swatch = tint?.rawValue
+        Spaces.write(spaces)
+    }
+
     func setSpaceDownloads(_ id: UUID, to folder: URL?) {
         guard let at = spaces.firstIndex(where: { $0.id == id }) else { return }
         spaces[at].downloads = folder?.path
@@ -512,7 +520,7 @@ struct SpaceRail: View {
             // the same font size; the door and its hit target stay unchanged.
             Image(systemName: space.symbol)
                 .font(.system(size: metrics.length(Metrics.spaceIconGlyph), weight: .medium))
-                .foregroundStyle(space.id == browser.spaceID ? Palette.ink : Palette.muted)
+                .foregroundStyle(space.tint?.ink ?? (space.id == browser.spaceID ? Palette.ink : Palette.muted))
                 .frame(width: metrics.length(SpaceRail.icon), height: metrics.length(SpaceRail.icon))
                 .background {
                     if space.id == hover.target {
@@ -560,19 +568,22 @@ struct SpaceDot: View {
     /// What is drawn, a step behind the browser: the space changes in a
     /// frame with nothing animated (see SpaceSwipe.slide), and the icon
     /// turns over just after, on a change of its own.
-    @State private var shown: (key: String, symbol: String)?
+    @State private var shown: (key: String, symbol: String, tint: Swatch?)?
 
     static let width: CGFloat = 26
 
     private var symbol: String { browser.makingSpace ? "plus" : browser.space.symbol }
-    private var key: String { browser.makingSpace ? "new" : "\(browser.spaceID.uuidString)-\(browser.space.symbol)" }
+    private var tint: Swatch? { browser.makingSpace ? nil : browser.space.tint }
+    private var key: String {
+        browser.makingSpace ? "new" : "\(browser.spaceID.uuidString)-\(browser.space.symbol)-\(tint?.rawValue ?? "")"
+    }
 
     var body: some View {
         Button { SpaceMenu.show(for: browser) } label: {
             ZStack {
                 Image(systemName: shown?.symbol ?? symbol)
                     .font(.system(size: 12, weight: .regular))
-                    .foregroundStyle(hovering ? Palette.ink : Palette.muted)
+                    .foregroundStyle((shown == nil ? tint : shown?.tint)?.ink ?? (hovering ? Palette.ink : Palette.muted))
                     .id(shown?.key ?? key)
                     .transition(.push(from: browser.spaceStep > 0 ? .trailing : .leading))
             }
@@ -588,9 +599,9 @@ struct SpaceDot: View {
         .onHover { hovering = $0 }
         .help("\(browser.space.name) — choose a Space or swipe to switch")
         .onChange(of: key) { _, now in
-            let symbol = symbol
+            let symbol = symbol, tint = tint
             DispatchQueue.main.async {
-                withAnimation(.easeOut(duration: 0.22)) { shown = (now, symbol) }
+                withAnimation(.easeOut(duration: 0.22)) { shown = (now, symbol, tint) }
             }
         }
         .animation(Motion.quick, value: hovering)
@@ -650,6 +661,16 @@ enum SpaceMenu {
         let icon = NSMenuItem(title: "Icon", action: nil, keyEquivalent: "")
         icon.submenu = icons
         menu.addItem(icon)
+        let tints = NSMenu()
+        tints.addItem(item("Neutral", checked: here.tint == nil) { browser.setSpaceTint(here.id, to: nil) })
+        for tint in Swatch.allCases {
+            let choice = item(tint.title, checked: here.tint == tint) { browser.setSpaceTint(here.id, to: tint) }
+            choice.image = tint.dot
+            tints.addItem(choice)
+        }
+        let colour = NSMenuItem(title: "Colour", action: nil, keyEquivalent: "")
+        colour.submenu = tints
+        menu.addItem(colour)
         // The order is the rail's, the swipe's, and ⌃1–⌃9's.
         if let at = browser.spaces.firstIndex(where: { $0.id == here.id }) {
             if at > 0 { menu.addItem(item("Move Up") { browser.moveSpace(here.id, by: -1) }) }
@@ -683,6 +704,12 @@ struct SpaceActions: View {
         Picker("Icon", selection: Binding(get: { space.symbol }, set: { browser.setSpaceIcon(space.id, to: $0) })) {
             ForEach(Array(zip(Spaces.icons, Spaces.iconNames)), id: \.0) { symbol, name in
                 Label(name, systemImage: symbol).tag(symbol)
+            }
+        }
+        Picker("Colour", selection: Binding(get: { space.tint }, set: { browser.setSpaceTint(space.id, to: $0) })) {
+            Text("Neutral").tag(Swatch?.none)
+            ForEach(Swatch.allCases) { tint in
+                Label { Text(tint.title) } icon: { Image(nsImage: tint.dot) }.tag(Swatch?.some(tint))
             }
         }
         if at > 0 { Button("Move Up") { browser.moveSpace(space.id, by: -1) } }

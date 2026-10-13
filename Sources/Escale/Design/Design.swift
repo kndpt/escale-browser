@@ -141,18 +141,6 @@ enum Palette {
         return NS.tint(light: ink ? darkInk : soft, dark: soft)
     }
 
-    /// A space's colour, stored as its index here: the order is data and
-    /// never changes. Slate, blue, green, orange, red, violet — each a touch
-    /// lighter in dark so it holds its weight on the smoked glass.
-    static let spaces: [Color] = [
-        Color(nsColor: NS.tint(light: (0.45, 0.47, 0.52), dark: (0.58, 0.60, 0.66))),
-        Color(nsColor: NS.tint(light: (0.26, 0.52, 0.96), dark: (0.40, 0.62, 1.0))),
-        Color(nsColor: NS.tint(light: (0.20, 0.66, 0.45), dark: (0.30, 0.76, 0.54))),
-        Color(nsColor: NS.tint(light: (0.96, 0.62, 0.20), dark: (1.0, 0.70, 0.32))),
-        Color(nsColor: NS.tint(light: (0.90, 0.33, 0.40), dark: (0.98, 0.45, 0.51))),
-        Color(nsColor: NS.tint(light: (0.62, 0.40, 0.90), dark: (0.72, 0.54, 0.98))),
-    ]
-
     /// Over a film, in the floating window (Float.swift), whatever the look:
     /// the film is under its own dark scrim in both, so these are not pairs.
     /// The black behind the film is the letterbox, part of the video — and
@@ -273,7 +261,7 @@ enum Palette {
         }
 
         /// One colour per look. A role with an Escale pair takes it in that
-        /// tone; a user's colour (a swatch, a space) has none and never changes.
+        /// tone; a user's colour (a swatch) has none and never changes.
         static func tint(light: (CGFloat, CGFloat, CGFloat), dark: (CGFloat, CGFloat, CGFloat),
                          escale: (UInt32, UInt32)? = nil) -> NSColor {
             NSColor(name: nil) { appearance in

@@ -181,12 +181,6 @@ import Testing
         #expect(rgb(swatch, in: appearance) == before)
     }
 
-    /// Spaces keep their colour by index: six, in the order they were stored.
-    @Test func spaceColoursKeepTheirIndex() {
-        #expect(Spaces.colours.count == 6)
-        #expect(Spaces.colourNames == ["Slate", "Blue", "Green", "Orange", "Red", "Violet"])
-    }
-
     private func srgb(_ colour: NSColor) -> [Int] {
         guard let c = colour.usingColorSpace(.sRGB) else { return [] }
         return [c.redComponent, c.greenComponent, c.blueComponent].map { Int(($0 * 255).rounded()) }

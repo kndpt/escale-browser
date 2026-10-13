@@ -85,17 +85,18 @@ appearance. Use roles, not greys: `ground`, `envelope`, `panel`, `ink`,
 - There is no accent. **Tone** (Settings › Appearance › Colours) is Neutral
   (default) or Escale's warm colours, in light and dark alike. Glass takes a
   richer stain (`envelopeTint`, `panelTint`) so the warmth survives a thin
-  tint. Swatch, space and GitHub colours never change with tone.
+  tint. Swatch and GitHub colours never change with tone.
 - **State colours** always come with a non-colour cue (a word, code, symbol or
   accessible name): `danger`, `safe`/`unsafe`, `githubOpen`/`githubFinished`,
   and the softer code tints `codeKey`, `codeString`, `codeNumber`.
 - Check contrast in both themes on a whole page, not one isolated row.
 
-**User colours** use `Swatch` and `SwatchPicker` (`Design/Swatch.swift`).
-Data stores the stable names (`rose`, `peach`, `amber`, `mint`, `blue`,
-`violet`), never an index or RGB; no value means Neutral. `Palette.swatch` is
-the dot, `Palette.swatchInk` the text variant. The picker edits a draft its
-owner saves. A user colour carries no meaning such as safety.
+**User colours** (environments, Spaces) use `Swatch` and `SwatchPicker`
+(`Design/Swatch.swift`). Data stores the stable names (`rose`, `peach`,
+`amber`, `mint`, `blue`, `violet`), never an index or RGB; no value means
+Neutral. `Palette.swatch` is the dot, `Palette.swatchInk` the text variant and
+a Space's icon. The picker edits a draft its owner saves. A user colour
+carries no meaning such as safety.
 
 ## Sizes and motion
 

@@ -42,6 +42,7 @@ struct TransferSpace: Codable {
     var name: String
     var colour: Int
     var icon: String?
+    var swatch: String?
     /// Extensions to install again here: names and store identities only.
     var extensions: [PlannedExtension]
     var session: Session.Shape
@@ -139,8 +140,8 @@ extension TransferSpace {
         var made = self
         let title = name.trimmingCharacters(in: .whitespacesAndNewlines)
         made.name = String((title.isEmpty ? "Space" : title).prefix(TransferLimits.name))
-        if !(0..<Spaces.colours.count).contains(colour) { made.colour = 0 }
         if let icon, !Spaces.icons.contains(icon) { made.icon = nil }
+        if let swatch, Swatch(rawValue: swatch) == nil { made.swatch = nil }
         guard extensions.count <= TransferLimits.extensions else { throw TransferError.invalid("the extensions of “\(made.name)”") }
         made.extensions = extensions.filter { $0.name.utf8.count <= TransferLimits.field && ($0.storeID?.utf8.count ?? 0) <= TransferLimits.field }
 
