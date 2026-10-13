@@ -835,7 +835,7 @@ final class Tab: ObservableObject, Identifiable {
     /// page before it, and saying so would undo the navigation.
     private func adopt(_ fresh: URL) {
         guard failedAddress == nil else { return }
-        let moved = fresh.host() != address?.host()
+        let moved = Favicons.part(fresh) != address.flatMap(Favicons.part)
         address = fresh
         if moved { adoptIcon() }
     }

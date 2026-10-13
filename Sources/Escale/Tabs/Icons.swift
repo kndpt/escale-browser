@@ -88,6 +88,9 @@ final class Favicons: ObservableObject {
     /// Parts found this run to declare their host's icon, and the hosts with
     /// a part that keeps its own (`listed` once the folder was read).
     private var plain = Recent<Bool>(cap: Favicons.missingCap)
+    /// The address a host's icon was declared at, once a part claimed it:
+    /// its file is written a moment later, and another part may ask before.
+    private var claimed = Recent<String>(cap: Favicons.missingCap)
     private var split: Set<String> = []
     private var listed = false
     private var listing = false
@@ -359,13 +362,18 @@ final class Favicons: ObservableObject {
                 let source = candidates.first?.absoluteString
                 let mine = Favicons.key(part, dark: wantDark)
                 let shared = Favicons.key(host, dark: wantDark)
+                let kept = self.claimed.get(shared) ?? Favicons.source(Favicons.file(shared))
                 let own = Favicons.apart(has: FileManager.default.fileExists(atPath: Favicons.file(mine).path),
-                                         kept: Favicons.source(Favicons.file(shared)), declared: source)
+                                         kept: kept, declared: source)
                 let key = own ? mine : shared
-                if !own { self.plain.set(part, true) }
+                if !own {
+                    self.plain.set(part, true)
+                    if let source { self.claimed.set(shared, source) }
+                }
                 // Fresh after all — no dark variant here, or the host's: it is
-                // the one to wear.
-                if Favicons.fresh(key), let known = self.known(key) {
+                // the one to wear. A host's file from before sources were
+                // written is fetched once more, to say where it came from.
+                if own || kept != nil, Favicons.fresh(key), let known = self.known(key) {
                     tab?.icon = known
                     self.busy.remove(part)
                     return
