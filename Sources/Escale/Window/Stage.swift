@@ -217,10 +217,11 @@ final class StageView: NSView {
 
     /// WebKit takes its docked inspector away without a layout here, and can
     /// leave the page as narrow as it was beside it: the page gets the whole
-    /// stage back once the inspector has gone.
+    /// stage back once the inspector has gone. A stage out of its window may
+    /// be the one being freed, and a weak reference to it would abort.
     override func willRemoveSubview(_ subview: NSView) {
         super.willRemoveSubview(subview)
-        guard let kind = Self.inspectorClass, subview.isKind(of: kind) else { return }
+        guard window != nil, let kind = Self.inspectorClass, subview.isKind(of: kind) else { return }
         DispatchQueue.main.async { [weak self] in self?.settle() }
     }
 
