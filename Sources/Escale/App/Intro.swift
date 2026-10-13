@@ -47,6 +47,7 @@ final class Intro {
     }
 
     private func depart(_ browser: Browser, on screen: NSScreen) {
+        guard ending != nil else { return }
         let area = screen.visibleFrame
         let size = Metrics.introSize
         let target = NSRect(x: area.midX - size.width / 2, y: area.midY - size.height / 2,
@@ -103,6 +104,8 @@ final class Intro {
     }
 
     private func open(_ browser: Browser, at frame: NSRect) {
+        // Welcome may have ended while its tile was flying (Settings, ⌘,).
+        guard ending != nil else { return }
         let window = Sheet(contentRect: frame, styleMask: .borderless, backing: .buffered, defer: false)
         window.isOpaque = false
         window.backgroundColor = .clear
@@ -130,7 +133,9 @@ final class Intro {
 
     private func finish(_ browser: Browser) {
         ending = nil
-        guard let welcome, let browserWindow else { return }
+        guard let browserWindow else { return }
+        // Ended before Welcome had a window: none opens, the browser comes.
+        guard let welcome else { return reveal(browserWindow) }
         self.welcome = nil
         guard !still, let screen = welcome.screen ?? NSScreen.main else {
             welcome.orderOut(nil)
