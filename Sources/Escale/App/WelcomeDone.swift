@@ -109,8 +109,8 @@ struct LandingMark: View {
 }
 
 /// The mark's parts drawn up to `progress`: each dot, then the stop, grows
-/// from its own centre in turn.
-private struct Landing: Shape {
+/// from its own centre in turn. The first launch draws it too (Intro.swift).
+struct Landing: Shape {
     var progress: CGFloat
     var animatableData: CGFloat {
         get { progress }

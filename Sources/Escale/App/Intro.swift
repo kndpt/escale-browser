@@ -2,12 +2,12 @@
 // arrives only once Welcome is done. Each change is a relay between windows:
 // a borderless overlay above everything draws the motion, and on its last
 // frame the real window is put at exactly the overlay card's frame, corner
-// and ground, and the card fades off it. The eye follows one surface: the
-// mark's tile grows into Welcome, and Welcome grows into the browser.
+// and ground, and the card fades off it. The eye follows one surface.
 //
-// Welcome stands on the system's Liquid Glass from macOS 26, Clear glass
-// before it, whatever the browser's own setting: it is seen over the desktop,
-// before there is a browser to match (DESIGN, Material and transparency).
+// The opening is a moment of its own, once: the screen dims a little, a tile
+// rises and stands up while the mark draws itself on it, dot by dot to the
+// next stop (Landing), then the tile opens into Welcome and the screen
+// lights up again. At the end, Welcome grows into the browser.
 //
 // A real window, not the overlay, holds Welcome because it has to take the
 // keyboard, move and stay behind other apps like any window. The overlay
@@ -55,11 +55,29 @@ final class Intro {
         let tile = NSRect(x: area.midX - Metrics.introTile / 2, y: area.midY - Metrics.introTile / 2,
                           width: Metrics.introTile, height: Metrics.introTile)
         if still { return open(browser, at: target) }
-        let flight = Flight(frame: tile, corner: Metrics.introTileCorner, on: screen)
+        let flight = Flight(frame: tile.offsetBy(dx: 0, dy: -Metrics.introRise), corner: Metrics.introTileCorner, on: screen)
+        flight.marked = true
+        flight.scale = Metrics.introSeed
+        flight.tilt = Metrics.introTilt
         fly(flight, depth: browser.prefs.depth) {
-            flight.arrive(Motion.introTile, scale: 1, shown: 1) {
-                flight.arrive(Motion.introGrow, to: target, corner: Metrics.introCorner, mark: 0) {
-                    self.open(browser, at: target)
+            withAnimation(Motion.landing) { flight.drawn = 1 }
+            flight.arrive(Motion.introPop) {
+                flight.frame = tile
+                flight.scale = 1
+                flight.tilt = 0
+                flight.shown = 1
+                flight.scrim = 1
+            } then: {
+                DispatchQueue.main.asyncAfter(deadline: .now() + Motion.introHold) {
+                    guard self.ending != nil else { return }
+                    flight.arrive(Motion.introGrow) {
+                        flight.frame = target
+                        flight.corner = Metrics.introCorner
+                        flight.mark = 0
+                        flight.markScale = Metrics.introMarkExit
+                    } then: {
+                        self.open(browser, at: target)
+                    }
                 }
             }
         }
@@ -115,13 +133,9 @@ final class Intro {
         // AppKit would grow a new window in from a little smaller; this one
         // has to start exactly where the card stopped.
         window.animationBehavior = .none
-        let host = NSHostingView(rootView: ZStack {
-            IntroGround(corner: Metrics.introCorner)
-            WelcomePanel(browser: browser, prefs: browser.prefs)
-                .environment(\.envelopeAside, true)
-        }
+        let host = NSHostingView(rootView: WelcomePanel(browser: browser, prefs: browser.prefs)
             .clipShape(RoundedRectangle(cornerRadius: Metrics.introCorner, style: .continuous))
-            .environment(\.depth, .clear)
+            .environment(\.depth, browser.prefs.depth)
             .environment(\.chromeMetrics, ChromeMetrics(size: browser.prefs.interfaceSize)))
         host.sizingOptions = []
         window.contentView = host
@@ -142,13 +156,10 @@ final class Intro {
             return reveal(browserWindow)
         }
         let flight = Flight(frame: welcome.frame, corner: Metrics.introCorner, on: screen)
-        flight.mark = 0
         flight.shown = 1
-        flight.scale = 1
-        // On the way, Welcome's glass turns into the browser's own ground.
         fly(flight, depth: browser.prefs.depth) {
             welcome.orderOut(nil)
-            flight.arrive(Motion.introGrow, to: browserWindow.frame, corner: Metrics.introCorner, mark: 0, glass: 0) {
+            flight.arrive(Motion.introGrow) { flight.frame = browserWindow.frame } then: {
                 self.reveal(browserWindow)
             }
         }
@@ -208,11 +219,18 @@ private final class Flight: ObservableObject {
     let screen: NSScreen
     @Published var frame: NSRect
     @Published var corner: CGFloat
-    @Published var mark: Double = 1
     @Published var shown: Double = 0
-    @Published var scale: CGFloat = 0.86
-    /// How much of the ground is Welcome's glass rather than the envelope.
-    @Published var glass: Double = 1
+    @Published var scale: CGFloat = 1
+    /// Degrees the card is tipped back, top away.
+    @Published var tilt: Double = 0
+    /// How dim the screen around the card is.
+    @Published var scrim: Double = 0
+    /// Whether the card carries the mark, how much of it is drawn, how much
+    /// shows and at what size.
+    var marked = false
+    @Published var drawn: CGFloat = 0
+    @Published var mark: Double = 1
+    @Published var markScale: CGFloat = 1
 
     init(frame: NSRect, corner: CGFloat, on screen: NSScreen) {
         self.frame = frame
@@ -222,17 +240,8 @@ private final class Flight: ObservableObject {
 
     /// One leg; `then` runs once the card has stopped, not when the curve
     /// is merely close.
-    func arrive(_ animation: Animation, to frame: NSRect? = nil, corner: CGFloat? = nil,
-                mark: Double? = nil, scale: CGFloat? = nil, shown: Double? = nil,
-                glass: Double? = nil, then: @escaping () -> Void) {
-        withAnimation(animation, completionCriteria: .removed) {
-            if let frame { self.frame = frame }
-            if let corner { self.corner = corner }
-            if let mark { self.mark = mark }
-            if let scale { self.scale = scale }
-            if let shown { self.shown = shown }
-            if let glass { self.glass = glass }
-        } completion: { then() }
+    func arrive(_ animation: Animation, _ change: () -> Void, then: @escaping () -> Void) {
+        withAnimation(animation, completionCriteria: .removed, change) { then() }
     }
 }
 
@@ -242,45 +251,27 @@ private struct FlightView: View {
     var body: some View {
         let screen = flight.screen.frame
         let shape = RoundedRectangle(cornerRadius: flight.corner, style: .continuous)
-        Color.clear.overlay(alignment: .topLeading) {
+        Palette.scrim.opacity(flight.scrim).overlay(alignment: .topLeading) {
             ZStack {
-                Envelope().opacity(1 - flight.glass)
-                IntroGround(corner: flight.corner).opacity(flight.glass)
-                Logomark()
-                    .fill(Palette.ink, style: FillStyle(eoFill: true))
-                    .aspectRatio(Logomark.canvas.width / Logomark.canvas.height, contentMode: .fit)
-                    .frame(width: Metrics.introMark)
-                    .opacity(flight.mark)
+                Envelope()
+                if flight.marked {
+                    Landing(progress: flight.drawn)
+                        .fill(Palette.ink, style: FillStyle(eoFill: true))
+                        .aspectRatio(Logomark.canvas.width / Logomark.canvas.height, contentMode: .fit)
+                        .frame(width: Metrics.introMark)
+                        .scaleEffect(flight.markScale)
+                        .opacity(flight.mark)
+                }
             }
             .frame(width: flight.frame.width, height: flight.frame.height)
             .clipShape(shape)
             .overlay(shape.strokeBorder(Palette.edge, lineWidth: 0.5))
-            .shadow(color: .black.opacity(0.22), radius: 18, y: 8)
+            .shadow(color: Palette.shadow, radius: 24, y: 12)
+            .rotation3DEffect(.degrees(flight.tilt), axis: (x: 1, y: 0, z: 0), anchor: .bottom, perspective: 0.6)
             .scaleEffect(flight.scale)
             .opacity(flight.shown)
             .offset(x: flight.frame.minX - screen.minX, y: screen.maxY - flight.frame.maxY)
         }
         .ignoresSafeArea()
     }
-}
-
-/// Welcome's ground, and the card's while it stands for Welcome.
-private struct IntroGround: View {
-    let corner: CGFloat
-
-    var body: some View {
-        if #available(macOS 26, *) {
-            LiquidGlass(corner: corner)
-        } else {
-            Envelope().environment(\.depth, .clear)
-        }
-    }
-}
-
-@available(macOS 26, *)
-private struct LiquidGlass: NSViewRepresentable {
-    let corner: CGFloat
-
-    func makeNSView(context: Context) -> NSGlassEffectView { NSGlassEffectView() }
-    func updateNSView(_ view: NSGlassEffectView, context: Context) { view.cornerRadius = corner }
 }
