@@ -567,6 +567,8 @@ enum Metrics {
     static let arrivalButtonRadius: CGFloat = 8
     static let arrivalButtonPad: CGFloat = 6.5
     static let arrivalWidth: CGFloat = 480
+    /// Welcome's column, the same at every step so its top and bottom stay put.
+    static let arrivalHeight: CGFloat = 584
     static let migrationListHeight: CGFloat = 260
     static let migrationLabelWidth: CGFloat = 64
     static let migrationChoiceHeight: CGFloat = 28
