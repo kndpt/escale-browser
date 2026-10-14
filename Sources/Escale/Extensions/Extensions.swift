@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import WebKit
 import Combine
+import IOKit.pwr_mgt
 
 // Chrome extensions, on WebKit.
 //
@@ -115,6 +116,19 @@ final class Extensions: NSObject, ObservableObject {
     /// Errors an extension's pages and worker ran into, newest last, a few
     /// dozen at most per extension.
     @Published private(set) var errors: [String: [String]] = [:]
+
+    /// What the shim's answers keep for each extension (ExtensionPages,
+    /// ExtensionSystem): the side panel it set and whether its button opens
+    /// it, the popups it set, its offscreen document and keep-awake
+    /// assertion. All let go with the extension, in `unload`.
+    var panelPath: [String: String] = [:]
+    var panelOnClick: Set<String> = []
+    var popups: [String: [String: String]] = [:]
+    var offscreen: [String: WKWebView] = [:]
+    var awake: [String: IOPMAssertionID] = [:]
+    /// Each extension's popup size, so the next opening starts there; kept
+    /// across a reload, gone with this owner.
+    var popupSizes: [String: NSSize] = [:]
 
     func noteError(_ text: String, for id: String) {
         var list = errors[id] ?? []
@@ -317,7 +331,6 @@ final class Extensions: NSObject, ObservableObject {
         for id in Array(contexts.keys) { unload(id) }
         for observer in errorWatchers.values { NotificationCenter.default.removeObserver(observer) }
         errorWatchers = [:]
-        ExtensionShims.release(space: space)
         for space in opened { controller.didCloseWindow(window(space)) }
         opened = []
         browser = nil
@@ -500,6 +513,11 @@ final class Extensions: NSObject, ObservableObject {
     private func unload(_ id: String) {
         guard let context = contexts[id] else { return }
         ExtensionSpeech.shared.release(scope: scope(id))
+        panelPath[id] = nil
+        panelOnClick.remove(id)
+        popups[id] = nil
+        offscreen[id] = nil
+        if let assertion = awake.removeValue(forKey: id) { IOPMAssertionRelease(assertion) }
         try? controller.unload(context)
         contexts[id] = nil
         actionsChanged += 1
@@ -1016,7 +1034,7 @@ final class Extensions: NSObject, ObservableObject {
         guard let context = contexts[id], !ExtensionPopup.shared.closes(id) else { return }
         if let tab = activeAdapter { context.userGesturePerformed(in: tab) }
         // An extension that asked for its button to open its side panel.
-        if ExtensionShims.panelOnClick.contains(scope(id)), context.action(for: activeAdapter)?.presentsPopup != true {
+        if panelOnClick.contains(id), context.action(for: activeAdapter)?.presentsPopup != true {
             ExtensionShims.openPanel(context, owner: self)
             return
         }
@@ -1034,7 +1052,7 @@ final class Extensions: NSObject, ObservableObject {
     /// The page the button's popup is now: one the extension set for this
     /// tab or for all of them, else its manifest's.
     private func popupURL(for context: WKWebExtensionContext) -> URL? {
-        let set = ExtensionShims.popups[scope(context.uniqueIdentifier)] ?? [:]
+        let set = popups[context.uniqueIdentifier] ?? [:]
         let path = browser?.active.flatMap { set[$0.id.uuidString] } ?? set["*"]
         guard let path else { return Extensions.popupURL(for: context) }
         guard !path.isEmpty else { return nil }

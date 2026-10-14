@@ -221,12 +221,6 @@ enum ExtensionShims {
 
     // MARK: - answering
 
-    /// Remembered per extension: the side panel it set, and whether its
-    /// button should open it.
-    static var panelPath: [String: String] = [:]
-    static var panelOnClick: Set<String> = []
-    /// Offscreen documents, one per extension, as Chrome allows.
-    static var offscreen: [String: WKWebView] = [:]
 
     static func answer(_ message: Any, from context: WKWebExtensionContext, owner: Extensions) async throws -> Any? {
         guard let body = message as? [String: Any], let api = body["api"] as? String else {
@@ -352,25 +346,6 @@ enum ExtensionShims {
         case "userScripts": return try await userScripts(asked)
         case "identity": return try await identity(asked)
         default: throw unknown(api)
-        }
-    }
-
-    // MARK: - kept per extension
-
-    /// Popups extensions set for their buttons: per tab, or "*" for all.
-    static var popups: [String: [String: String]] = [:]
-
-    /// Keep-awake assertions, one per extension that asked.
-    static var awake: [String: IOPMAssertionID] = [:]
-
-    static func release(space: UUID) {
-        let prefix = space.uuidString + "/"
-        panelPath = panelPath.filter { !$0.key.hasPrefix(prefix) }
-        panelOnClick = panelOnClick.filter { !$0.hasPrefix(prefix) }
-        offscreen = offscreen.filter { !$0.key.hasPrefix(prefix) }
-        popups = popups.filter { !$0.key.hasPrefix(prefix) }
-        for key in awake.keys.filter({ $0.hasPrefix(prefix) }) {
-            if let assertion = awake.removeValue(forKey: key) { IOPMAssertionRelease(assertion) }
         }
     }
 

@@ -63,6 +63,7 @@ file header states its own bounds.
 | Background media | `Media` per tab, `Playback` per window, observed by `MiniPlayer` | Navigation, sleep, close or dismissal ([MEDIA](MEDIA.md)). |
 | API Calls | `Calls` per tab, observed by `CallsPanel`; the inspector session is `InspectorSession`'s | Opened by hand, three tabs at most; ends by hand, on close or on page process loss. |
 | Extension speech | `ExtensionSpeech` | One utterance playing, a bounded queue; extension unload or quit. |
+| Extension state | side panel, popups, offscreen document and keep-awake assertion per extension, on its owner (`Extensions`) | Extension unload: switched off, removed or its owner gone. |
 | Page tools | `JSONReader`, `SiteStorage`, `VisualPick`, `AreaPick`, `PageCapture` | Requested only; cleared by a new page, closed by tab or Space change. |
 | Page generation | `WKWebView`, KVO, script handlers, navigation retries | Replacement, discard, sleep or close. |
 | Interaction | popup, inspector action, floating controls, suggestion request | Dismissal, completion, cancellation or loss of eligibility. |
