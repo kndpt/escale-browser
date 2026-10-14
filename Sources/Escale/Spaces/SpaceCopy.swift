@@ -17,7 +17,9 @@ extension Browser {
         guard let source = spaces.first(where: { $0.id == id }) else { return }
         let alert = NSAlert()
         alert.messageText = "Duplicate “\(source.name)”"
-        alert.informativeText = "Copies pages, bookmarks, organisation and Space settings. The addresses still point to the same sites. You'll need to sign in to sites and set up extension accounts again."
+        // Shared extensions are already in the copy: only sites need a sign-in.
+        alert.informativeText = "Copies pages, bookmarks, organisation and Space settings. The addresses still point to the same sites. "
+            + (prefs.sharedExtensions == true ? "You'll need to sign in to sites again." : "You'll need to sign in to sites and set up extension accounts again.")
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
         field.placeholderString = "New Space name"
         field.stringValue = source.name + " Copy"
@@ -48,13 +50,15 @@ extension Browser {
         let session = Session.read(space: id)
         let bookmarks = bookmarks(of: id).roots
         let hidden = curtain(for: id).byHost
+        // Shared, the copy runs the same extensions: nothing to reinstall.
+        let shared = prefs.sharedExtensions == true
         var extensions: [PlannedExtension] = []
-        if #available(macOS 15.4, *) {
+        if #available(macOS 15.4, *), !shared {
             extensions = Extensions.forSpace(id).installed.map {
                 PlannedExtension(name: $0.name, storeID: $0.fromStore ? $0.id : nil)
             }
         }
-        let plan = (source.plannedExtensions ?? []) + extensions
+        let plan = shared ? [] : (source.plannedExtensions ?? []) + extensions
         var made = source
         made.id = identifier
         made.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -63,7 +67,7 @@ extension Browser {
         for item in plan where !unique.contains(item) {
             unique.append(item)
         }
-        made.plannedExtensions = unique
+        made.plannedExtensions = shared ? nil : unique
 
         let bookmarkIDs = Dictionary(uniqueKeysWithValues: Set(session.tabs.compactMap(\.bookmark)).map { ($0, UUID()) })
         let copiedSession = Session.copy(session, to: made.id, bookmarks: bookmarkIDs)
@@ -88,11 +92,14 @@ extension Browser {
         announce("Duplicated “\(source.name)” as “\(made.name)”")
     }
 
+    /// Shared, an extension installed once is installed in every Space, so
+    /// it leaves every Space's list.
     func installedExtension(_ item: Installed, in space: UUID) {
-        dropPlanned(in: space) {
+        let match: (PlannedExtension) -> Bool = {
             if item.fromStore { return $0.storeID == item.id }
             return $0.storeID == nil && $0.name == item.name
         }
+        dropPlanned(in: prefs.sharedExtensions == true ? nil : space, where: match)
     }
 
     /// One the person chose not to reinstall.
@@ -100,12 +107,15 @@ extension Browser {
         dropPlanned(in: space) { $0 == item }
     }
 
-    private func dropPlanned(in space: UUID, where match: (PlannedExtension) -> Bool) {
-        guard let index = spaces.firstIndex(where: { $0.id == space }) else { return }
-        var planned = spaces[index].plannedExtensions ?? []
-        planned.removeAll(where: match)
-        guard planned != (spaces[index].plannedExtensions ?? []) else { return }
-        spaces[index].plannedExtensions = planned
-        Spaces.write(spaces)
+    private func dropPlanned(in space: UUID? = nil, where match: (PlannedExtension) -> Bool) {
+        var changed = false
+        for index in spaces.indices where space == nil || spaces[index].id == space {
+            var planned = spaces[index].plannedExtensions ?? []
+            planned.removeAll(where: match)
+            guard planned != (spaces[index].plannedExtensions ?? []) else { continue }
+            spaces[index].plannedExtensions = planned
+            changed = true
+        }
+        if changed { Spaces.write(spaces) }
     }
 }
