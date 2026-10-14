@@ -53,6 +53,12 @@ enum ExtensionShims {
         guard var manifest = try JSONSerialization.jsonObject(with: Data(contentsOf: manifestURL)) as? [String: Any]
         else { throw Crx.Refused.unpack }
 
+        // A package never prepared that ships a file under one of these
+        // names is refused: writing over it would lose the extension's code.
+        if !files.fileExists(atPath: stampURL.path),
+           [file, contentFile].contains(where: { files.fileExists(atPath: folder.appendingPathComponent($0).path) }) {
+            throw Crx.Refused.unpack
+        }
         let script = try shim(for: folder)
         try script.write(to: folder.appendingPathComponent(file), atomically: true, encoding: .utf8)
         try content(of: script).write(to: folder.appendingPathComponent(contentFile), atomically: true, encoding: .utf8)

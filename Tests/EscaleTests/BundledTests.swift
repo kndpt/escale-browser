@@ -81,6 +81,17 @@ import Testing
         #expect(try ExtensionShims.version.get().count >= 16)
     }
 
+    @Test func aPackagesOwnFileUnderTheShimsNameIsNeverOverwritten() throws {
+        guard #available(macOS 15.4, *) else { return }
+        let url = try folder()
+        defer { try? FileManager.default.removeItem(at: url) }
+        try JSONSerialization.data(withJSONObject: ["manifest_version": 3, "name": "Own", "version": "1"])
+            .write(to: url.appendingPathComponent("manifest.json"))
+        try "mine()".write(to: url.appendingPathComponent(ExtensionShims.contentFile), atomically: true, encoding: .utf8)
+        #expect(throws: (any Error).self) { try ExtensionShims.prepare(url) }
+        #expect(try String(contentsOf: url.appendingPathComponent(ExtensionShims.contentFile), encoding: .utf8) == "mine()")
+    }
+
     @Test func contentScriptsGetOnlyTheirPartOfTheShim() throws {
         guard #available(macOS 15.4, *) else { return }
         let url = try folder()
