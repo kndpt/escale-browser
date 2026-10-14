@@ -210,6 +210,12 @@ class WorkflowTests(unittest.TestCase):
                 self.assertIn('extension-messaging', selected['checks'])
                 self.assertIn('shared-extensions', selected['checks'])
 
+    def test_each_native_family_selects_its_scenarios(self):
+        selected = plan(['Sources/Escale/Extensions/ExtensionSystem.swift'])
+        self.assertIn('extension-speech', selected['checks'])
+        self.assertIn('extension-messaging', selected['checks'])
+        self.assertIn('extension-messaging', plan(['Sources/Escale/Extensions/ExtensionWorker.swift'])['checks'])
+
     def test_resource_collector_edit_only_runs_its_tests(self):
         selected = plan(['Tests/Bench/resource_baseline.py'])
         self.assertEqual(set(selected['checks']), {'portable', 'whitespace'})
