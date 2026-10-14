@@ -348,7 +348,9 @@ extension Browser {
     /// Deleting always asks first, from a menu or a key.
     func askToDeleteSpace(_ id: UUID) {
         guard let here = spaces.first(where: { $0.id == id }), !here.isFirst else { return }
-        Ask.sure("Delete “\(here.name)”?", detail: "Its tabs close. Link rules pointing here, bookmarks, history and saved passwords are deleted. Its sites and extensions are removed from this Space. Downloaded files stay in their folder.", confirm: "Delete") {
+        // Shared extensions belong to every Space and stay.
+        let removed = prefs.sharedExtensions == true ? "Its sites are removed" : "Its sites and extensions are removed from this Space"
+        Ask.sure("Delete “\(here.name)”?", detail: "Its tabs close. Link rules pointing here, bookmarks, history and saved passwords are deleted. \(removed). Downloaded files stay in their folder.", confirm: "Delete") {
             self.deleteSpace(id)
         }
     }

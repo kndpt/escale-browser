@@ -148,6 +148,13 @@ final class Extensions: NSObject, ObservableObject {
     /// The Space this owner answers for when nothing says which: its own,
     /// or, serving every Space, the one on screen.
     var here: UUID { shared ? browser?.spaceID ?? space : space }
+
+    /// Whose set this is, for the surfaces that say it: "every Space", or
+    /// its Space's name. Nil with Spaces off, where there is one set.
+    var whose: String? {
+        guard let browser, browser.prefs.usesSpaces else { return nil }
+        return shared ? "every Space" : browser.spaces.first { $0.id == space }?.name
+    }
     /// Where each extension's button is on screen, for its popup to hang from.
     var anchors: [String: WeakView] = [:]
 
@@ -828,7 +835,7 @@ final class Extensions: NSObject, ObservableObject {
             let before = try? await WKWebExtension(resourceBaseURL: folder(for: item.id))
             let reaches = before.map { Extensions.widens($0.allRequestedMatchPatterns, to: found.allRequestedMatchPatterns) } ?? true
             if !wants.isSubset(of: Set(item.permissions)) || reaches {
-                guard await ask(install: "An update to \(item.name)", wants: Extensions.describe(found, in: staged), icon: found.icon(for: CGSize(width: 64, height: 64))) else {
+                guard await ask(install: "An update to \(item.name)", wants: Extensions.describe(found, in: staged), icon: found.icon(for: CGSize(width: 64, height: 64)), update: true) else {
                     try? FileManager.default.removeItem(at: staged)
                     return
                 }
@@ -902,12 +909,18 @@ final class Extensions: NSObject, ObservableObject {
         return out
     }
 
-    private func ask(install name: String, wants: [String], icon: NSImage?) async -> Bool {
-        await ask(
-            "Add “\(name)” to Escale?",
-            detail: wants.isEmpty ? "It doesn't ask for anything special." : "It will be able to:\n• " + wants.joined(separator: "\n• "),
-            icon: icon, yes: "Add Extension", no: "Cancel"
-        )
+    /// Says which set it joins: every Space's, or this Space's alone.
+    private func ask(install name: String, wants: [String], icon: NSImage?, update: Bool = false) async -> Bool {
+        let set = update ? nil : whose
+        let title = switch (set, shared) {
+        case (nil, _): "Add “\(name)” to Escale?"
+        case (_, true): "Add “\(name)”?"
+        case (let space?, false): "Add “\(name)” to “\(space)”?"
+        }
+        let reach = set.map { _ in shared ? "It will be available in every Space." : "Other Spaces keep their own extensions." }
+        let can = wants.isEmpty ? "It doesn't ask for anything special." : "It will be able to:\n• " + wants.joined(separator: "\n• ")
+        return await ask(title, detail: [reach, can].compactMap { $0 }.joined(separator: "\n\n"),
+                         icon: icon, yes: "Add Extension", no: "Cancel")
     }
 
     /// An extension asking, through permissions.request, for one of the
@@ -1477,6 +1490,15 @@ private struct ExtensionMenu: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             let buttons = extensions.buttons
+            if let whose = extensions.whose {
+                // Which set this is: every Space's, or the one on screen's.
+                Text(extensions.shared ? "Every Space" : whose)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Palette.muted)
+                    .lineLimit(1)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 10)
+            }
             if !planned.isEmpty {
                 // Bounded like the list below: an import can bring hundreds.
                 ScrollView {

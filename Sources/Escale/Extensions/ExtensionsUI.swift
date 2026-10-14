@@ -26,6 +26,13 @@ struct ExtensionsPage: View {
 
         var body: some View {
             VStack(alignment: .leading, spacing: metrics.length(Metrics.settingsGap)) {
+                if let whose = extensions.whose {
+                    // Which set this page shows.
+                    Text(extensions.shared ? "Shared by every Space." : "Each Space has its own extensions. These are “\(whose)”’s.")
+                        .font(.system(size: metrics.length(density.detail)))
+                        .foregroundStyle(Palette.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Card {
                     VStack(alignment: .leading, spacing: metrics.length(8)) {
                         HStack(spacing: metrics.length(8)) {

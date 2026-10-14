@@ -7,9 +7,11 @@ there, and what one Space's page writes to `chrome.storage` the other reads,
 with `onChanged` in both. A site cookie set in one Space's tab is absent in
 the other's. Each Space is a window: `tabs.query({currentWindow: true})`
 answers with the Space on screen's tabs, and switching Space closes none.
-A popup opened in either Space is listed by `getContexts`. Deleting a
-Space, which empties its website store, leaves the extension loaded with
-its storage and its pages' own. A private tab still gets no extensions.
+A popup opened in either Space is listed by `getContexts`. Installing asks
+as joining every Space, a copy of a Space plans nothing to reinstall, and
+deleting a Space, which empties its website store, leaves the extension
+loaded with its storage and its pages' own. A private tab still gets no
+extensions.
 """
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -83,13 +85,15 @@ def main():
         second = h.until("second Space on screen", lambda: (s if (s := current()) != FIRST else None))
         obj("space", "go", "1")
 
-        # Installed once, in the first Space.
-        obj("ext-folder", str(folder), "--yes")
+        # Installed once, in the first Space, asked as joining every Space.
+        obj("ext-answer", "yes")
+        obj("ext-folder", str(folder))
         row = h.until("fixture loaded", lambda: (r if (r := fixture()) and r["loaded"] else None), 30)
         ident = row["id"]
         obj("ext-pin", ident, "on")
         state = obj("extensions")
         h.require("shared owner", (state["shared"], state["owner"]), (True, FIRST))
+        h.require("asked as every Space's", f"Add “{NAME}”?" in obj("ext-answer", "yes")["asked"], True)
         a_page = page(ident, "page.html")
         listen(a_page)
 
@@ -143,6 +147,10 @@ def main():
             h.require("popup listed", contexts, 1)
         obj("ext-press", ident)
         print("ok: getContexts lists a popup from any Space")
+
+        # A copy of a Space runs the same extensions: nothing to reinstall.
+        copy = obj("space", "duplicate", "B Copy")
+        h.require("duplicate plans nothing", next(s["planned"] for s in copy["spaces"] if s["name"] == "B Copy"), 0)
 
         # Deleting the second Space empties its store, not the extension's.
         value(b_page, "localStorage.setItem('kept', 'yes'); 0")
