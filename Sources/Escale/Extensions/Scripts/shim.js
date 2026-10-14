@@ -126,6 +126,13 @@
     put(runtime, "lastError", { message: String(error && error.message || error) });
     try { callback(); } finally { try { delete runtime.lastError; } catch (e) {} }
   };
+  // Whether a tab is in the window in front. With one set of extensions for
+  // every Space each Space is a window, and Escale counts a tab's place in
+  // the row in the one on screen (Extensions.visibleTabs): an index from
+  // another window would name another tab.
+  const inFront = (tab) => chrome.windows && typeof chrome.windows.getLastFocused === "function"
+    ? chrome.windows.getLastFocused().then((w) => !w || w.id === tab.windowId, () => true)
+    : Promise.resolve(true);
   const native = (api, args) =>
     runtime.sendNativeMessage("escale", { api, args: JSON.parse(JSON.stringify(args ?? [])) })
       .then((reply) => {
@@ -971,6 +978,7 @@
       const out = [];
       for (const id of Array.isArray(ids) ? ids : [ids]) {
         const tab = await chrome.tabs.get(id);
+        if (!(await inFront(tab))) throw new Error("This space is parked");
         await native(api, [tab.index, extra]);
         await settle();
         out.push(await chrome.tabs.get(id).catch(() => tab));
@@ -1039,7 +1047,7 @@
     const setPopup = a.setPopup.bind(a);
     put(a, "setPopup", (details = {}, callback) => {
       const tell = (index) => native("action.popup", [details.popup || "", index]).catch(() => {});
-      if (typeof details.tabId === "number" && chrome.tabs) chrome.tabs.get(details.tabId).then((t) => tell(t.index), () => {});
+      if (typeof details.tabId === "number" && chrome.tabs) chrome.tabs.get(details.tabId).then((t) => inFront(t).then((yes) => yes && tell(t.index)), () => {});
       else tell(-1);
       return setPopup(details, callback);
     });
@@ -1199,9 +1207,12 @@
     const mend = (list) => {
       const tabs = list.filter(isTab);
       for (const t of tabs) if (t.groupId === undefined) try { t.groupId = -1; } catch (e) {}
-      const blind = seesTabs ? tabs.filter((t) => !t.url && t.index >= 0) : [];
+      let blind = seesTabs ? tabs.filter((t) => !t.url && t.index >= 0) : [];
       if (!blind.length) return null;
-      return native("tabs.describe", [blind.map((t) => t.index)]).then((info) => {
+      return Promise.all(blind.map(inFront)).then((front) => {
+        blind = blind.filter((t, i) => front[i]);
+        return blind.length ? native("tabs.describe", [blind.map((t) => t.index)]) : [];
+      }).then((info) => {
         blind.forEach((t, i) => {
           const d = info && info[i];
           if (!d) return;
