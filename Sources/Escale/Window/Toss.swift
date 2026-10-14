@@ -58,16 +58,12 @@ struct TossStage: View {
     }
 }
 
-/// The show's beats, in seconds from the press, and its proportions.
+/// The show's proportions; its timings are in `Motion` (`toss…`).
 private enum Beat {
     /// The bin grows to this, the size it is drawn at.
     static let peak: CGFloat = 2.6
     /// Where the lid ends on the glyph, as a share of its box.
     static let lid: CGFloat = 0.34
-    static let grow = 0.03, growing = 0.3
-    static let gather = 0.3
-    static let toss = 0.36, tossing = 0.32, flight = 0.28
-    static let shut = 0.13, flash = 0.45, home = 0.3
     /// More cards than this and the rest are taken as read.
     static let most = 16
 }
@@ -107,13 +103,13 @@ private struct Course {
         rise = row * 2.6
         // The last card to land on the pile goes first.
         let count = cards.count
-        let gap = count > 1 ? min(0.06, Beat.tossing / Double(count - 1)) : 0
-        throwsAt = (0..<count).map { Beat.toss + Double(count - 1 - $0) * gap }
-        landings = throwsAt.map { $0 + Beat.flight }.sorted()
-        shut = (landings.last ?? Beat.toss) + 0.02
-        clap = shut + 0.1
-        back = clap + 0.12
-        end = back + Beat.home + 0.06
+        let gap = count > 1 ? min(Motion.tossThrowGap, Motion.tossThrows / Double(count - 1)) : 0
+        throwsAt = (0..<count).map { Motion.tossThrowAt + Double(count - 1 - $0) * gap }
+        landings = throwsAt.map { $0 + Motion.tossFlight }.sorted()
+        shut = (landings.last ?? Motion.tossThrowAt) + Motion.tossShutAfter
+        clap = shut + Motion.tossClapAfter
+        back = clap + Motion.tossHomeAfter
+        end = back + Motion.tossHome + Motion.tossTail
     }
 }
 
@@ -126,7 +122,7 @@ private struct TossFrame: View {
     var body: some View {
         ZStack {
             ForEach(course.cards.indices, id: \.self) { index in card(index) }
-            if t > course.clap, t < course.clap + Beat.flash { flash }
+            if t > course.clap, t < course.clap + Motion.tossFlash { flash }
             bin
         }
     }
@@ -137,14 +133,14 @@ private struct TossFrame: View {
     private func card(_ index: Int) -> some View {
         let (card, from) = course.cards[index]
         let n = Double(index)
-        let start = n * min(0.02, 0.1 / Double(course.cards.count))
-        let lift = smooth((t - start) / 0.1)
-        let gathered = overshoot((t - start) / Beat.gather, 1.3)
+        let start = n * min(Motion.tossRippleGap, Motion.tossRipple / Double(course.cards.count))
+        let lift = smooth((t - start) / Motion.tossLift)
+        let gathered = overshoot((t - start) / Motion.tossGather, 1.3)
         // A loose pile: each card a little askew, the later ones on top.
         let rest = CGPoint(x: course.pile.x + CGFloat(sin(n * 2.3)) * 6,
                            y: course.pile.y - CGFloat(min(index, 6)) * 1.6)
         let tilt = sin(n * 1.7 + 0.5) * 7
-        let flown = clamp((t - course.throwsAt[index]) / Beat.flight)
+        let flown = clamp((t - course.throwsAt[index]) / Motion.tossFlight)
         if flown < 1 {
             // A quadratic curve walked at an even pace is a thrown thing's arc.
             let control = CGPoint(x: (rest.x + course.mouth.x) / 2,
@@ -168,8 +164,8 @@ private struct TossFrame: View {
 
     private var bin: some View {
         // Grows and comes forward, then goes home with a little give.
-        let out = overshoot((t - Beat.grow) / Beat.growing, 1.6)
-        let home = overshoot((t - course.back) / Beat.home, 1.2)
+        let out = overshoot((t - Motion.tossGrowAt) / Motion.tossGrow, 1.6)
+        let home = overshoot((t - course.back) / Motion.tossHome, 1.2)
         let reach = out * (1 - home)
         // Each landing rocks it, one way then the other, and squashes it
         // onto its base for an instant.
@@ -178,25 +174,25 @@ private struct TossFrame: View {
         for (k, landed) in course.landings.enumerated() where t > landed {
             let d = t - landed
             rock += (k % 2 == 0 ? 1 : -1) * exp(-d * 9) * sin(d * 2 * .pi * 6)
-            if d < 0.12 { squash += sin(.pi * d / 0.12) }
+            if d < Motion.tossHit { squash += sin(.pi * d / Motion.tossHit) }
         }
         squash = min(squash, 1)
-        let pop = sin(.pi * clamp((t - course.clap) / 0.2))
-        let open = smooth((t - 0.2) / 0.14) * (1 - overshoot((t - course.shut) / Beat.shut, 2.4))
+        let pop = sin(.pi * clamp((t - course.clap) / Motion.tossPop))
+        let open = smooth((t - Motion.tossLidAt) / Motion.tossLid) * (1 - overshoot((t - course.shut) / Motion.tossShut, 2.4))
         let size = 1 + (Beat.peak - 1) * reach
         return TossBin(side: course.side * Beat.peak, lid: 40 * open + 10 * squash,
                        ink: min(1, 0.7 + 0.3 * reach))
             .scaleEffect(x: 1 + 0.1 * squash, y: 1 - 0.14 * squash, anchor: .bottom)
             .rotationEffect(.degrees(max(-18, min(18, 14 * rock))), anchor: .bottom)
             .scaleEffect(size * (1 + 0.14 * pop) / Beat.peak)
-            .opacity(1 - clamp((t - course.end + 0.1) / 0.08))
+            .opacity(1 - clamp((t - course.end + Motion.tossTail + Motion.tossFade) / Motion.tossFade))
             .position(mix(course.home, course.stage, reach))
     }
 
     // MARK: the flash
 
     private var flash: some View {
-        let e = clamp((t - course.clap) / Beat.flash)
+        let e = clamp((t - course.clap) / Motion.tossFlash)
         let spread = 1 - pow(1 - e, 3)
         let fade = 1 - e
         let reach = course.side * Beat.peak

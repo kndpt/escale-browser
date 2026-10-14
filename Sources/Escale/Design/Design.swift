@@ -904,6 +904,19 @@ enum Motion {
     /// The animation's length plus a frame, before the plane is removed.
     static let downloadFlightNanoseconds = UInt64((downloadFlightDuration + 0.04) * 1_000_000_000)
     static let downloadFlightFreshness: TimeInterval = 1
+    /// Clear's show (Toss.swift), in seconds; the `…At` ones from the press.
+    /// Each card lifts, the next a little after, and gathers on the pile;
+    /// the bin grows and opens its lid meanwhile. The throws are spread over
+    /// `tossThrows`, a card's flight at most `tossThrowGap` after the last.
+    /// Each landing squashes the bin for `tossHit`; the lid shuts just after
+    /// the last, the clap and its flash follow, and the bin goes home. With
+    /// sixteen cards it all ends under a second and a half.
+    static let tossLift = 0.1, tossRipple = 0.1, tossRippleGap = 0.02, tossGather = 0.3
+    static let tossGrowAt = 0.03, tossGrow = 0.3, tossLidAt = 0.2, tossLid = 0.14
+    static let tossThrowAt = 0.36, tossThrows = 0.32, tossThrowGap = 0.06, tossFlight = 0.28
+    static let tossHit = 0.12, tossShutAfter = 0.02, tossShut = 0.13
+    static let tossClapAfter = 0.1, tossPop = 0.2, tossFlash = 0.45
+    static let tossHomeAfter = 0.12, tossHome = 0.3, tossFade = 0.08, tossTail = 0.06
     /// One calm curve for arrival pages, disclosure and import state changes.
     static let arrival = Animation.smooth(duration: 0.34, extraBounce: 0)
     static let glide = Animation.spring(response: 0.34, dampingFraction: 0.82)
