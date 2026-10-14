@@ -1,6 +1,8 @@
 // The active badge averages files, not bytes, and never assigns an exact
 // global percentage to a set containing an indeterminate transfer. A file
-// sent as an attachment is kept, whatever WebKit could show.
+// sent as an attachment is kept, whatever WebKit could show. A downloads
+// list written before sizes and addresses still reads, and the new fields
+// go to disk through the real writer.
 import Foundation
 import Testing
 @testable import Escale
@@ -34,5 +36,24 @@ import Testing
         #expect(!Downloads.isAttachment(response("attachments")))
         #expect(!Downloads.isAttachment(response("")))
         #expect(!Downloads.isAttachment(URLResponse()))
+    }
+    @Test func anOldListReadsAndTheNewFieldsAreSaved() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("escale-downloads-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = root.appendingPathComponent("downloads.json")
+        try Data(#"[{"name":"a.pdf","from":"example.test","path":"/tmp/a.pdf","date":0}]"#.utf8).write(to: file)
+
+        let old = try JSONDecoder().decode([Keep].self, from: Data(contentsOf: file))
+        #expect(old.map(\.name) == ["a.pdf"])
+        #expect(old[0].size == nil && old[0].address == nil)
+
+        let new = Keep(name: "b.zip", from: "example.test", path: "/tmp/b.zip", date: Date(timeIntervalSinceReferenceDate: 0),
+                       size: 917_504, address: "https://example.test/files/b.zip?v=2")
+        let writer = Writer.to(file)
+        writer.save([new] + old)
+        writer.flush()
+        #expect(try JSONDecoder().decode([Keep].self, from: Data(contentsOf: file)) == [new] + old)
     }
 }

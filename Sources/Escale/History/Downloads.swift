@@ -162,12 +162,17 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
             announce("Download finished")
             return
         }
+        let source = download.originalRequest?.url
         loot(space)?.add(
             Keep(
                 name: file.lastPathComponent,
-                from: download.originalRequest?.url?.host() ?? "",
+                from: source?.host() ?? "",
                 path: file.path,
-                date: Date()
+                date: Date(),
+                size: (try? file.resourceValues(forKeys: [.fileSizeKey]))?.fileSize.map(Int64.init),
+                // Only an address with a host: a data: URL can carry the whole
+                // file, and a blob: one means nothing once its page is gone.
+                address: source?.host() == nil ? nil : source?.absoluteString
             )
         )
         announce("Saved \(file.lastPathComponent)")

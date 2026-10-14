@@ -284,8 +284,9 @@ struct DownloadsPanel: View {
                                 Row(
                                     keep: keep,
                                     chosen: keep.id == chosen,
-                                    open: { loot.open(keep) },
+                                    open: { open(keep) },
                                     reveal: { loot.reveal(keep) },
+                                    copy: keep.address.map { address in { copy(address) } },
                                     forget: { forget(keep) }
                                 )
                             }
@@ -298,8 +299,7 @@ struct DownloadsPanel: View {
                 // A file is not a page: ⌘Return shows it in the Finder,
                 // where a tab would download a copy of what it can't show.
                 .walking(move: move, open: { apart in
-                    guard let keep = loot.kept.first(where: { $0.id == chosen }), keep.stillThere else { return }
-                    if apart { loot.reveal(keep) } else { loot.open(keep) }
+                    loot.kept.first { $0.id == chosen }.map { open($0, apart: apart) }
                 }, remove: { loot.kept.first { $0.id == chosen }.map(forget) }, while: { !browser.tuning })
                 // As History: shown again before it has gone, it keeps its state.
                 .onChange(of: browser.hoarding) { _, open in if open { chosen = nil } }
@@ -323,6 +323,21 @@ struct DownloadsPanel: View {
         if let keep = loot.kept.first(where: { $0.id == chosen }) { Walk.say(keep.name) }
     }
 
+    /// A file gone since is said so, rather than a click doing nothing.
+    private func open(_ keep: Keep, apart: Bool = false) {
+        guard keep.stillThere else {
+            browser.announce("\(keep.name) is no longer in \(keep.url.deletingLastPathComponent().lastPathComponent)")
+            return
+        }
+        if apart { loot.reveal(keep) } else { loot.open(keep) }
+    }
+
+    private func copy(_ address: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(address, forType: .string)
+        browser.announce("Link copied: \(address)", symbol: "doc.on.doc")
+    }
+
     /// Off the list only; the file stays where it is.
     private func forget(_ keep: Keep) {
         let next = keep.id == chosen ? Walk.after(loot.kept.map(\.id), removing: keep.id) : chosen
@@ -335,30 +350,34 @@ struct DownloadsPanel: View {
         let chosen: Bool
         let open: () -> Void
         let reveal: () -> Void
+        /// None for a line kept before the whole address was.
+        let copy: (() -> Void)?
         let forget: () -> Void
 
         @State private var hovering = false
 
         var body: some View {
-            HStack(spacing: 12) {
-                Image(systemName: keep.stillThere ? "doc" : "doc.badge.ellipsis")
+            // One look at the disk for the whole line.
+            let there = keep.stillThere
+            let line = HStack(spacing: 12) {
+                Image(systemName: there ? "doc" : "doc.badge.ellipsis")
                     .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(keep.stillThere ? Palette.muted : Palette.faint)
+                    .foregroundStyle(there ? Palette.muted : Palette.faint)
                     .frame(width: 18)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(keep.name)
                         .font(.system(size: 13))
-                        .foregroundStyle(keep.stillThere ? Palette.ink : Palette.faint)
+                        .foregroundStyle(there ? Palette.ink : Palette.faint)
                         .lineLimit(1)
                         .truncationMode(.middle)
-                    Text(keep.from.isEmpty ? When.said(keep.date) : "\(keep.from) · \(When.said(keep.date))")
+                    Text(detail(there))
                         .font(.system(size: 11.5))
                         .foregroundStyle(Palette.muted)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
                 if hovering {
-                    if keep.stillThere { Quick("Show in Finder", act: reveal) }
+                    if there { Quick("Show in Finder", act: reveal) }
                     Quick("Remove", tint: Palette.danger, act: forget)
                 }
             }
@@ -366,9 +385,23 @@ struct DownloadsPanel: View {
             .padding(.vertical, 9)
             .background(chosen ? Palette.wash : hovering ? Palette.hover : .clear)
             .contentShape(Rectangle())
-            .onTapGesture { if keep.stillThere { open() } }
+            .onTapGesture(perform: open)
             .onHover { hovering = $0 }
             .animation(Motion.quick, value: hovering)
+            .contextMenu {
+                if let copy { Button("Copy Source Address", action: copy) }
+                if there { Button("Show in Finder", action: reveal) }
+                Button("Remove from List", action: forget)
+            }
+            // Only a file that is there can be carried out.
+            if there { line.onDrag { keep.carried } } else { line }
+        }
+
+        /// Size, host and when; a file gone since says so in place of its size.
+        private func detail(_ there: Bool) -> String {
+            let size = there ? keep.size.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } : "Moved or deleted"
+            return [size, keep.from.isEmpty ? nil : keep.from, When.said(keep.date)]
+                .compactMap { $0 }.joined(separator: " · ")
         }
     }
 }

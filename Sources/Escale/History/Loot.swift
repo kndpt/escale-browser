@@ -10,11 +10,19 @@ struct Keep: Codable, Identifiable, Equatable {
     var from: String
     var path: String
     var date: Date
+    /// Read once, when the download finished, never from disk on a redraw.
+    /// Optional, as `address` is, so a list written before them still reads.
+    var size: Int64?
+    /// The whole address, where `from` is only its host.
+    var address: String?
 
     var id: String { path }
 
     var url: URL { URL(fileURLWithPath: path) }
     var stillThere: Bool { FileManager.default.fileExists(atPath: path) }
+
+    /// What a drag hands another app: the file itself, as a Finder row does.
+    var carried: NSItemProvider { NSItemProvider(object: url as NSURL) }
 }
 
 @MainActor
