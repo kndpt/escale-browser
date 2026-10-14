@@ -1483,11 +1483,12 @@ final class Browser: NSObject, ObservableObject {
     /// the site: to the eye, the page went there. The other way round too:
     /// an extension sending a website's tab to one of its own pages. Nil
     /// leaves the new tab blank.
-    func replace(_ tab: Tab, going url: URL?) {
+    @discardableResult
+    func replace(_ tab: Tab, going url: URL?) -> Tab? {
         // The row it is in, on screen or parked (see Spaces.swift).
         let here = tabs.firstIndex { $0.id == tab.id }
         let there = parked[tab.space]?.tabs.firstIndex { $0.id == tab.id }
-        guard here != nil || there != nil else { return }
+        guard here != nil || there != nil else { return nil }
         // A private tab stays private, and keeps its own sign-ins when it
         // had them; an extension's page it showed was in that extension's
         // store, so going back to the web takes a new private one.
@@ -1510,6 +1511,7 @@ final class Browser: NSObject, ObservableObject {
         if let url { fresh.go(to: url) }
         tab.close()
         rememberSession(tab.space)
+        return fresh
     }
 
     /// An address from before extensions moved to chrome-extension://, as

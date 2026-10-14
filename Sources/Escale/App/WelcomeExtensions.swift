@@ -32,10 +32,20 @@ extension Browser {
         prefs.sharedExtensions = shared
         welcomeReturn.choseExtensions = true
         Extensions.adopt()
+        // The owner serving this Space may be one made but never started:
+        // shared, the first Space's, when the launch opened another Space.
+        Extensions.forSpace(spaceID).start(for: self)
         for tab in tabs + parkedTabs {
             guard let controller = tab.extensionController,
-                  controller !== Extensions.forSpace(tab.space).controller else { continue }
-            replace(tab, going: tab.address)
+                  controller !== Extensions.forSpace(tab.space).controller,
+                  let fresh = replace(tab, going: tab.address) else { continue }
+            // Welcome may come back after browsing: the tab keeps what it was,
+            // as one moved to another Space does.
+            fresh.pin = tab.pin
+            fresh.name = tab.name
+            fresh.migration = tab.migration
+            shelfTabs[fresh.id] = shelfTabs.removeValue(forKey: tab.id)
+            rememberSession(tab.space)
         }
     }
 }
