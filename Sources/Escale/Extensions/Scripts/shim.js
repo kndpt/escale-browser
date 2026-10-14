@@ -57,7 +57,10 @@
   // `browser` globals when it delivers an event. A sandbox that locks
   // every global away (MetaMask's LavaMoat) cuts it off: nothing arrives
   // any more. Made fixed accessors, they can't be taken away, and code
-  // that assigns its own polyfill to them still can.
+  // that assigns its own polyfill to them still can. What they show is
+  // WebKit's object, but for `chrome` once the shim says otherwise (`shown`,
+  // see lastError); events come in through `browser`, which stays WebKit's.
+  let shown = (v) => v;
   for (const key of ["browser", "chrome"]) {
     const d = Object.getOwnPropertyDescriptor(root, key);
     if (!d || !d.configurable) continue;
@@ -67,7 +70,7 @@
     // from WebKit too, and nothing would reach the extension again. A
     // replacement that still carries them is taken.
     const carries = (v) => { try { return !!(v && v.runtime && v.runtime.id); } catch (e) { return false; } };
-    try { Object.defineProperty(root, key, { configurable: false, enumerable: d.enumerable, get: () => value, set: (v) => { if (carries(v)) value = v; } }); } catch (e) {}
+    try { Object.defineProperty(root, key, { configurable: false, enumerable: d.enumerable, get: () => key === "chrome" ? shown(value) : value, set: (v) => { if (carries(v)) value = v; } }); } catch (e) {}
   }
   // On a web page this is a content script: only Chrome's behaviour is
   // mended there, no API that Chrome doesn't give content scripts either.
@@ -123,9 +126,13 @@
     for (const sub of ["local", "sync", "session", "managed"]) { try { if (ns[sub] && typeof ns[sub] === "object") kept.add(ns[sub]); } catch (e) {} }
   }
   // WebKit's runtime answers `lastError` itself, whatever is set on it, so
-  // a callback never saw an error the shim reported. The extension's pages
-  // and worker see the runtime through a proxy that answers it while one is
-  // reported, and calls WebKit's methods on WebKit's own object.
+  // a callback never saw an error the shim reported; nor can `chrome.runtime`
+  // be replaced, WebKit's `chrome` answering that itself too. So the
+  // extension's pages and worker read the `chrome` global as a proxy whose
+  // `runtime` answers `lastError` while one is reported, and calls WebKit's
+  // methods on WebKit's own object. Every other namespace is WebKit's own,
+  // and so is `browser`, which WebKit delivers events through: proxied too,
+  // nothing reached the extension any more.
   let reported = null, proxy = null;
   if (!inContent && runtime) {
     const bound = new WeakMap();
@@ -138,9 +145,8 @@
         return bound.get(value);
       },
     });
-    for (const api of new Set([chrome, root.browser])) {
-      if (api && api.runtime === runtime) try { Object.defineProperty(api, "runtime", { value: proxy, configurable: true, writable: true, enumerable: true }); } catch (e) {}
-    }
+    const api = new Proxy(chrome, { get: (target, key) => key === "runtime" ? proxy : Reflect.get(target, key) });
+    shown = (v) => v === chrome ? api : v;
   }
   const withLastError = (error, callback) => {
     reported = { message: String(error && error.message || error) };
