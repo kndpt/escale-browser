@@ -101,7 +101,9 @@ def keyboard():
     s.require('the next line is chosen', state()['handedDownloads'][-1], f'open {kept[2]}')
     gone = s.SOCKET.parent / 'Downloads' / kept[2]
     gone.unlink()
-    s.require('a deleted file is not there', next(f['there'] for f in state()['keptFiles'] if f['name'] == kept[2]), False)
+    missing = next(f for f in state()['keptFiles'] if f['name'] == kept[2])
+    s.require('a deleted file is not there', missing['there'], False)
+    s.require('a deleted file does not drag', missing['carries'], [])
     handed = state()['handedDownloads']
     bench('press', *RETURN)
     p = state()
