@@ -6,7 +6,7 @@
 
 import AppKit
 
-struct PlannedExtension: Codable, Equatable {
+struct PlannedExtension: Codable, Hashable {
     var name: String
     /// Nil for an unpacked extension: its folder must be chosen again.
     var storeID: String?
@@ -114,9 +114,8 @@ extension Browser {
     /// on screen's, or, with one set for every Space, every Space's, once.
     var plannedExtensions: [PlannedExtension] {
         guard prefs.sharedExtensions == true else { return space.plannedExtensions ?? [] }
-        var all: [PlannedExtension] = []
-        for item in spaces.flatMap({ $0.plannedExtensions ?? [] }) where !all.contains(item) { all.append(item) }
-        return all
+        var seen = Set<PlannedExtension>()
+        return spaces.flatMap { $0.plannedExtensions ?? [] }.filter { seen.insert($0).inserted }
     }
 
     private func dropPlanned(in space: UUID? = nil, where match: (PlannedExtension) -> Bool) {
