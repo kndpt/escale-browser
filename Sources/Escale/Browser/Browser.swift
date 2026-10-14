@@ -191,6 +191,12 @@ final class Browser: NSObject, ObservableObject {
         engine: { [weak self] in self.map { $0.prefs.engine.name(custom: $0.prefs.customEngine) } ?? "" },
         keyword: { [weak self] typed in self.flatMap { Keyword.search(typed, in: $0.prefs.searchKeywords) } },
         others: { [weak self] in self.map { browser in browser.tabs.filter { ($0.id != browser.activeID || browser.field.opening != nil) && !$0.bench && $0.shy == browser.searchIsPrivate } } ?? [] },
+        elsewhere: { [weak self] in self.map { browser in browser.parkedTabs.filter { !$0.bench && $0.shy == browser.searchIsPrivate } } ?? [] },
+        // With Spaces off, another Space's closed tab has nowhere to reopen.
+        closed: { [weak self] in
+            guard let self, !self.searchIsPrivate else { return [] }
+            return self.prefs.usesSpaces ? self.closedTabs : self.ghosts
+        },
         newTab: { [weak self] in self?.searchingNewTab == true },
         bookmarks: { [weak self] in self?.bookmarks.roots ?? [] },
         bookmarkForTab: { [weak self] tab in
@@ -1921,7 +1927,7 @@ final class Browser: NSObject, ObservableObject {
         submit()
     }
 
-    /// ⌘K. Only what is open, nothing else.
+    /// ⌘K. What is open; once typed, in every Space, and what was just closed.
     func summon() {
         reviewing = false
         cancelTabEdit()
@@ -1953,8 +1959,14 @@ final class Browser: NSObject, ObservableObject {
             return
         }
         field.stopSummoning()
-        if let id = offer.tab {
-            guard let tab = tabs.first(where: { $0.id == id }) else { field.refresh(); return }
+        if let id = offer.ghost {
+            guard let ghost = closedTabs.first(where: { $0.id == id }) else { field.refresh(); return }
+            switchSpace(to: ghost.space, focus: false, waking: false)
+            reopen(ghost)
+        } else if let id = offer.tab {
+            guard let tab = (tabs + parkedTabs).first(where: { $0.id == id }) else { field.refresh(); return }
+            // Another Space's tab is chosen in its own row, where it stays.
+            if tab.space != spaceID { switchSpace(to: tab.space, focus: false, waking: false) }
             select(tab)
         } else {
             navigateFromField(offer.url)
@@ -1997,7 +2009,8 @@ final class Browser: NSObject, ObservableObject {
         }
         let offers = field.offers
         let choice = Choice(of: self)
-        if let selected = field.selected, selected.tab != nil || selected.bookmark != nil || selected.action != nil {
+        if let selected = field.selected,
+           selected.tab != nil || selected.ghost != nil || selected.bookmark != nil || selected.action != nil {
             take(selected)
             return
         }
