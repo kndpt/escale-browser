@@ -44,8 +44,8 @@ extension ExtensionShims {
             owner.offscreen[id] = page
             // Answered once the page has loaded, as Chrome does: the worker's
             // next line is a message to it, and a page still loading has no
-            // one listening yet.
-            for _ in 0..<250 where page.isLoading || page.url == nil {
+            // one listening yet. Not waited for once the extension let it go.
+            for _ in 0..<250 where owner.offscreen[id] === page && (page.isLoading || page.url == nil) {
                 try? await Task.sleep(for: .milliseconds(20))
             }
             return nil

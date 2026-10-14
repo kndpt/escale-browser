@@ -516,7 +516,7 @@ final class Extensions: NSObject, ObservableObject {
         panelPath[id] = nil
         panelOnClick.remove(id)
         popups[id] = nil
-        offscreen[id] = nil
+        offscreen.removeValue(forKey: id)?.stopLoading()
         if let assertion = awake.removeValue(forKey: id) { IOPMAssertionRelease(assertion) }
         try? controller.unload(context)
         contexts[id] = nil
