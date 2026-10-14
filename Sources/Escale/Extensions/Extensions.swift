@@ -102,8 +102,9 @@ final class Extensions: NSObject, ObservableObject {
 
     let space: UUID
     /// Serving every Space rather than its own (`sharesOne`).
-    let shared: Bool
-    let controller: WKWebExtensionController
+    private(set) var shared: Bool
+    /// Made again only by Welcome's choice, before any extension (`remake`).
+    private(set) var controller: WKWebExtensionController
     @Published private(set) var installed: [Installed] = []
     /// The loaded ones, by id.
     @Published private(set) var contexts: [String: WKWebExtensionContext] = [:]
@@ -182,6 +183,13 @@ final class Extensions: NSObject, ObservableObject {
         self.space = space
         shared = space == Space.firstID && Extensions.sharesOne
         WKWebExtension.MatchPattern.registerCustomURLScheme(Extensions.scheme)
+        controller = Extensions.controller(space: space, shared: shared)
+        super.init()
+        controller.delegate = self
+        installed = (try? JSONDecoder().decode([Installed].self, from: Data(contentsOf: list))) ?? []
+    }
+
+    private static func controller(space: UUID, shared: Bool) -> WKWebExtensionController {
         // A test run keeps its extensions' storage apart, as it does its
         // cookies and passwords.
         let configuration: WKWebExtensionController.Configuration = space != Space.firstID
@@ -208,10 +216,42 @@ final class Extensions: NSObject, ObservableObject {
         // worker stop arriving. Not what anyone is testing.
         if Store.testing, !Store.measuring, !Store.beta { views.preferences.inactiveSchedulingPolicy = .none }
         configuration.webViewConfiguration = views
-        controller = WKWebExtensionController(configuration: configuration)
-        super.init()
+        return WKWebExtensionController(configuration: configuration)
+    }
+
+    /// The first Space's owner is made at launch, in the mode stored then;
+    /// Welcome's choice, made before any extension is installed, makes its
+    /// controller again for the other. Tabs made with the old one are made
+    /// again by the caller (ExtensionMode.swift).
+    private func remake() {
+        let sharing = space == Space.firstID && Extensions.sharesOne
+        guard sharing != shared, contexts.isEmpty else { return }
+        let browser = browser
+        for space in opened { controller.didCloseWindow(window(space)) }
+        bag.removeAll()
+        adapters = [:]
+        order = [:]
+        watching = [:]
+        windows = [:]
+        opened = []
+        focused = nil
+        shared = sharing
+        controller = Extensions.controller(space: space, shared: sharing)
         controller.delegate = self
-        installed = (try? JSONDecoder().decode([Installed].self, from: Data(contentsOf: list))) ?? []
+        self.browser = nil
+        if let browser { start(for: browser) }
+    }
+
+    /// After Welcome's choice is stored: the owners made for the other mode
+    /// are let go, or made again for the first Space.
+    static func adopt() {
+        if sharesOne {
+            for (space, owner) in owners where space != Space.firstID {
+                owner.stop()
+                owners[space] = nil
+            }
+        }
+        owners[Space.firstID]?.remake()
     }
 
     // MARK: - starting
@@ -655,6 +695,8 @@ final class Extensions: NSObject, ObservableObject {
         installed.removeAll { $0.id == id }
         installed.append(item)
         save()
+        // The first install settles the mode at the latest (see Welcome).
+        if browser?.prefs.sharedExtensions == nil { browser?.prefs.sharedExtensions = false }
         browser?.installedExtension(item, in: space)
         if await load(item) {
             browser?.announce("\(name) is installed")

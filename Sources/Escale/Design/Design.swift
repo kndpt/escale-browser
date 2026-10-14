@@ -620,6 +620,15 @@ enum Metrics {
     static let arrivalField: CGFloat = 27
     static let arrivalBadge: CGFloat = 8.5
     static let arrivalBadgeInset: CGFloat = 6
+    /// The extensions step's pictures (WelcomeExtensions.swift): a Space's
+    /// tile and its symbol, the gap between tiles, a band of extensions and
+    /// the marks on it, the link from a band down to a Space.
+    static let arrivalModeTile: CGFloat = 34
+    static let arrivalModeSymbol: CGFloat = 13
+    static let arrivalModeGap: CGFloat = 12
+    static let arrivalModeBand: CGFloat = 17
+    static let arrivalModeMark: CGFloat = 8
+    static let arrivalModeLink: CGFloat = 10
     /// The first launch's own Welcome window (Intro.swift): its size, its
     /// corner, and the tile the mark draws itself on before it opens.
     static let introSize = CGSize(width: 600, height: 720)

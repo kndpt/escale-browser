@@ -183,6 +183,9 @@ final class Tab: ObservableObject, Identifiable {
     /// there as it was made (a controller can't be added to a page later).
     @available(macOS 15.4, *)
     var carriesExtensions: Bool { configuration.webExtensionController != nil }
+    /// The one it carries, to tell whether it is still its Space's.
+    @available(macOS 15.4, *)
+    var extensionController: WKWebExtensionController? { configuration.webExtensionController }
     /// Where its cookies and sign-ins are kept.
     var store: WKWebsiteDataStore { configuration.websiteDataStore }
     /// Whoever handles navigation and windows for this page; applied when

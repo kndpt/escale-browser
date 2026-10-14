@@ -162,6 +162,12 @@ final class Preferences: ObservableObject {
     @Published var extensionsInPrivate: Bool {
         didSet { store.set(extensionsInPrivate, forKey: "extensions.private") }
     }
+    /// One set of extensions for every Space, or a set per Space: chosen
+    /// once, at Welcome, or settled per Space by the first install. Nil
+    /// until then, which is per Space (see Extensions.swift).
+    @Published var sharedExtensions: Bool? {
+        didSet { store.set(sharedExtensions, forKey: "extensions.shared") }
+    }
     /// Whether sites may ask for a passkey here. Off sends them to the
     /// password instead — the only thing that works in a build without
     /// Apple's browser entitlement.
@@ -284,6 +290,7 @@ final class Preferences: ObservableObject {
         showsReading = store.object(forKey: "tabs.reading") as? Bool ?? true
         shielded = store.object(forKey: "shield") as? Bool ?? true
         extensionsInPrivate = store.bool(forKey: "extensions.private")
+        sharedExtensions = store.object(forKey: "extensions.shared") as? Bool
         // Offered by default only in a build that can actually do them —
         // one with Apple's browser entitlement and its profile embedded. A
         // choice made while they couldn't work is not a choice about them:

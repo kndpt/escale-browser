@@ -1481,16 +1481,18 @@ final class Browser: NSObject, ObservableObject {
     /// extension's own pages, so the load went nowhere and the button did
     /// nothing. The tab is swapped where it stands for an ordinary one on
     /// the site: to the eye, the page went there. The other way round too:
-    /// an extension sending a website's tab to one of its own pages.
-    func replace(_ tab: Tab, going url: URL) {
+    /// an extension sending a website's tab to one of its own pages. Nil
+    /// leaves the new tab blank.
+    @discardableResult
+    func replace(_ tab: Tab, going url: URL?) -> Tab? {
         // The row it is in, on screen or parked (see Spaces.swift).
         let here = tabs.firstIndex { $0.id == tab.id }
         let there = parked[tab.space]?.tabs.firstIndex { $0.id == tab.id }
-        guard here != nil || there != nil else { return }
+        guard here != nil || there != nil else { return nil }
         // A private tab stays private, and keeps its own sign-ins when it
         // had them; an extension's page it showed was in that extension's
         // store, so going back to the web takes a new private one.
-        let page = Browser.extensionConfiguration(for: url)
+        let page = url.flatMap { Browser.extensionConfiguration(for: $0) }
         let fresh = if tab.shy {
             Tab(shy: true, bench: tab.bench, space: tab.space, configuration: page
                 ?? Web.configuration(shy: true, store: tab.store.isPersistent ? nil : tab.store))
@@ -1506,9 +1508,10 @@ final class Browser: NSObject, ObservableObject {
             parked[tab.space]?.tabs[there] = fresh
             if parked[tab.space]?.active == tab.id { parked[tab.space]?.active = fresh.id }
         }
-        fresh.go(to: url)
+        if let url { fresh.go(to: url) }
         tab.close()
         rememberSession(tab.space)
+        return fresh
     }
 
     /// An address from before extensions moved to chrome-extension://, as
