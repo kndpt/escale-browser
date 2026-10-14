@@ -56,8 +56,8 @@ file header states its own bounds.
 
 | Lifetime | Owners and resources | End condition |
 |---|---|---|
-| Application | preferences, icon cache, updater, link routes | Quit. Only deliberately shared state lives here. |
-| Space | session, bookmarks, history, `Habits`, downloads, passwords, site settings, website store, extension controller, GitHub state | Space deletion; switching only parks a Space. |
+| Application | preferences, icon cache, updater, link routes; with shared extensions, the extension controller and its pages' store (`Store.extensionPages`) | Quit. Only deliberately shared state lives here. |
+| Space | session, bookmarks, history, `Habits`, downloads, passwords, site settings, website store, extension controller per Space, GitHub state | Space deletion; switching only parks a Space. |
 | Tab | address, title, page configuration, subscriptions, `Media`, `Calls`, page tools | Close or replacement. Sleep keeps metadata, not a page. |
 | Split | `Panels`, observed by `PanelStage` | Two or three tab identities per group; a singleton dissolves. No group owns a page. |
 | Background media | `Media` per tab, `Playback` per window, observed by `MiniPlayer` | Navigation, sleep, close or dismissal ([MEDIA](MEDIA.md)). |
@@ -70,8 +70,11 @@ file header states its own bounds.
 - Resolve callbacks, downloads, preferences and saves against the owning tab
   and Space, parked ones included: the Space on screen is not the registry of
   live tabs. Read `Spaces.current` only for a new user action.
-- Each Space owns its files, keychain items, site settings, WebKit store and
-  extension controller; a switch never exposes another Space's data.
+- Each Space owns its files, keychain items, site settings, WebKit store and,
+  per Space, extension controller; a switch never exposes another Space's
+  data. Shared, the first Space's `Extensions` owner serves every Space, each
+  Space a WebKit window of it, and neither a Space's deletion nor its cleared
+  data reaches it.
 - `Tab.built` inspects an existing page; `Tab.web` may build one and is an
   action. Menus, caches, status queries and background policies never wake a tab.
 - Closing is terminal. A delayed callback checks its page or generation and the
