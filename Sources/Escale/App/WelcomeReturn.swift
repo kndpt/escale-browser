@@ -15,6 +15,9 @@ final class WelcomeReturn {
     private(set) var step: WelcomePanel.Step?
     /// Whether this setup imported anything, for the last step's summary.
     var imported = false
+    /// Whether this setup chose how extensions are kept, so its step stays
+    /// in the arrival to be chosen again while nothing is installed.
+    var choseExtensions = false
     private var wait: AnyCancellable?
     /// The tab opened for the code, the only one closed once GitHub agrees.
     private weak var codeTab: Tab?
@@ -50,6 +53,7 @@ final class WelcomeReturn {
     func end() {
         step = nil
         imported = false
+        choseExtensions = false
         wait = nil
         codeTab = nil
     }

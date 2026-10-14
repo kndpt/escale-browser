@@ -1966,6 +1966,8 @@ final class Bench {
             "space": tab.space.uuidString,
             "store": tab.store.identifier?.uuidString ?? "default",
             "extensions": { if #available(macOS 15.4, *) { return tab.carriesExtensions } else { return false } }(),
+            // Carrying its Space's controller as it is now, not one made before Welcome's choice.
+            "extensionsCurrent": { if #available(macOS 15.4, *) { return tab.extensionController.map { $0 === Extensions.forSpace(tab.space).controller } ?? false } else { return false } }(),
         ]
         if Store.measuring, let page = tab.built, let firstVisibleAt = page.firstVisibleAt {
             out["firstVisibleAt"] = firstVisibleAt

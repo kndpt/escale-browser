@@ -1,8 +1,10 @@
 // Arrival is four short steps, not a prerequisite. First the choices that
 // change what the very next window looks like — theme, where tabs go, which
 // browser opens links — because they are seen at once and cost nothing to
-// undo. Then the offer to bring bookmarks, history and passwords along, which
-// can be skipped and done later from Settings. Choosing to import embeds the
+// undo. On a first arrival with no extension yet, a fifth step asks how
+// extensions are kept (WelcomeExtensions.swift): the one choice that lasts,
+// so never beside the free ones. Then the offer to bring bookmarks, history
+// and passwords along, which can be skipped and done later from Settings. Choosing to import embeds the
 // same interaction as Settings. No profile discovery runs before selection.
 // Then Bearings GitHub (WelcomeGitHub.swift): it works without an account, so
 // connecting and staying local are offered side by side. It comes late because
@@ -33,8 +35,12 @@ struct WelcomePanel: View {
     @State private var importedDuringSetup: Bool
     @State private var confirmingSkip = false
     @State private var githubMode = GitHubSpecimen.Mode.github
+    /// Whether this arrival asks how extensions are kept, settled as it
+    /// opens so the steps it counts don't change under it.
+    @State private var asksExtensions: Bool
+    @State private var sharesExtensions: Bool
 
-    enum Step: Int { case personalise, bring, importing, github, done }
+    enum Step: Int { case personalise, extensions, bring, importing, github, done }
 
     init(browser: Browser, prefs: Preferences) {
         self.browser = browser
@@ -44,6 +50,12 @@ struct WelcomePanel: View {
         transfer = browser.transfer
         _step = State(initialValue: browser.welcomeReturn.step ?? .personalise)
         _importedDuringSetup = State(initialValue: browser.welcomeReturn.imported)
+        _asksExtensions = State(initialValue: WelcomePanel.asksForExtensions(
+            welcomed: prefs.welcomed,
+            decided: prefs.sharedExtensions != nil && !browser.welcomeReturn.choseExtensions,
+            installed: browser.hasExtensions))
+        // The first answer is preselected, as on a first arrival.
+        _sharesExtensions = State(initialValue: prefs.sharedExtensions ?? true)
     }
 
     var body: some View {
@@ -58,6 +70,7 @@ struct WelcomePanel: View {
                             Group {
                                 switch step {
                                 case .personalise: personalise
+                                case .extensions: extensions
                                 case .bring: bring
                                 case .importing: importing
                                 case .github: github
@@ -124,12 +137,20 @@ struct WelcomePanel: View {
         }
     }
 
-    /// Where you are in the four steps: the current one drawn long, those
-    /// done in ink, those ahead faint.
+    /// Where you are in the four steps, five with extensions: the current
+    /// one drawn long, those done in ink, those ahead faint.
     private var progress: some View {
-        let position = switch step { case .personalise: 0; case .bring, .importing: 1; case .github: 2; case .done: 3 }
+        let extra = asksExtensions ? 1 : 0
+        let count = 4 + extra
+        let position = switch step {
+        case .personalise: 0
+        case .extensions: 1
+        case .bring, .importing: 1 + extra
+        case .github: 2 + extra
+        case .done: 3 + extra
+        }
         return HStack(spacing: metrics.length(Metrics.arrivalDot)) {
-            ForEach(0..<4, id: \.self) { index in
+            ForEach(0..<count, id: \.self) { index in
                 Capsule()
                     .fill(index <= position ? Palette.ink : Palette.faint)
                     .frame(width: metrics.length(index == position ? Metrics.arrivalDotWide : Metrics.arrivalDot),
@@ -138,7 +159,7 @@ struct WelcomePanel: View {
         }
         .animation(reduceMotion ? nil : Motion.arrival, value: position)
         .accessibilityElement()
-        .accessibilityLabel("Step \(position + 1) of 4")
+        .accessibilityLabel("Step \(position + 1) of \(count)")
     }
 
     // MARK: - step one: make it yours
@@ -195,6 +216,27 @@ struct WelcomePanel: View {
         }
         .padding(metrics.length(Metrics.arrivalCardInset))
         .background(Palette.wash, in: RoundedRectangle(cornerRadius: metrics.length(Metrics.arrivalChoiceRadius), style: .continuous))
+    }
+
+    // MARK: - extensions, on a first arrival
+
+    private var extensions: some View {
+        VStack(alignment: .leading, spacing: metrics.length(Metrics.arrivalGap)) {
+            heading("How should your extensions work?",
+                    "Each Space keeps its own sites, sign-ins and history. Choose whether extensions follow you into every Space.")
+            HStack(alignment: .top, spacing: metrics.length(Metrics.arrivalRowGap)) {
+                ExtensionModeChoice(shared: true, chosen: sharesExtensions, badge: "Recommended") { sharesExtensions = true }
+                ExtensionModeChoice(shared: false, chosen: !sharesExtensions) { sharesExtensions = false }
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .firstTextBaseline, spacing: metrics.length(Metrics.arrivalLine) * 2) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: metrics.length(Metrics.arrivalSmall)))
+                    .foregroundStyle(Palette.muted)
+                    .accessibilityHidden(true)
+                note("You choose this once. Sites and sign-ins stay separate in every Space either way.")
+            }
+        }
     }
 
     // MARK: - step two: bring your browsing
@@ -274,7 +316,8 @@ struct WelcomePanel: View {
     private var back: (() -> Void)? {
         switch step {
         case .personalise: return nil
-        case .bring: return { go(.personalise) }
+        case .extensions: return { go(.personalise) }
+        case .bring: return { go(asksExtensions ? .extensions : .personalise) }
         case .importing: return { browser.migration.pause(); go(.bring) }
         case .github: return { go(.bring) }
         case .done: return { go(.github) }
@@ -284,9 +327,16 @@ struct WelcomePanel: View {
     @ViewBuilder private var actions: some View {
         switch step {
         case .personalise:
-            Button("Continue") { go(.bring) }
+            Button("Continue") { go(asksExtensions ? .extensions : .bring) }
                 .buttonStyle(MigrationButton())
                 .keyboardShortcut(.defaultAction)
+        case .extensions:
+            Button("Continue") {
+                browser.chooseExtensions(shared: sharesExtensions)
+                go(.bring)
+            }
+            .buttonStyle(MigrationButton())
+            .keyboardShortcut(.defaultAction)
         case .bring:
             Button("Continue without importing") { go(.github) }
                 .buttonStyle(MigrationButton(kind: .secondary))
