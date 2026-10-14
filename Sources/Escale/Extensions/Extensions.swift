@@ -1491,7 +1491,6 @@ private struct ExtensionMenu: View {
         VStack(alignment: .leading, spacing: 0) {
             let buttons = extensions.buttons
             if let whose = extensions.whose {
-                // Which set this is: every Space's, or the one on screen's.
                 Text(extensions.shared ? "Every Space" : whose)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Palette.muted)
