@@ -283,32 +283,32 @@ enum ExtensionShims {
         switch api {
         // MARK: bookmarks
         case "bookmarks.getTree":
-            return [root(browser.bookmarks(of: owner.space).roots)]
+            return [root(browser.bookmarks(of: owner.here).roots)]
         case "bookmarks.getSubTree":
             guard let key = first as? String else { return [] }
-            if key == "0" { return [root(browser.bookmarks(of: owner.space).roots)] }
-            if key == "1" { return [bar(browser.bookmarks(of: owner.space).roots)] }
-            return find(key, in: browser.bookmarks(of: owner.space).roots).map { [node($0.node, parent: $0.parent, index: $0.index, deep: true)] } ?? []
+            if key == "0" { return [root(browser.bookmarks(of: owner.here).roots)] }
+            if key == "1" { return [bar(browser.bookmarks(of: owner.here).roots)] }
+            return find(key, in: browser.bookmarks(of: owner.here).roots).map { [node($0.node, parent: $0.parent, index: $0.index, deep: true)] } ?? []
         case "bookmarks.getChildren":
             let key = first as? String ?? "1"
-            if key == "0" { return [bar(browser.bookmarks(of: owner.space).roots, deep: false)] }
-            let kids = key == "1" ? browser.bookmarks(of: owner.space).roots : (find(key, in: browser.bookmarks(of: owner.space).roots)?.node.children ?? [])
+            if key == "0" { return [bar(browser.bookmarks(of: owner.here).roots, deep: false)] }
+            let kids = key == "1" ? browser.bookmarks(of: owner.here).roots : (find(key, in: browser.bookmarks(of: owner.here).roots)?.node.children ?? [])
             return kids.enumerated().map { node($1, parent: key, index: $0, deep: false) }
         case "bookmarks.get":
             let keys = (first as? [String]) ?? (first as? String).map { [$0] } ?? []
             return keys.compactMap { key in
-                find(key, in: browser.bookmarks(of: owner.space).roots).map { node($0.node, parent: $0.parent, index: $0.index, deep: false) }
+                find(key, in: browser.bookmarks(of: owner.here).roots).map { node($0.node, parent: $0.parent, index: $0.index, deep: false) }
             }
         case "bookmarks.getRecent":
             let count = (first as? Int) ?? 10
-            return flat(browser.bookmarks(of: owner.space).roots).filter { !$0.node.isFolder }.suffix(count).reversed()
+            return flat(browser.bookmarks(of: owner.here).roots).filter { !$0.node.isFolder }.suffix(count).reversed()
                 .map { node($0.node, parent: $0.parent, index: $0.index, deep: false) }
         case "bookmarks.search":
             let query = (first as? String) ?? ((first as? [String: Any])?["query"] as? String) ?? ""
             let wantURL = (first as? [String: Any])?["url"] as? String
             let wantTitle = (first as? [String: Any])?["title"] as? String
             let words = query.lowercased().split(separator: " ").map(String.init)
-            return flat(browser.bookmarks(of: owner.space).roots).filter { hit in
+            return flat(browser.bookmarks(of: owner.here).roots).filter { hit in
                 let n = hit.node
                 if let wantURL, n.url != wantURL { return false }
                 if let wantTitle, n.title != wantTitle { return false }
@@ -321,24 +321,24 @@ enum ExtensionShims {
             let parent = (spec["parentId"] as? String).flatMap(UUID.init(uuidString:))
             let made: Bookmark
             if let url = (spec["url"] as? String).flatMap(URL.init(string:)) {
-                made = browser.bookmarks(of: owner.space).insert(.site(title, url), into: parent)
+                made = browser.bookmarks(of: owner.here).insert(.site(title, url), into: parent)
             } else {
-                made = browser.bookmarks(of: owner.space).insert(.folder(title, []), into: parent)
+                made = browser.bookmarks(of: owner.here).insert(.folder(title, []), into: parent)
             }
             return node(made, parent: parent?.uuidString ?? "1", index: 0, deep: false)
         case "bookmarks.update":
             guard let key = first as? String, let uuid = UUID(uuidString: key) else { throw Unsupported(what: "No such bookmark") }
             let changes = args.count > 1 ? args[1] as? [String: Any] ?? [:] : [:]
-            browser.bookmarks(of: owner.space).update(uuid, title: changes["title"] as? String, url: changes["url"] as? String)
-            return find(key, in: browser.bookmarks(of: owner.space).roots).map { node($0.node, parent: $0.parent, index: $0.index, deep: false) }
+            browser.bookmarks(of: owner.here).update(uuid, title: changes["title"] as? String, url: changes["url"] as? String)
+            return find(key, in: browser.bookmarks(of: owner.here).roots).map { node($0.node, parent: $0.parent, index: $0.index, deep: false) }
         case "bookmarks.move":
             guard let key = first as? String, let uuid = UUID(uuidString: key) else { throw Unsupported(what: "No such bookmark") }
             let target = (args.count > 1 ? args[1] as? [String: Any] : nil)?["parentId"] as? String
-            browser.bookmarks(of: owner.space).move(uuid, into: target.flatMap(UUID.init(uuidString:)))
-            return find(key, in: browser.bookmarks(of: owner.space).roots).map { node($0.node, parent: $0.parent, index: $0.index, deep: false) }
+            browser.bookmarks(of: owner.here).move(uuid, into: target.flatMap(UUID.init(uuidString:)))
+            return find(key, in: browser.bookmarks(of: owner.here).roots).map { node($0.node, parent: $0.parent, index: $0.index, deep: false) }
         case "bookmarks.remove", "bookmarks.removeTree":
             guard let key = first as? String, let uuid = UUID(uuidString: key) else { throw Unsupported(what: "No such bookmark") }
-            browser.bookmarks(of: owner.space).remove(uuid)
+            browser.bookmarks(of: owner.here).remove(uuid)
             return nil
 
         // MARK: history
@@ -349,46 +349,46 @@ enum ExtensionShims {
                 ?? Date().addingTimeInterval(-24 * 3600)
             let end = (spec["endTime"] as? Double).map { Date(timeIntervalSince1970: $0 / 1000) } ?? .distantFuture
             let limit = spec["maxResults"] as? Int ?? 100
-            return browser.history(for: owner.space).everything(matching: text)
+            return browser.history(for: owner.here).everything(matching: text)
                 .filter { $0.last >= start && $0.last <= end }
                 .sorted { $0.last > $1.last }
                 .prefix(limit)
                 .map(visit)
         case "history.getVisits":
             let url = (first as? [String: Any])?["url"] as? String ?? ""
-            return browser.history(for: owner.space).everything().filter { $0.url.absoluteString == url }.map { trace in
+            return browser.history(for: owner.here).everything().filter { $0.url.absoluteString == url }.map { trace in
                 ["id": trace.key, "visitId": "1", "visitTime": trace.last.timeIntervalSince1970 * 1000,
                  "referringVisitId": "0", "transition": "link"]
             }
         case "history.addUrl":
             if let url = ((first as? [String: Any])?["url"] as? String).flatMap(URL.init(string:)) {
-                browser.history(for: owner.space).record(url, title: "")
+                browser.history(for: owner.here).record(url, title: "")
             }
             return nil
         case "history.deleteUrl":
             let url = (first as? [String: Any])?["url"] as? String ?? ""
-            for trace in browser.history(for: owner.space).everything() where trace.url.absoluteString == url {
-                browser.history(for: owner.space).forget(trace.key)
+            for trace in browser.history(for: owner.here).everything() where trace.url.absoluteString == url {
+                browser.history(for: owner.here).forget(trace.key)
             }
-            if let address = URL(string: url) { browser.localhost.forget(url: address, in: owner.space) }
+            if let address = URL(string: url) { browser.localhost.forget(url: address, in: owner.here) }
             return nil
         case "history.deleteRange":
             let spec = first as? [String: Any] ?? [:]
             let start = Date(timeIntervalSince1970: (spec["startTime"] as? Double ?? 0) / 1000)
             let end = Date(timeIntervalSince1970: (spec["endTime"] as? Double ?? 0) / 1000)
-            for trace in browser.history(for: owner.space).everything() where trace.last >= start && trace.last <= end {
-                browser.history(for: owner.space).forget(trace.key)
+            for trace in browser.history(for: owner.here).everything() where trace.last >= start && trace.last <= end {
+                browser.history(for: owner.here).forget(trace.key)
             }
-            browser.localhost.forget(from: start, through: end, in: owner.space)
+            browser.localhost.forget(from: start, through: end, in: owner.here)
             return nil
         case "history.deleteAll":
-            browser.history(for: owner.space).forget()
-            browser.localhost.forget(space: owner.space)
+            browser.history(for: owner.here).forget()
+            browser.localhost.forget(space: owner.here)
             return nil
 
         // MARK: downloads
         case "downloads.download":
-            guard browser.spaceID == owner.space else { throw Unsupported(what: "Switch to this space to start a download") }
+            guard browser.spaceID == owner.here else { throw Unsupported(what: "Switch to this space to start a download") }
             let spec = first as? [String: Any] ?? [:]
             guard let url = (spec["url"] as? String).flatMap(URL.init(string:)) else { throw Unsupported(what: "No url to download") }
             guard let web = browser.active?.built ?? browser.tabs.lazy.compactMap(\.built).first else {
@@ -399,26 +399,26 @@ enum ExtensionShims {
                 browser.downloads.name(name, for: url)
             }
             browser.keep(download)
-            return browser.loot(for: owner.space).kept.count + 1
+            return browser.loot(for: owner.here).kept.count + 1
         case "downloads.search":
-            return browser.loot(for: owner.space).kept.enumerated().map { index, keep in
+            return browser.loot(for: owner.here).kept.enumerated().map { index, keep in
                 ["id": index + 1, "url": keep.url.absoluteString, "finalUrl": keep.url.absoluteString,
                  "filename": keep.path, "state": "complete", "exists": keep.stillThere,
                  "startTime": ISO8601DateFormatter().string(from: keep.date), "mime": ""] as [String: Any]
             }
         case "downloads.open", "downloads.show":
-            guard let index = first as? Int, browser.loot(for: owner.space).kept.indices.contains(index - 1) else { return nil }
-            let keep = browser.loot(for: owner.space).kept[index - 1]
-            guard api == "downloads.open" else { browser.loot(for: owner.space).reveal(keep); return nil }
+            guard let index = first as? Int, browser.loot(for: owner.here).kept.indices.contains(index - 1) else { return nil }
+            let keep = browser.loot(for: owner.here).kept[index - 1]
+            guard api == "downloads.open" else { browser.loot(for: owner.here).reveal(keep); return nil }
             // Chrome wants a click for this; a call through the bridge carries
             // none, so the person is asked instead.
             guard await owner.ask(open: keep.name, context: context) else {
                 throw Unsupported(what: "Opening \u{201C}\(keep.name)\u{201D} wasn't allowed")
             }
-            browser.loot(for: owner.space).open(keep)
+            browser.loot(for: owner.here).open(keep)
             return nil
         case "downloads.showDefaultFolder":
-            NSWorkspace.shared.open(browser.downloadsFolder(for: owner.space))
+            NSWorkspace.shared.open(browser.downloadsFolder(for: owner.here))
             return nil
         case "downloads.erase":
             return []
@@ -521,7 +521,7 @@ enum ExtensionShims {
                 let script = manifest["service_worker"] as? String ?? manifest["page"] as? String
                 add("BACKGROUND", script.map { context.baseURL.appendingPathComponent($0) })
             }
-            if ExtensionPopup.shared.extensionID == id, ExtensionPopup.shared.space == owner.space {
+            if ExtensionPopup.shared.extensionID == id, let space = ExtensionPopup.shared.space, owner.shared || space == owner.here {
                 add("POPUP", ExtensionPopup.shared.view?.url)
             }
             if let page = offscreen[scope] { add("OFFSCREEN_DOCUMENT", page.url) }
@@ -681,7 +681,7 @@ enum ExtensionShims {
                 return ["url": visible[index].address?.absoluteString ?? "", "title": visible[index].title]
             }
         case "tabs.move", "tabs.discard", "tabs.activate":
-            guard browser.spaceID == owner.space else { throw Unsupported(what: "This space is parked") }
+            guard browser.spaceID == owner.here else { throw Unsupported(what: "This space is parked") }
             let visible = owner.visibleTabs
             guard let from = first as? Int, visible.indices.contains(from) else { throw Unsupported(what: "No tab there") }
             let tab = visible[from]
@@ -699,7 +699,7 @@ enum ExtensionShims {
 
         // MARK: search
         case "search.query":
-            guard browser.spaceID == owner.space else { throw Unsupported(what: "This space is parked") }
+            guard browser.spaceID == owner.here else { throw Unsupported(what: "This space is parked") }
             let spec = first as? [String: Any] ?? [:]
             // Chrome sends it to the default engine: a person's keywords are for what they type.
             let text = spec["text"] as? String ?? ""
@@ -759,7 +759,7 @@ enum ExtensionShims {
         // MARK: sessions — the tabs you closed
         case "sessions.getRecentlyClosed":
             let limit = (first as? [String: Any])?["maxResults"] as? Int ?? 25
-            return browser.ghosts(in: owner.space).reversed().prefix(limit).map { ghost in
+            return browser.ghosts(in: owner.here).reversed().prefix(limit).map { ghost in
                 ["lastModified": Int(Date().timeIntervalSince1970),
                  "tab": ["sessionId": ghost.id.uuidString, "url": ghost.url.absoluteString, "title": ghost.title,
                          "index": ghost.index, "windowId": 1, "active": false, "pinned": false, "highlighted": false,
@@ -768,8 +768,8 @@ enum ExtensionShims {
         case "sessions.getDevices":
             return []
         case "sessions.restore":
-            guard browser.spaceID == owner.space else { throw Unsupported(what: "This space is parked") }
-            let ghost = (first as? String).flatMap { key in browser.ghosts(in: owner.space).first { $0.id.uuidString == key } } ?? browser.ghosts(in: owner.space).last
+            guard browser.spaceID == owner.here else { throw Unsupported(what: "This space is parked") }
+            let ghost = (first as? String).flatMap { key in browser.ghosts(in: owner.here).first { $0.id.uuidString == key } } ?? browser.ghosts(in: owner.here).last
             guard let ghost else { throw Unsupported(what: "Nothing to restore") }
             browser.reopen(ghost)
             return ["lastModified": Int(Date().timeIntervalSince1970),
@@ -778,7 +778,7 @@ enum ExtensionShims {
         // MARK: top sites — the most visited in history
         case "topSites.get":
             var visits: [String: (url: URL, title: String, count: Int)] = [:]
-            for trace in browser.history(for: owner.space).everything() {
+            for trace in browser.history(for: owner.here).everything() {
                 guard let host = trace.url.host() else { continue }
                 visits[host, default: (trace.url, trace.title, 0)].count += 1
             }
@@ -819,7 +819,7 @@ enum ExtensionShims {
         case "identity.launchWebAuthFlow":
             let spec = first as? [String: Any] ?? [:]
             guard let url = (spec["url"] as? String).flatMap(URL.init(string:)) else { throw Unsupported(what: "No authorization url") }
-            guard browser.spaceID == owner.space else { throw Unsupported(what: "This space is parked") }
+            guard browser.spaceID == owner.here else { throw Unsupported(what: "This space is parked") }
             return try await ExtensionAuth.run(url, extension: id, browser: browser).absoluteString
         case "identity.getProfileUserInfo":
             return ["email": "", "id": ""]
@@ -969,7 +969,7 @@ enum ExtensionShims {
             "webSQL": [WKWebsiteDataTypeWebSQLDatabases], "fileSystems": [WKWebsiteDataTypeFileSystem],
         ]
         for (key, on) in what where on { types.formUnion(map[key] ?? []) }
-        let store = Spaces.store(for: owner.space)
+        let store = Spaces.store(for: owner.here)
         if !types.isEmpty {
             if let origins {
                 let records = await store.dataRecords(ofTypes: types)
@@ -980,8 +980,8 @@ enum ExtensionShims {
             }
         }
         if what["history"] == true, origins == nil {
-            for trace in browser.history(for: owner.space).everything() where trace.last >= since { browser.history(for: owner.space).forget(trace.key) }
-            browser.localhost.forget(from: since, in: owner.space)
+            for trace in browser.history(for: owner.here).everything() where trace.last >= since { browser.history(for: owner.here).forget(trace.key) }
+            browser.localhost.forget(from: since, in: owner.here)
         }
     }
 
@@ -990,7 +990,7 @@ enum ExtensionShims {
     }
 
     static func openPanel(_ context: WKWebExtensionContext, owner: Extensions) {
-        guard owner.browser?.spaceID == owner.space else { return }
+        guard owner.browser?.spaceID == owner.here else { return }
         guard let path = panelPath[owner.scope(context.uniqueIdentifier)] ?? defaultPanel(context) else { return }
         let url = context.baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
         owner.browser?.open(url, foreground: true)

@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "Escale shared fixture",
+  "version": "1.0",
+  "description": "Test fixture for Tests/Bench/shared_extensions.py: storage and tabs, from every Space.",
+  "permissions": ["storage", "tabs"],
+  "background": { "service_worker": "worker.js" },
+  "action": { "default_popup": "popup.html" }
+}

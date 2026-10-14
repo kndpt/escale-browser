@@ -17,6 +17,15 @@ import Combine
 // is represented to WebKit by a small adapter kept here. A tab can be in the
 // row with no web view at all — asleep, or put down — and is reported with
 // none; `built` is read, never `web`, which would make one.
+//
+// Each Space has its own extensions, unless one set serves every Space
+// (`sharesOne`, chosen once at Welcome). A tab carries one controller, which
+// runs every extension it holds in every page attached to it, and an
+// extension's sign-in lives in its controller: so it is a mode, not a choice
+// per extension. Shared, the first Space's owner serves them all, its pages
+// in a store that is no Space's, and each Space is a window to WebKit, the
+// one on screen focused. Sites stay per Space either way: the tabs keep
+// their Space's store.
 
 /// One installed extension, as the list in Settings shows it.
 struct Installed: Codable, Identifiable, Equatable {
@@ -45,9 +54,17 @@ final class Extensions: NSObject, ObservableObject {
     private static var owners: [UUID: Extensions] = [:]
     static var shared: Extensions { forSpace(Spaces.current) }
 
+    /// One set of extensions for every Space, chosen at Welcome. Absent is
+    /// per Space, what there was before the choice.
+    nonisolated static var sharesOne: Bool { Store.settings.bool(forKey: "extensions.shared") }
+
+    /// The Space whose owner serves `space`: its own, or the first's.
+    nonisolated static func owner(of space: UUID, sharing: Bool = sharesOne) -> UUID { sharing ? Space.firstID : space }
+
     /// What a Space keeps installed, read from its list without building its
     /// WebKit controller and data store: a transfer file must not wake Spaces.
     static func saved(space: UUID) -> [Installed] {
+        let space = owner(of: space)
         if let owner = owners[space] { return owner.installed }
         let folder = Store.file(space == Space.firstID ? "Extensions" : "Extensions-\(space.uuidString)")
         let data = try? Data(contentsOf: folder.appendingPathComponent("installed.json"))
@@ -55,6 +72,7 @@ final class Extensions: NSObject, ObservableObject {
     }
 
     static func forSpace(_ space: UUID) -> Extensions {
+        let space = owner(of: space)
         if let owner = owners[space] { return owner }
         let owner = Extensions(space: space)
         owners[space] = owner
@@ -83,6 +101,8 @@ final class Extensions: NSObject, ObservableObject {
     }
 
     let space: UUID
+    /// Serving every Space rather than its own (`sharesOne`).
+    let shared: Bool
     let controller: WKWebExtensionController
     @Published private(set) var installed: [Installed] = []
     /// The loaded ones, by id.
@@ -104,10 +124,29 @@ final class Extensions: NSObject, ObservableObject {
 
     weak var browser: Browser?
     private var adapters: [Tab.ID: ExtensionTab] = [:]
-    private var order: [Tab.ID] = []
+    /// Each window's tabs, in the order WebKit was last told.
+    private var order: [UUID: [Tab.ID]] = [:]
     private var watching: [Tab.ID: [AnyCancellable]] = [:]
     private var bag = Set<AnyCancellable>()
-    private(set) lazy var window = ExtensionWindow(owner: self)
+    /// A window per Space this owner sees, by Space, and those WebKit was
+    /// told are open.
+    private var windows: [UUID: ExtensionWindow] = [:]
+    private var opened: [UUID] = []
+    private var focused: UUID?
+
+    func window(_ space: UUID) -> ExtensionWindow {
+        if let made = windows[space] { return made }
+        let made = ExtensionWindow(owner: self, space: space)
+        windows[space] = made
+        return made
+    }
+
+    /// The window in front: the Space on screen's.
+    var window: ExtensionWindow { window(here) }
+
+    /// The Space this owner answers for when nothing says which: its own,
+    /// or, serving every Space, the one on screen.
+    var here: UUID { shared ? browser?.spaceID ?? space : space }
     /// Where each extension's button is on screen, for its popup to hang from.
     var anchors: [String: WeakView] = [:]
 
@@ -141,18 +180,22 @@ final class Extensions: NSObject, ObservableObject {
 
     private init(space: UUID) {
         self.space = space
+        shared = space == Space.firstID && Extensions.sharesOne
         WKWebExtension.MatchPattern.registerCustomURLScheme(Extensions.scheme)
         // A test run keeps its extensions' storage apart, as it does its
         // cookies and passwords.
         let configuration: WKWebExtensionController.Configuration = space != Space.firstID
             ? .init(identifier: space)
             : (Store.testing && !Store.ownContainer ? .init(identifier: Store.probeStore(2)) : .default())
-        configuration.defaultWebsiteDataStore = Spaces.store(for: space)
+        // Shared, an extension's pages are no Space's: `chrome.cookies`
+        // without a store id reads theirs, and clearing a Space keeps them.
+        let pages = shared ? Store.extensionPages : Spaces.store(for: space)
+        configuration.defaultWebsiteDataStore = pages
         let views = configuration.webViewConfiguration ?? WKWebViewConfiguration()
         // Its own configuration starts with WebKit's default store; an
         // extension's pages keep what they store where the browser does —
         // and a test run's apart from the real one's.
-        views.websiteDataStore = Spaces.store(for: space)
+        views.websiteDataStore = pages
         // The same user agent as the web tabs, to the letter. WebKit gives
         // workers the user agent of the last page that loaded and, when it
         // differs, stops the running workers to apply it — and extension
@@ -176,10 +219,9 @@ final class Extensions: NSObject, ObservableObject {
     func start(for browser: Browser) {
         guard self.browser == nil else { return }
         self.browser = browser
-        controller.didOpenWindow(window)
         browser.$tabs
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] tabs in self?.follow(tabs) }
+            .sink { [weak self] _ in self?.follow() }
             .store(in: &bag)
         browser.$activeID
             .removeDuplicates()
@@ -190,9 +232,17 @@ final class Extensions: NSObject, ObservableObject {
         browser.$spaceID
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                DispatchQueue.main.async { self?.follow(self?.row ?? []) }
+                DispatchQueue.main.async { self?.follow() }
             }
             .store(in: &bag)
+        // A Space made or deleted is a window opened or closed.
+        if shared {
+            browser.$spaces
+                .dropFirst()
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in self?.follow() }
+                .store(in: &bag)
+        }
         // Once the window is up: loading one takes the main thread for tens
         // of milliseconds (uBlock Origin Lite, 45), and the first frame
         // waited behind it.
@@ -210,6 +260,7 @@ final class Extensions: NSObject, ObservableObject {
                 checkForUpdates()
             }
         }
+        follow()
     }
 
     private func stop() {
@@ -221,11 +272,20 @@ final class Extensions: NSObject, ObservableObject {
         for observer in errorWatchers.values { NotificationCenter.default.removeObserver(observer) }
         errorWatchers = [:]
         ExtensionShims.release(space: space)
-        controller.didCloseWindow(window)
+        for space in opened { controller.didCloseWindow(window(space)) }
+        opened = []
         browser = nil
     }
 
-    private var row: [Tab] {
+    /// The Spaces this owner sees: its own, or, serving every Space, each
+    /// with a row, on screen or parked, in the rail's order.
+    private var seenSpaces: [UUID] {
+        guard let browser else { return [] }
+        guard shared else { return [space] }
+        return browser.spaces.map(\.id).filter { $0 == browser.spaceID || browser.parked[$0] != nil }
+    }
+
+    private func row(_ space: UUID) -> [Tab] {
         guard let browser else { return [] }
         let tabs = browser.spaceID == space ? browser.tabs : browser.parked[space]?.tabs ?? []
         return tabs.filter { $0.space == space }
@@ -245,20 +305,63 @@ final class Extensions: NSObject, ObservableObject {
     /// carry the controller; one made before the switch has no page an
     /// extension could reach.
     private func seen(_ tab: Tab) -> Bool { !tab.shy || tab.carriesExtensions }
-    var visibleTabs: [Tab] { row.filter(seen) }
+    func visibleTabs(in space: UUID) -> [Tab] { row(space).filter(seen) }
+    /// The window in front's: what a tab's place in the row is counted in.
+    var visibleTabs: [Tab] { visibleTabs(in: here) }
 
-    var activeAdapter: ExtensionTab? {
-        guard let browser, browser.spaceID == space, let tab = browser.active, seen(tab) else { return nil }
+    /// The tab selected in a Space's window: the one on screen's, or a
+    /// parked Space's when one owner serves them all.
+    func activeID(in space: UUID) -> Tab.ID? {
+        guard let browser else { return nil }
+        if browser.spaceID == space { return browser.activeID }
+        return shared ? browser.parked[space]?.active : nil
+    }
+
+    func activeAdapter(in space: UUID) -> ExtensionTab? {
+        guard let id = activeID(in: space), let tab = row(space).first(where: { $0.id == id }), seen(tab) else { return nil }
         return adapter(for: tab)
     }
 
-    /// This controller sees one space's row, including while that space is
-    /// parked. Switching the visible space does not report its tabs as closed.
-    /// Actual closes and moves are reported only to this space's controller;
-    /// parked pages and their content scripts retain the same owner.
-    private func follow(_ tabs: [Tab]) {
-        let now = row.filter(seen)
+    var activeAdapter: ExtensionTab? {
+        guard let browser, browser.spaceID == here, let tab = browser.active, seen(tab) else { return nil }
+        return adapter(for: tab)
+    }
+
+    /// Each window holds its Space's row, including while that Space is
+    /// parked: switching the visible Space does not report its tabs as
+    /// closed, only which window is in front. Actual closes and moves are
+    /// reported to the owner of the tab's Space; parked pages and their
+    /// content scripts retain the same owner.
+    private func follow() {
+        let spaces = seenSpaces
+        for space in opened where !spaces.contains(space) {
+            for id in order[space] ?? [] {
+                if let adapter = adapters[id] { controller.didCloseTab(adapter, windowIsClosing: true) }
+                adapters[id] = nil
+                watching[id] = nil
+            }
+            order[space] = nil
+            controller.didCloseWindow(window(space))
+            windows[space] = nil
+        }
+        opened.removeAll { !spaces.contains($0) }
+        for space in spaces {
+            if !opened.contains(space) {
+                opened.append(space)
+                controller.didOpenWindow(window(space))
+            }
+            follow(space)
+        }
+        if shared, let browser, focused != browser.spaceID {
+            if focused != nil { controller.didFocusWindow(window(browser.spaceID)) }
+            focused = browser.spaceID
+        }
+    }
+
+    private func follow(_ space: UUID) {
+        let now = visibleTabs(in: space)
         let ids = now.map(\.id)
+        let order = order[space] ?? []
         let gone = order.filter { !ids.contains($0) }
         for id in gone {
             if let adapter = adapters[id] { controller.didCloseTab(adapter, windowIsClosing: false) }
@@ -273,9 +376,9 @@ final class Extensions: NSObject, ObservableObject {
         let stayed = order.filter { ids.contains($0) }
         let newOrder = ids.filter { stayed.contains($0) }
         for (index, id) in stayed.enumerated() where newOrder.firstIndex(of: id) != index {
-            if let adapter = adapters[id] { controller.didMoveTab(adapter, from: index, in: window) }
+            if let adapter = adapters[id] { controller.didMoveTab(adapter, from: index, in: window(space)) }
         }
-        order = ids
+        self.order[space] = ids
     }
 
     private func watch(_ tab: Tab) {
@@ -293,7 +396,14 @@ final class Extensions: NSObject, ObservableObject {
     }
 
     private func activated(from old: Tab.ID?, to new: Tab.ID?) {
+        let space = here
         guard let new, let tab = browser?.tabs.first(where: { $0.id == new && $0.space == space }), seen(tab) else { return }
+        // Another Space brought in is another window in front, not a tab
+        // selected in it (see `follow`).
+        if shared, let old, browser?.parkedTabs.contains(where: { $0.id == old }) == true {
+            actionsChanged += 1
+            return
+        }
         let previous = old.flatMap { id in browser?.tabs.first(where: { $0.id == id && $0.space == space }) }.map(adapter(for:))
         controller.didActivateTab(adapter(for: tab), previousActiveTab: previous)
         actionsChanged += 1
@@ -481,7 +591,7 @@ final class Extensions: NSObject, ObservableObject {
         let anchor = anchors[id]?.view?.window != nil ? anchors[id]?.view : anchors[Extensions.menuAnchor]?.view
         unload(id)
         Task {
-            guard await load(item), browser?.spaceID == space,
+            guard await load(item), browser?.spaceID == here,
                   let popup, let context = contexts[id] else { return }
             ExtensionPopup.shared.show(popup, for: context, from: anchor)
         }
@@ -898,7 +1008,7 @@ final class Extensions: NSObject, ObservableObject {
 @available(macOS 15.4, *)
 extension Extensions: WKWebExtensionControllerDelegate {
     func webExtensionController(_ controller: WKWebExtensionController, openWindowsFor extensionContext: WKWebExtensionContext) -> [any WKWebExtensionWindow] {
-        [window]
+        opened.map(window)
     }
 
     func webExtensionController(_ controller: WKWebExtensionController, focusedWindowFor extensionContext: WKWebExtensionContext) -> (any WKWebExtensionWindow)? {
@@ -906,7 +1016,7 @@ extension Extensions: WKWebExtensionControllerDelegate {
     }
 
     func webExtensionController(_ controller: WKWebExtensionController, openNewTabUsing configuration: WKWebExtension.TabConfiguration, for extensionContext: WKWebExtensionContext) async throws -> (any WKWebExtensionTab)? {
-        guard let browser, browser.spaceID == space else { return nil }
+        guard let browser, browser.spaceID == here else { return nil }
         let url = configuration.url ?? URL(string: "about:blank")!
         let tab = browser.open(url, foreground: configuration.shouldBeActive, atEnd: true)
         if configuration.shouldBePinned { browser.pin(tab) }
@@ -915,7 +1025,7 @@ extension Extensions: WKWebExtensionControllerDelegate {
 
     /// One window, on purpose. A new window's pages become tabs in this one.
     func webExtensionController(_ controller: WKWebExtensionController, openNewWindowUsing configuration: WKWebExtension.WindowConfiguration, for extensionContext: WKWebExtensionContext) async throws -> (any WKWebExtensionWindow)? {
-        guard let browser, browser.spaceID == space else { return nil }
+        guard let browser, browser.spaceID == here else { return nil }
         for (index, url) in configuration.tabURLs.enumerated() {
             browser.open(url, foreground: index == 0 && configuration.shouldBeFocused, atEnd: true)
         }
@@ -923,7 +1033,7 @@ extension Extensions: WKWebExtensionControllerDelegate {
     }
 
     func webExtensionController(_ controller: WKWebExtensionController, openOptionsPageFor extensionContext: WKWebExtensionContext) async throws {
-        guard browser?.spaceID == space, let url = extensionContext.optionsPageURL else { return }
+        guard browser?.spaceID == here, let url = extensionContext.optionsPageURL else { return }
         browser?.open(url, foreground: true)
     }
 
@@ -958,7 +1068,7 @@ extension Extensions: WKWebExtensionControllerDelegate {
     func webExtensionController(_ controller: WKWebExtensionController, presentActionPopup action: WKWebExtension.Action, for context: WKWebExtensionContext) async throws {
         let url = action.popupWebView?.url ?? Extensions.popupURL(for: context)
         action.closePopup()
-        guard browser?.spaceID == space, let url else { return }
+        guard browser?.spaceID == here, let url else { return }
         let own = anchors[context.uniqueIdentifier]?.view
         let anchor = own?.window != nil ? own : anchors[Extensions.menuAnchor]?.view
         ExtensionPopup.shared.show(url, for: context, from: anchor)
@@ -1015,18 +1125,20 @@ final class ExtensionTab: NSObject, WKWebExtensionTab {
 
     private var browser: Browser? { owner.browser }
 
-    func window(for context: WKWebExtensionContext) -> (any WKWebExtensionWindow)? { owner.window }
+    func window(for context: WKWebExtensionContext) -> (any WKWebExtensionWindow)? {
+        tab.map { owner.window($0.space) }
+    }
 
     func indexInWindow(for context: WKWebExtensionContext) -> Int {
         guard let tab else { return NSNotFound }
-        return owner.visibleTabs.firstIndex { $0.id == tab.id } ?? NSNotFound
+        return owner.visibleTabs(in: tab.space).firstIndex { $0.id == tab.id } ?? NSNotFound
     }
 
     func webView(for context: WKWebExtensionContext) -> WKWebView? { tab?.built }
     func title(for context: WKWebExtensionContext) -> String? { tab?.title }
     func url(for context: WKWebExtensionContext) -> URL? { tab?.address }
     func isLoadingComplete(for context: WKWebExtensionContext) -> Bool { !(tab?.loading ?? false) }
-    func isSelected(for context: WKWebExtensionContext) -> Bool { tab?.id == browser?.activeID }
+    func isSelected(for context: WKWebExtensionContext) -> Bool { tab.map { $0.id == owner.activeID(in: $0.space) } ?? false }
     func isPinned(for context: WKWebExtensionContext) -> Bool { tab?.pin != nil }
     func isPlayingAudio(for context: WKWebExtensionContext) -> Bool { tab?.noisy ?? false }
     func zoomFactor(for context: WKWebExtensionContext) -> Double { Double(tab?.built?.pageZoom ?? 1) }
@@ -1034,7 +1146,7 @@ final class ExtensionTab: NSObject, WKWebExtensionTab {
     func shouldGrantPermissionsOnUserGesture(for context: WKWebExtensionContext) -> Bool { true }
 
     func setPinned(_ pinned: Bool, for context: WKWebExtensionContext) async throws {
-        guard let tab, let browser, browser.spaceID == owner.space else { return }
+        guard let tab, let browser, browser.spaceID == tab.space else { return }
         if pinned, tab.pin == nil { browser.pin(tab) }
         if !pinned, tab.pin != nil { browser.unpin(tab) }
     }
@@ -1044,7 +1156,7 @@ final class ExtensionTab: NSObject, WKWebExtensionTab {
     }
 
     func loadURL(_ url: URL, for context: WKWebExtensionContext) async throws {
-        guard let tab, browser?.spaceID == owner.space else { return }
+        guard let tab, browser?.spaceID == tab.space else { return }
         // A website's tab sent to one of an extension's own pages — 1Password
         // does, once a sign-in in its tab has added the account. The page
         // can only be served to a view built from that extension's
@@ -1062,9 +1174,16 @@ final class ExtensionTab: NSObject, WKWebExtensionTab {
     func goBack(for context: WKWebExtensionContext) async throws { tab?.back() }
     func goForward(for context: WKWebExtensionContext) async throws { tab?.forward() }
 
+    /// Selected where it is: a parked Space's tab, when one owner serves
+    /// every Space, becomes that Space's selected tab without bringing it in.
     func activate(for context: WKWebExtensionContext) async throws {
-        guard let tab, browser?.spaceID == owner.space else { return }
-        browser?.select(tab)
+        guard let tab, let browser else { return }
+        if browser.spaceID == tab.space { return browser.select(tab) }
+        guard owner.shared, let row = browser.parked[tab.space], row.active != tab.id else { return }
+        browser.parked[tab.space]?.active = tab.id
+        browser.rememberSession(tab.space)
+        let before = row.tabs.first { $0.id == row.active }.map(owner.adapter(for:))
+        owner.controller.didActivateTab(self, previousActiveTab: before)
     }
 
     func close(for context: WKWebExtensionContext) async throws {
@@ -1082,7 +1201,12 @@ final class ExtensionTab: NSObject, WKWebExtensionTab {
 @MainActor
 final class ExtensionWindow: NSObject, WKWebExtensionWindow {
     unowned let owner: Extensions
-    init(owner: Extensions) { self.owner = owner }
+    /// The Space whose row it holds.
+    let space: UUID
+    init(owner: Extensions, space: UUID) {
+        self.owner = owner
+        self.space = space
+    }
 
     private var nsWindow: NSWindow? {
         NSApp.windows.first { $0.isVisible && $0.contentView != nil && $0.frameAutosaveName == "escale" }
@@ -1090,10 +1214,10 @@ final class ExtensionWindow: NSObject, WKWebExtensionWindow {
     }
 
     func tabs(for context: WKWebExtensionContext) -> [any WKWebExtensionTab] {
-        owner.visibleTabs.map(owner.adapter(for:))
+        owner.visibleTabs(in: space).map(owner.adapter(for:))
     }
 
-    func activeTab(for context: WKWebExtensionContext) -> (any WKWebExtensionTab)? { owner.activeAdapter }
+    func activeTab(for context: WKWebExtensionContext) -> (any WKWebExtensionTab)? { owner.activeAdapter(in: space) }
     func windowType(for context: WKWebExtensionContext) -> WKWebExtension.WindowType { .normal }
     func isPrivate(for context: WKWebExtensionContext) -> Bool { false }
 
@@ -1107,7 +1231,9 @@ final class ExtensionWindow: NSObject, WKWebExtensionWindow {
     func frame(for context: WKWebExtensionContext) -> CGRect { nsWindow?.frame ?? .null }
     func screenFrame(for context: WKWebExtensionContext) -> CGRect { nsWindow?.screen?.frame ?? NSScreen.main?.frame ?? .null }
 
+    /// Serving every Space, a window focused is its Space brought in.
     func focus(for context: WKWebExtensionContext) async throws {
+        if owner.shared, let browser = owner.browser, browser.spaceID != space { browser.switchSpace(to: space) }
         NSApp.activate(ignoringOtherApps: true)
         nsWindow?.makeKeyAndOrderFront(nil)
     }

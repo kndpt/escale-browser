@@ -106,6 +106,14 @@ enum Store {
         return WKWebsiteDataStore(forIdentifier: probeStore(1))
     }
 
+    /// What extensions' own pages keep when one set serves every Space
+    /// (Extensions.swift): a store that is no Space's, so clearing or
+    /// deleting a Space signs nobody out of a password manager. Made once:
+    /// WebKit shares processes between views that ask for the same object.
+    @MainActor static let extensionPages = WKWebsiteDataStore(
+        forIdentifier: testing && !ownContainer ? probeStore(3) : UUID(uuidString: "E5CA1E00-0000-4000-8000-000000000003") ?? UUID()
+    )
+
     /// A world's copy of the app has a WebKit container of its own too, so
     /// it can use WebKit's default store and extension configuration — the
     /// ones the real browser uses, which differ from stores made by
@@ -117,7 +125,8 @@ enum Store {
     }
 
     /// The fixed identifiers of a test world's WebKit stores when it has no
-    /// container of its own: 1 for websites, 2 for extensions. The test
+    /// container of its own: 1 for websites, 2 for extensions, 3 for
+    /// extensions' pages in shared mode. The test
     /// world's are 5E4C0000-0000-4000-8000-00000000000k; a named world puts a
     /// hash of its name (FNV-1a, 32 bits) in place of the second and third
     /// groups of zeros, so each keeps its own from one run to the next.
