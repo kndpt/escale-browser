@@ -1467,7 +1467,7 @@ private struct ExtensionActions: View {
 func extensionMenuPicture() -> NSBitmapImageRep? {
     // A popover's material has nothing to show through off screen.
     let extensions = Extensions.shared
-    let planned = extensions.browser?.space.plannedExtensions ?? []
+    let planned = extensions.browser?.plannedExtensions ?? []
     let host = NSHostingView(rootView: ExtensionMenu(extensions: extensions, planned: planned).background(Palette.panel))
     host.frame = NSRect(origin: .zero, size: host.fittingSize)
     let window = NSWindow(contentRect: host.frame, styleMask: .borderless, backing: .buffered, defer: false)

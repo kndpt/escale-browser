@@ -94,7 +94,8 @@ struct ExtensionsPage: View {
                     }
                 }
 
-                if let planned = browser.space.plannedExtensions, !planned.isEmpty {
+                let planned = browser.plannedExtensions
+                if !planned.isEmpty {
                     Card {
                         VStack(alignment: .leading, spacing: metrics.length(8)) {
                             Text("Extensions to reinstall")

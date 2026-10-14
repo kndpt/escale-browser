@@ -103,6 +103,9 @@ struct TransferImportPanel: View {
             VStack(alignment: .leading, spacing: metrics.length(Metrics.arrivalRowGap)) {
                 note(summary.includesPasswords ? "Saved passwords come in too, added to each Space; accounts you already have are kept."
                      : "Passwords weren't saved in this file.")
+                if summary.sharedExtensions > 0 {
+                    note("\(summary.sharedExtensions) extension\(summary.sharedExtensions == 1 ? " was" : "s were") used by every Space in this file; any not already here is listed to reinstall.")
+                }
                 if summary.skipped > 0 { note("\(summary.skipped) item\(summary.skipped == 1 ? "" : "s") that can't be brought over were left out.") }
                 note("Opening this file again later won't make the Spaces twice.")
             }
