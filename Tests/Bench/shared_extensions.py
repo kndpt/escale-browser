@@ -11,7 +11,9 @@ A popup opened in either Space is listed by `getContexts`. Installing asks
 as joining every Space, a copy of a Space plans nothing to reinstall, and
 deleting a Space, which empties its website store, leaves the extension
 loaded with its storage and its pages' own. A private tab still gets no
-extensions.
+extensions. A transfer file carries the set once: brought back here it
+plans nothing, and into a browser per Space it plans the set in every
+imported Space.
 """
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -24,6 +26,7 @@ import suite as h
 ROOT = Path(__file__).resolve().parents[2]
 FIRST = "00000000-0000-0000-0000-000000000001"
 NAME = "Escale shared fixture"
+PHRASE = "correct horse battery"
 
 
 def obj(*args):
@@ -63,6 +66,21 @@ def listen(tab):
     value(tab, "window.__changed = []; window.__removed = 0;"
           " chrome.storage.onChanged.addListener(c => window.__changed.push(...Object.keys(c)));"
           " chrome.tabs.onRemoved.addListener(() => window.__removed++); 0")
+
+
+def bring(file):
+    """Opens and applies a transfer file: its summary and the Spaces made."""
+    obj("transfer", "choose", str(file))
+    h.until("file chosen", lambda: obj("transfer")["bringing"] == "locked")
+    obj("transfer", "unlock", PHRASE)
+    summary = h.until("file opened", lambda: (v["summary"] if (v := obj("transfer"))["bringing"] == "summary" else None), 40)
+    obj("transfer", "apply")
+    report = h.until("imported", lambda: (v["report"] if (v := obj("transfer"))["bringing"] == "finished" else None), 60)
+    return summary, report["imported"]
+
+
+def planned(name):
+    return next(s["planned"] for s in reversed(obj("space")["spaces"]) if s["name"] == name)
 
 
 def popup(ident):
@@ -167,6 +185,24 @@ def main():
         obj("field", f"{base}/private", "go")
         private = h.until("private tab", lambda: next((t for t in obj("tabs")["tabs"] if t["active"] and t["shy"]), None))
         h.require("private tab without extensions", private["extensions"], False)
+        print("ok: a private tab follows extensions.private")
+
+        # Transfer: the set is written once, and the receiving mode decides
+        # the plan. Two files, as one file opened twice finds its Spaces.
+        files = [Path(temp) / f"shared-{n}.escale" for n in (1, 2)]
+        for file in files:
+            obj("transfer", "save", str(file), PHRASE)
+            h.until("file saved", lambda: obj("transfer")["saving"] == "saved")
+        sources = len(obj("space")["spaces"])
+        summary, imported = bring(files[0])
+        h.require("set counted once", (summary["sharedExtensions"], {l["extensions"] for l in summary["lines"]}), (1, {0}))
+        h.require("shared here: nothing to reinstall", [planned(name) for name in imported], [0] * sources)
+        obj("press", "12", "q", "cmd")
+        h.until("quit", lambda: not h.running(), 30)
+        h.command("defaults", "write", h.SUITE, "extensions.shared", "-bool", "NO")
+        h.launch()
+        _, imported = bring(files[1])
+        h.require("per Space here: the set planned in every imported Space", [planned(name) for name in imported], [1] * sources)
         print("shared extensions: PASS")
 
 

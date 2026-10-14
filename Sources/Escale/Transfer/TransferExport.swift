@@ -15,9 +15,15 @@ extension Browser {
         flush()
         Writer.flushAll()
         var out: [TransferSpace] = []
+        // One set for every Space is written once, not in each Space.
+        let shared = prefs.sharedExtensions == true
+        var sharedSet: [PlannedExtension]?
+        if #available(macOS 15.4, *), shared {
+            sharedSet = Extensions.saved(space: Space.firstID).map { PlannedExtension(name: $0.name, storeID: $0.fromStore ? $0.id : nil) }
+        }
         for space in spaces {
             var extensions = space.plannedExtensions ?? []
-            if #available(macOS 15.4, *) {
+            if #available(macOS 15.4, *), !shared {
                 for item in Extensions.saved(space: space.id) {
                     let planned = PlannedExtension(name: item.name, storeID: item.fromStore ? item.id : nil)
                     if !extensions.contains(planned) { extensions.append(planned) }
@@ -38,7 +44,7 @@ extension Browser {
         }
         return TransferPayload(id: UUID(), created: Date(), app: Updater.version, spaces: out,
                                preferences: TransferPreferences.snapshot(prefs), linkRules: linkRoutes.rules,
-                               includesPasswords: false)
+                               includesPasswords: false, sharedExtensions: sharedSet)
     }
 }
 

@@ -196,4 +196,42 @@ import Testing
                                                "tabs.sleep.after": .number(15)])
         #expect(known == 4)
     }
+
+    // MARK: - extensions, shared or per Space
+
+    private let blocker = PlannedExtension(name: "Blocker", storeID: "blocker")
+    private let vault = PlannedExtension(name: "Vault", storeID: "vault")
+    private let mine = PlannedExtension(name: "Mine", storeID: nil)
+
+    @Test func aFileFromASourcePerSpaceHasNoSharedSet() throws {
+        let file = payload([space()])
+        let text = String(decoding: try TransferExport.encode(file), as: UTF8.self)
+        #expect(!text.contains("sharedExtensions"))
+        let read = try JSONDecoder().decode(TransferPayload.self, from: try TransferExport.encode(file))
+        #expect(read.sharedExtensions == nil)
+        #expect(try read.checked().summary.sharedExtensions == 0)
+    }
+
+    @Test func aSharedSetIsWrittenOnceAndCounted() throws {
+        var file = payload([space("A"), space("B")])
+        file.sharedExtensions = [blocker, PlannedExtension(name: String(repeating: "x", count: TransferLimits.field + 1), storeID: nil)]
+        let read = try JSONDecoder().decode(TransferPayload.self, from: try TransferExport.encode(file))
+        let (checked, summary) = try read.checked()
+        #expect(checked.sharedExtensions == [blocker])
+        #expect(summary.sharedExtensions == 1)
+        #expect(summary.lines.map(\.extensions) == [0, 0])
+        file.sharedExtensions = Array(repeating: blocker, count: TransferLimits.extensions + 1)
+        #expect(throws: TransferError.self) { try file.checked() }
+    }
+
+    @Test func perSpaceHereEachImportedSpacePlansItsOwnAndTheSharedSet() {
+        #expect(TransferApply.plan([vault, blocker], shared: [blocker, mine], running: []) == [vault, blocker, mine])
+        #expect(TransferApply.plan([], shared: [blocker], running: []) == [blocker])
+    }
+
+    @Test func sharedHereWhatEverySpaceRunsIsNotPlannedAgain() {
+        let running = [Installed(id: "blocker", name: "Blocker", version: "1", enabled: true, fromStore: true, permissions: []),
+                       Installed(id: "local-1", name: "Mine", version: "1", enabled: true, fromStore: false, permissions: [])]
+        #expect(TransferApply.plan([vault, blocker], shared: [mine], running: running) == [vault])
+    }
 }

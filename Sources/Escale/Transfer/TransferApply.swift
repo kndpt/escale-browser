@@ -41,6 +41,16 @@ enum TransferApply {
     }
 
     static func fails(_ step: String) -> Bool { Store.testing && failing.contains(step) }
+
+    /// What an imported Space is to reinstall: its own list and the source's
+    /// shared set, once each, less what already runs in every Space here.
+    static func plan(_ own: [PlannedExtension], shared: [PlannedExtension], running: [Installed]) -> [PlannedExtension] {
+        var planned: [PlannedExtension] = []
+        for item in own + shared where !planned.contains(item) && !running.contains(where: item.names) {
+            planned.append(item)
+        }
+        return planned
+    }
 }
 
 extension Browser {
@@ -62,7 +72,7 @@ extension Browser {
             let id = TransferApply.identity(payload.id, space.id)
             if spaces.contains(where: { $0.id == id }) {
                 report.already.append(space.name)
-            } else if place(space, as: id, from: payload.id) {
+            } else if place(space, as: id, from: payload.id, shared: payload.sharedExtensions ?? []) {
                 report.imported.append(space.name)
             } else {
                 report.failed.append(space.name)
@@ -118,8 +128,9 @@ extension Browser {
 
     /// One Space, all or nothing as far as files go. The Space is published
     /// last, so a failure anywhere before leaves nothing visible and nothing
-    /// of it on disk.
-    private func place(_ space: TransferSpace, as id: UUID, from transfer: UUID) -> Bool {
+    /// of it on disk. The source's shared set, if it had one, is planned
+    /// here too: this Mac's mode decides how plans show (SpaceCopy.swift).
+    private func place(_ space: TransferSpace, as id: UUID, from transfer: UUID, shared: [PlannedExtension]) -> Bool {
         var bookmarkIDs: [UUID: UUID] = [:]
         func collect(_ nodes: [Bookmark]) {
             for node in nodes {
@@ -128,8 +139,11 @@ extension Browser {
             }
         }
         collect(space.bookmarks)
+        var running: [Installed] = []
+        if #available(macOS 15.4, *), prefs.sharedExtensions == true { running = Extensions.saved(space: Space.firstID) }
+        let planned = TransferApply.plan(space.extensions, shared: shared, running: running)
         let made = Space(id: id, name: space.name, colour: space.colour, icon: space.icon, swatch: space.swatch, sharesSignIns: nil,
-                         downloads: nil, plannedExtensions: space.extensions.isEmpty ? nil : space.extensions)
+                         downloads: nil, plannedExtensions: planned.isEmpty ? nil : planned)
         let written = !TransferApply.fails("files")
             && Session.copy(space.session, to: id, bookmarks: bookmarkIDs)
             && Bookmarks.copy(space.bookmarks, to: id, identities: bookmarkIDs)

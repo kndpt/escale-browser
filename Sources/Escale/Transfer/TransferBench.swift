@@ -68,6 +68,7 @@ extension TransferFlow {
                  "passwords": $0.passwords, "extensions": $0.extensions] as [String: Any] },
                               "linkRules": summary.linkRules, "preferences": summary.preferences,
                               "skipped": summary.skipped, "includesPasswords": summary.includesPasswords,
+                              "sharedExtensions": summary.sharedExtensions,
                               "app": summary.app] as [String: Any]
         case .applying(let text): out["bringing"] = "applying"; out["progress"] = text
         case .finished(let report):

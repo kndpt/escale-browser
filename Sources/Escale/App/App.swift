@@ -189,7 +189,7 @@ struct ContentView: View {
                 HStack {
                     Spacer(minLength: 0)
                     DownloadDoor(downloads: browser.downloads) { browser.hoarding = true }
-                    ExtensionSlot(space: browser.spaceID, planned: browser.space.plannedExtensions ?? [])
+                    ExtensionSlot(space: browser.spaceID, planned: browser.plannedExtensions)
                     DeveloperDoor(browser: browser)
                 }
                 .frame(height: metrics.strip)

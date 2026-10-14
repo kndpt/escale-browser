@@ -10,6 +10,12 @@ struct PlannedExtension: Codable, Equatable {
     var name: String
     /// Nil for an unpacked extension: its folder must be chosen again.
     var storeID: String?
+
+    /// Whether `item` is this one installed: by store id, or by name for an
+    /// unpacked one.
+    func names(_ item: Installed) -> Bool {
+        item.fromStore ? storeID == item.id : storeID == nil && name == item.name
+    }
 }
 
 extension Browser {
@@ -95,16 +101,22 @@ extension Browser {
     /// Shared, an extension installed once is installed in every Space, so
     /// it leaves every Space's list.
     func installedExtension(_ item: Installed, in space: UUID) {
-        let match: (PlannedExtension) -> Bool = {
-            if item.fromStore { return $0.storeID == item.id }
-            return $0.storeID == nil && $0.name == item.name
-        }
-        dropPlanned(in: prefs.sharedExtensions == true ? nil : space, where: match)
+        dropPlanned(in: prefs.sharedExtensions == true ? nil : space) { $0.names(item) }
     }
 
-    /// One the person chose not to reinstall.
+    /// One the person chose not to reinstall: from every Space's list when
+    /// one set serves them all.
     func forgetPlannedExtension(_ item: PlannedExtension, in space: UUID) {
-        dropPlanned(in: space) { $0 == item }
+        dropPlanned(in: prefs.sharedExtensions == true ? nil : space) { $0 == item }
+    }
+
+    /// The extensions to reinstall that the bar and Settings show: the Space
+    /// on screen's, or, with one set for every Space, every Space's, once.
+    var plannedExtensions: [PlannedExtension] {
+        guard prefs.sharedExtensions == true else { return space.plannedExtensions ?? [] }
+        var all: [PlannedExtension] = []
+        for item in spaces.flatMap({ $0.plannedExtensions ?? [] }) where !all.contains(item) { all.append(item) }
+        return all
     }
 
     private func dropPlanned(in space: UUID? = nil, where match: (PlannedExtension) -> Bool) {

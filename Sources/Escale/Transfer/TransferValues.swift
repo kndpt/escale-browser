@@ -69,6 +69,9 @@ struct TransferPayload: Codable {
     var preferences: [String: TransferScalar]
     var linkRules: [LinkRule]
     var includesPasswords: Bool
+    /// From a source where one set of extensions served every Space: that
+    /// set, written once. Nil from a source per Space, or an older one.
+    var sharedExtensions: [PlannedExtension]? = nil
 }
 
 /// One line of the summary shown before anything is applied.
@@ -90,6 +93,8 @@ struct TransferSummary: Equatable {
     var includesPasswords: Bool
     /// Items left out because they are not portable, counted, not listed.
     var skipped: Int
+    /// Extensions to reinstall that every Space of the source used.
+    var sharedExtensions = 0
 }
 
 enum TransferLimits {
@@ -125,17 +130,27 @@ extension TransferPayload {
         }
         var made = self
         made.spaces = clean
+        if let shared = sharedExtensions {
+            guard shared.count <= TransferLimits.extensions else { throw TransferError.invalid("the extensions") }
+            made.sharedExtensions = shared.filter(TransferSpace.portable)
+        }
         let lines = clean.map {
             TransferLine(name: $0.name, tabs: $0.session.tabs.count, bookmarks: Bookmarks.count($0.bookmarks),
                          history: $0.history.count, passwords: $0.logins?.count ?? 0, extensions: $0.extensions.count)
         }
         return (made, TransferSummary(created: created, app: app, lines: lines, linkRules: linkRules.count,
-                                      preferences: preferences.count, includesPasswords: includesPasswords, skipped: skipped))
+                                      preferences: preferences.count, includesPasswords: includesPasswords, skipped: skipped,
+                                      sharedExtensions: made.sharedExtensions?.count ?? 0))
     }
 }
 
 @MainActor
 extension TransferSpace {
+    /// An extension to reinstall whose name and store id fit the limits.
+    static func portable(_ item: PlannedExtension) -> Bool {
+        item.name.utf8.count <= TransferLimits.field && (item.storeID?.utf8.count ?? 0) <= TransferLimits.field
+    }
+
     fileprivate func checked(includesPasswords: Bool, skipped: inout Int) throws -> TransferSpace {
         var made = self
         let title = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -143,7 +158,7 @@ extension TransferSpace {
         if let icon, !Spaces.icons.contains(icon) { made.icon = nil }
         if let swatch, Swatch(rawValue: swatch) == nil { made.swatch = nil }
         guard extensions.count <= TransferLimits.extensions else { throw TransferError.invalid("the extensions of “\(made.name)”") }
-        made.extensions = extensions.filter { $0.name.utf8.count <= TransferLimits.field && ($0.storeID?.utf8.count ?? 0) <= TransferLimits.field }
+        made.extensions = extensions.filter(Self.portable)
 
         // Bookmarks: bounded, each identity once, folders without an address.
         var identities = Set<UUID>(), count = 0
