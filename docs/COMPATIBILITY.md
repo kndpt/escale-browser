@@ -88,8 +88,9 @@ The engine is WebKit's `WKWebExtension`. Escale fills in what Chrome has and
 WebKit lacks:
 
 - **`ExtensionShims.swift`** prepares an extension at install. It puts
-  `escale-shim.js` first in the background, content scripts and every shipped
-  page, adds `nativeMessaging` (and `scripting` for `userScripts`), and records
+  `escale-shim.js` first in the background and every shipped page, and
+  `escale-content.js`, the part that runs on a web page, first in its
+  content scripts, adds `nativeMessaging` (and `scripting` for `userScripts`), and records
   the additions in `.escale-added`. Its `run` switch answers native calls.
 - **`Extensions/Scripts/shim.js`** defines the APIs in JavaScript and holds
   most engine workarounds.
