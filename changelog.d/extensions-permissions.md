@@ -1,1 +1,1 @@
-An extension uses notifications, idle, power, sign-in, offscreen pages, speech, search, fonts, the side panel, system information or other extensions' details only when its manifest asks for them, as in Chrome (#168).
+An extension uses notifications, idle, power, sign-in, offscreen pages, speech, search, fonts, the side panel, system information, privacy and proxy settings or other extensions' details only when its manifest asks for them, as in Chrome, and can be granted at run time only what its manifest lists as optional (#168).

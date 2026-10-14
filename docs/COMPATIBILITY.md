@@ -123,8 +123,10 @@ preference, `webRTCIPHandlingPolicy` `default`, `privacy.websites.*` `false`,
 gates them: bookmarks, history, downloads, sessions, top sites, browsing
 data, reading list, user scripts, notifications, idle, power, identity,
 offscreen, tts, search, font settings, side panel, each part of `system`,
-and `management` beyond the caller itself. `tabs.describe` needs `tabs`.
-Tab groups answer nothing and need nothing.
+and `management` beyond the caller itself; `privacy.*` and `proxy.settings`
+need `privacy` and `proxy`. `tabs.describe` needs `tabs`. Tab groups answer
+nothing and need nothing. `permissions.request` grants only what the manifest
+lists in `optional_permissions`.
 
 **Refused:** `downloads.pause`, `resume`, `cancel`, `removeFile`, `getFileIcon`;
 `management.setEnabled`, `uninstallSelf`; reading-list writes; `tabGroups.get`,

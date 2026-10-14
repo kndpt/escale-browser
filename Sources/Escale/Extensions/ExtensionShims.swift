@@ -289,9 +289,14 @@ enum ExtensionShims {
 
     /// The names `api` needs. Opening a download hands a file to another
     /// app, so Chrome asks for a permission of its own on top of the family's;
+    /// a setting needs its family;
     /// each part of `system` has its own; `management` is needed for any
     /// extension but the caller.
     nonisolated static func needs(_ api: String) -> [String] {
+        // A setting, `setting.get:privacy.…`, needs its family: privacy or proxy.
+        if api.hasPrefix("setting."), let name = api.split(separator: ":", maxSplits: 1).last {
+            return [String(name.prefix(while: { $0 != "." }))]
+        }
         let name = String(api.prefix(while: { $0 != "." }))
         if name == "system" { return [api.split(separator: ".").prefix(2).joined(separator: ".")] }
         if name == "management" { return api == "management.getSelf" || api == "management.uninstallSelf" ? [] : ["management"] }
@@ -314,8 +319,6 @@ enum ExtensionShims {
         let first = args.first
         let id = context.uniqueIdentifier
 
-        if api.hasPrefix("setting.") { return setting(api, first as? [String: Any] ?? [:], extension: id, owner: owner) }
-
         // What leaves this app is answered here, not in the injected script:
         // the shim runs beside the extension's own code, so its checks stop
         // only the honest. A family this extension never asked for is an
@@ -334,6 +337,8 @@ enum ExtensionShims {
                 throw Unsupported(what: "The extension never asked for \u{201C}\(missing)\u{201D}")
             }
         }
+
+        if api.hasPrefix("setting.") { return setting(api, first as? [String: Any] ?? [:], extension: id, owner: owner) }
 
         let asked = Asked(api: api, args: args, context: context, owner: owner, browser: browser)
         switch api.prefix(while: { $0 != "." }) {

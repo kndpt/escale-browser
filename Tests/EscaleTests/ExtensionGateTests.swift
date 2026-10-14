@@ -32,6 +32,21 @@ import Testing
         #expect(ExtensionShims.needs("background.wake").isEmpty)
     }
 
+    @Test func settingsNeedTheirFamily() {
+        guard #available(macOS 15.4, *) else { return }
+        #expect(ExtensionShims.needs("setting.set:privacy.services.passwordSavingEnabled") == ["privacy"])
+        #expect(ExtensionShims.needs("setting.get:proxy.settings") == ["proxy"])
+    }
+
+    @Test func onlyOptionalPermissionsAreGrantedAtRunTime() {
+        guard #available(macOS 15.4, *) else { return }
+        let manifest: [String: Any] = ["permissions": ["storage"], "optional_permissions": ["history", "idle"]]
+        #expect(ExtensionShims.requestable(["history", "idle"], manifest: manifest))
+        #expect(!ExtensionShims.requestable(["power"], manifest: manifest))
+        #expect(!ExtensionShims.requestable(["history", "power"], manifest: manifest))
+        #expect(!ExtensionShims.requestable(["power"], manifest: [:]))
+    }
+
     @Test func userScriptsNeedTheirPermission() {
         guard #available(macOS 15.4, *) else { return }
         #expect(ExtensionShims.needs("userScripts.file") == ["userScripts"])
