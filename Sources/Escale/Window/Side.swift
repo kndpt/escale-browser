@@ -106,6 +106,8 @@ struct SideBar: View {
     @State private var activeShelfFrame: CGRect = .zero
     @State private var dragDraft: String?
     @StateObject private var mergeHover = HoverDwell()
+    /// Clear's show while it runs (Toss.swift).
+    @State private var toss: Toss?
 
     /// A pin, picked up out of the grid — a separate state from the loose
     /// rows above, since the two gestures never happen at once but move on
@@ -182,6 +184,7 @@ struct SideBar: View {
         }
         .frame(width: metrics.sidebarWidth(prefs.sideWidth))
         .frame(maxHeight: .infinity)
+        .overlay { if let toss { TossStage(toss: toss) { self.toss = nil }.id(toss.id) } }
         // Rows on their way to or from another space stay in the column.
         .clipped()
         .onAppear { SpaceSwipe.shared.start(for: browser) }
@@ -767,10 +770,34 @@ struct SideBar: View {
             if prefs.sideBookmarks {
                 Shelf(browser: browser, bookmarks: browser.bookmarks,
                       spaceHover: spaceHover, spaceFrames: spaceFrames,
-                      activeFrame: $activeShelfFrame, spaceDrag: spaceDrag, mergeHover: mergeHover)
+                      activeFrame: $activeShelfFrame, spaceDrag: spaceDrag, mergeHover: mergeHover,
+                      toss: clear(into:))
             }
             loose
         }
+    }
+
+    /// Clear, pressed at the Tabs heading: the tabs close at once, without
+    /// their rows' fade, and copies of the rows, placed by the same sums as
+    /// the rows themselves, are thrown into the bin (Toss.swift).
+    private func clear(into bin: CGRect) {
+        let doomed = Set(browser.clearableTabs().map(\.id))
+        guard !reduceMotion, toss == nil, !doomed.isEmpty else {
+            withAnimation(Motion.settle) { browser.clearTabs() }
+            return
+        }
+        let step = row + gap
+        let cards = looseTabs.enumerated().compactMap { index, tab -> Toss.Card? in
+            guard doomed.contains(tab.id) else { return nil }
+            return Toss.Card(frame: CGRect(x: looseFrame.minX, y: looseFrame.minY + CGFloat(index) * step,
+                                           width: looseFrame.width, height: row),
+                             icon: tab.icon, letter: tab.monogram, title: tab.label,
+                             mark: prefs.glyph == .icons && !tab.isBlank, live: tab.id == browser.activeID)
+        }
+        toss = Toss(cards: cards, bin: bin, tint: browser.space.tint?.fill ?? Palette.ink)
+        var quiet = Transaction()
+        quiet.disablesAnimations = true
+        withTransaction(quiet) { browser.clearTabs() }
     }
 
     /// The foot's action row and its margin beneath, only while there is no

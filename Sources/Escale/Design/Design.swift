@@ -72,6 +72,9 @@ enum Palette {
     static let scrim = Color(nsColor: NS.scrim)
     /// A shadow under anything lifted over something else.
     static let shadow = Color(nsColor: NS.shadow)
+    /// A burst of light, added to what is under it (Toss.swift): white in
+    /// both looks, so it shines on dark glass and barely shows on light.
+    static let flash = Color(nsColor: NS.flash)
     /// Refused, failed, removed: said in words as well, never in red alone.
     static let danger = Color(nsColor: NS.danger)
     /// GitHub states always have a distinct symbol and accessible name too.
@@ -241,6 +244,7 @@ enum Palette {
         static let selection = veil(light: (1, 0.86), dark: (1, 0.11), contrast: nil)
         static let scrim = veil(light: (0, 0.1), dark: (0, 0.3), contrast: nil)
         static let shadow = veil(light: (0, 0.12), dark: (0, 0.42), contrast: nil)
+        static let flash = veil(light: (1, 0.95), dark: (1, 0.9), contrast: nil)
         /// Escale's states: brick for danger, forest and ochre for a
         /// connection, at the weight of the landing's environment colours.
         static let danger = tint(light: (0.78, 0.16, 0.16), dark: (1.0, 0.45, 0.45), escale: (0xA3372B, 0xF0897A))

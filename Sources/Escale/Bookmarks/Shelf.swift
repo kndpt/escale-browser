@@ -65,6 +65,9 @@ struct Shelf: View {
     var activeFrame: Binding<CGRect>? = nil
     var spaceDrag: SpaceDrag? = nil
     @ObservedObject var mergeHover: HoverDwell
+    /// Clear with its show (Toss.swift), handed the bin's place; without
+    /// it, Clear only closes the tabs.
+    var toss: ((CGRect) -> Void)? = nil
 
     @State private var dragging: Bookmark.ID?
     @State private var travel: CGFloat = 0
@@ -181,7 +184,9 @@ struct Shelf: View {
                 }
             }
             // The tabs' own heading, so the two lists read as two.
-            Heading(title: "Tabs", clear: clearable ? { withAnimation(Motion.settle) { browser.clearTabs() } } : nil)
+            Heading(title: "Tabs", clear: clearable ? { bin in
+                if let toss { toss(bin) } else { withAnimation(Motion.settle) { browser.clearTabs() } }
+            } : nil)
                 .overlay(alignment: .top) {
                     Rectangle().fill(Palette.hairline).frame(height: 1).padding(.horizontal, metrics.length(10))
                 }
@@ -515,10 +520,12 @@ struct Shelf: View {
     /// place); it takes no height of its own. The bin is drawn only while the
     /// pointer is anywhere on the heading, or while the keyboard is on it, and
     /// its place is kept, so nothing moves when it comes. Hidden it takes no
-    /// press, and VoiceOver still finds it.
+    /// press, and VoiceOver still finds it. Clear is handed where the bin is,
+    /// for the show that throws the tabs into it (Toss.swift).
     private struct Heading: View {
         let title: String
-        var clear: (() -> Void)? = nil
+        var clear: ((CGRect) -> Void)? = nil
+        @State private var bin: CGRect = .zero
         @State private var hovering = false
         @State private var onHeading = false
         @FocusState private var focused: Bool
@@ -536,7 +543,7 @@ struct Shelf: View {
                 .frame(height: Shelf.Measure(metrics).heading)
                 .overlay(alignment: .bottomTrailing) {
                     if let clear {
-                        Button(action: clear) {
+                        Button { clear(bin) } label: {
                             // A bin at rest, in the place of a tab's cross so the two
                             // line up; the pointer opens it, leftwards, onto its word.
                             HStack(spacing: metrics.length(3)) {
@@ -549,6 +556,7 @@ struct Shelf: View {
                                 Image(systemName: "trash")
                                     .font(.system(size: metrics.length(11), weight: .regular))
                                     .frame(width: metrics.length(15), height: metrics.length(15))
+                                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { bin = $0 }
                             }
                             .foregroundStyle(hovering ? Palette.ink.opacity(0.7) : Palette.muted)
                             .padding(.horizontal, metrics.length(3))
