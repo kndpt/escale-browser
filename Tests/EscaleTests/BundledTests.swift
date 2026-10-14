@@ -9,8 +9,8 @@ import Testing
 
 @Suite struct BundledTests {
     @Test func aShippedScriptIsFoundWithoutItsLastNewline() throws {
-        let shim = try Bundled.text("shim.js")
-        #expect(shim.hasPrefix("(() => {"))
+        let shim = try Bundled.text("shim-errors.js")
+        #expect(shim.hasPrefix("  // Part of the extension shim"))
         #expect(shim.hasSuffix("})();"))
         let chrome = try Bundled.text("user-script-chrome.js")
         #expect(chrome.hasPrefix("  const chrome = (() => {"))
@@ -90,6 +90,13 @@ import Testing
         try "mine()".write(to: url.appendingPathComponent(ExtensionShims.contentFile), atomically: true, encoding: .utf8)
         #expect(throws: (any Error).self) { try ExtensionShims.prepare(url) }
         #expect(try String(contentsOf: url.appendingPathComponent(ExtensionShims.contentFile), encoding: .utf8) == "mine()")
+    }
+
+    @Test func theShimsPartsMakeOneFunction() throws {
+        guard #available(macOS 15.4, *) else { return }
+        let shim = try ExtensionShims.shipped.get()
+        #expect(shim.hasSuffix("})();") && shim.components(separatedBy: "\n(() => {\n").count == 2)
+        #expect(ExtensionShims.content(of: shim).count * 10 < shim.count)
     }
 
     @Test func contentScriptsGetOnlyTheirPartOfTheShim() throws {

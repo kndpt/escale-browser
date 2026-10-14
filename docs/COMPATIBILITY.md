@@ -92,8 +92,12 @@ WebKit lacks:
   `escale-content.js`, the part that runs on a web page, first in its
   content scripts, adds `nativeMessaging` (and `scripting` for `userScripts`), and records
   the additions in `.escale-added`. Its `run` switch answers native calls.
-- **`Extensions/Scripts/shim.js`** defines the APIs in JavaScript and holds
-  most engine workarounds.
+- **`Extensions/Scripts/shim*.js`** define the APIs in JavaScript and hold
+  most engine workarounds: one function in files assembled in order
+  (`ExtensionShims.parts`). `shim.js` opens it and is what content scripts
+  get; then calls to the browser, messaging, worker only, namespaces WebKit
+  lacks, mends to the ones it has, permissions, user scripts, the
+  background's start, the FileSystem API and errors.
 - Each extension's folder keeps the shim's data in `_search/`:
   `userscripts.json`, `worlds.json` and `us-*.js` files.
 
@@ -152,13 +156,13 @@ No scenario replays these; the extension is the one the code comment names.
 
 | Extension | Workaround | Where |
 |---|---|---|
-| 1Password | The browser opens a worker's WebSocket (it froze the extension); tab messages also reach the extension's frames; a website tab sent to an extension page is rebuilt; passkeys go to the claiming extension | `ExtensionSocket.swift`, `shim.js`, `Extensions.swift`, `Browser.swift`, `Passkeys.swift`, `Forms.swift` |
-| Bitwarden | Chrome's user agent in the worker and pages (Safari's made it flood the browser); `runtime.getContexts`; an offscreen document's empty answer does not hold a reply | `shim.js`, `ExtensionShims.swift` |
-| Bitwarden, Proton Pass | The popup is a tab with no index, as Chrome has no current tab there | `shim.js` |
+| 1Password | The browser opens a worker's WebSocket (it froze the extension); tab messages also reach the extension's frames; a website tab sent to an extension page is rebuilt; passkeys go to the claiming extension | `ExtensionSocket.swift`, `shim-worker.js`, `shim-messaging.js`, `Extensions.swift`, `Browser.swift`, `Passkeys.swift`, `Forms.swift` |
+| Bitwarden | Chrome's user agent in the worker and pages (Safari's made it flood the browser); `runtime.getContexts`; an offscreen document's empty answer does not hold a reply | `shim-worker.js`, `shim-background.js`, `shim-messaging.js`, `ExtensionShims.swift` |
+| Bitwarden, Proton Pass | The popup is a tab with no index, as Chrome has no current tab there | `shim-mends.js` |
 | Proton Pass | `requestIdleCallback` restored (WebKit bug 287681); a Proxy over `chrome` is kept only if it still carries the APIs | `shim.js` |
 | MetaMask (LavaMoat) | The shim keeps its own references to locked globals; `chrome` and `browser` become fixed accessors | `shim.js` |
-| Vimium, iCloud Passwords | A framed extension page has the worker make privileged calls | `shim.js` |
-| Tampermonkey, Violentmonkey | `chrome.userScripts` through registered content scripts; a missing imported script is refused at once | `shim.js`, `ExtensionShims.swift` |
+| Vimium, iCloud Passwords | A framed extension page has the worker make privileged calls | `shim-messaging.js` |
+| Tampermonkey, Violentmonkey | `chrome.userScripts` through registered content scripts; a missing imported script is refused at once | `shim-user-scripts.js`, `shim-worker.js`, `ExtensionShims.swift` |
 | Raindrop | `chrome-extension://` origins with Chrome's ids | `Extensions.swift` |
 | uBlock Origin Lite, Grammarly | Load after the window's first frame; shim preparation off the main thread | `Extensions.swift` |
 

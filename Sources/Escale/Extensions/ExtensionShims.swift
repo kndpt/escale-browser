@@ -207,11 +207,17 @@ enum ExtensionShims {
         return script[..<stop.lowerBound] + "\n})();\n"
     }
 
+    /// The shim's files, one concern each, in the order they run as one
+    /// function: shim.js opens it and is all a content script gets.
+    nonisolated static let parts = ["shim.js", "shim-calls.js", "shim-messaging.js", "shim-worker.js", "shim-apis.js",
+                                    "shim-mends.js", "shim-permissions.js", "shim-user-scripts.js", "shim-background.js",
+                                    "shim-filesystem.js", "shim-errors.js"]
+
     /// Defines only what is missing, so the day WebKit implements an API,
-    /// WebKit's is the one used. Read from Extensions/Scripts/shim.js the
-    /// first time an extension is prepared (see Bundled.swift), then kept
-    /// while the app runs: 114 KB, and nothing read without an extension.
-    nonisolated static let shipped = Result { try Bundled.text("shim.js") }
+    /// WebKit's is the one used. Read from Extensions/Scripts the first time
+    /// an extension is prepared (see Bundled.swift), then kept while the app
+    /// runs: 114 KB, and nothing read without an extension.
+    nonisolated static let shipped = Result { try parts.map { try Bundled.text($0) }.joined(separator: "\n") }
 
     // MARK: - answering
 
