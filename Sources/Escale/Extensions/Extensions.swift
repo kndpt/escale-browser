@@ -214,6 +214,9 @@ final class Extensions: NSObject, ObservableObject {
 
     private func stop() {
         bag.removeAll()
+        // A deleted Space's tabs are closed while it is parked, which `follow`
+        // never sees: their watches go here, or they hold this owner for good.
+        watching = [:]
         for id in Array(contexts.keys) { unload(id) }
         for observer in errorWatchers.values { NotificationCenter.default.removeObserver(observer) }
         errorWatchers = [:]
