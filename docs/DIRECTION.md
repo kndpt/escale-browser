@@ -23,6 +23,12 @@ Return to a project, find its pages and recognise the environment before acting.
   issues (`⇧⌘K`); the localhost list; link routing to a Space; the API Calls
   panel; import from other browsers and transfer of every Space to another Mac.
   Environment labels are reminders, not protection against production mistakes.
+- **Extensions, shared or per Space:** chosen once, at Welcome, by a new
+  user: one set installed and signed in to once for every Space, or a set per
+  Space as before. Sites stay per Space either way. A tab carries one
+  extension controller, which holds the sign-in, so it is a mode, not a choice
+  per extension; existing users stay per Space, and switching later is out of
+  scope.
 - **Later, if useful:** local JWT decoding and other tools suggested by
   observed workflows. These are candidates, not commitments.
 

@@ -120,6 +120,17 @@ history, downloads, sessions, top sites, browsing data, reading list.
 `management.setEnabled`, `uninstallSelf`; reading-list writes; `tabGroups.get`,
 `update`, `move`; `identity.getAuthToken`; any other name.
 
+**Shared by every Space** (`extensions.shared`), one controller serves every
+Space and each Space is a window, the one on screen focused. Bookmarks,
+history, downloads, sessions and top sites answer for the Space on screen;
+`browsingData` clears its store. `chrome.cookies` without a `storeId` reads
+the extensions' own pages' store, which holds no Space's site cookies; a tab's
+store is reached by its `storeId`, and `getAllCookieStores` lists each. Calls
+by a tab's index (`describe`, `move`, `discard`, `activate`, a tab's popup)
+reach only the window on screen: elsewhere they fail as a parked Space's do,
+and `describe` leaves the address out. WebKit sends `storage.onChanged` to no
+page shown as the action's popup in a tab.
+
 Popups follow Chrome's auto-size between 25 × 25 and 800 × 600 points
 (`popup-preferred.js`, then `popup-reach.js` as the page changes).
 
@@ -161,6 +172,7 @@ unloading one removes only its work. At most `capacity` utterances of
   `tabGroups.get`; other families are not covered. Set
   `ESCALE_EXTENSION_FIXTURE` to a copy outside Documents to avoid a macOS
   folder-access prompt.
-- **Spaces.** `space_context.py` checks the local fixture in two Spaces, not
-  arbitrary extensions or password managers. macOS passkeys have no
+- **Spaces.** `space_context.py` checks the local fixture in two Spaces and
+  `shared_extensions.py` one set serving two, not arbitrary extensions or
+  password managers. macOS passkeys have no
   Space-scoped storage, so the passkey path exists only in the first Space.
