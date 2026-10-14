@@ -208,6 +208,8 @@ private func field(in root: URL) -> Field {
     @Test func theSwitcherTypedLooksAtThisSpaceThenTheOthersThenClosedTabs() throws {
         let root = folder()
         defer { try? FileManager.default.removeItem(at: root) }
+        // A restored tab looks for its site's icon, which reads the appearance.
+        _ = NSApplication.shared
         let here = UUID(), there = UUID()
         func tab(_ title: String, in space: UUID) throws -> Tab {
             let tab = Tab(space: space, configuration: WKWebViewConfiguration())
