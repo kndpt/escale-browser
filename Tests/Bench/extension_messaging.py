@@ -97,11 +97,8 @@ def main():
                   {"value": {"from": "worker", "promised": True}})
         # Nobody answers: a promise settles empty, a callback hears lastError.
         h.require("unanswered promise", send(page, {"kind": "silent"}, "silent"), {"value": "(undefined)"})
-        # shim.js sets runtime.lastError, but WebKit's runtime object keeps
-        # answering its own null: no callback ever sees an error.
-        gap("lastError in a callback", send_callback(page, {"kind": "silent"}, "silent callback"),
-            {"value": {"reply": None, "lastError": "The message port closed before a response was received."}},
-            {"value": {"reply": None, "lastError": None}})
+        h.require("unanswered callback", send_callback(page, {"kind": "silent"}, "silent callback"),
+                  {"value": {"reply": None, "lastError": "The message port closed before a response was received."}})
 
         # A page that listens without answering doesn't stand in for the
         # worker, nor hold its answer up; and a page can answer another.
@@ -139,9 +136,11 @@ def main():
                   send(page, {"kind": "toTab", "tabId": tab_id, "inner": {"kind": "tabPing"}}, "to tab"),
                   {"value": {"reply": {"from": "content", "href": f"{base}/messaging"}}})
 
-        # A tab with nobody listening answers at once rather than never, but
-        # with nothing where Chrome rejects (match patterns carry no port,
-        # so the tab is found by its address).
+        # A tab with nobody listening answers at once rather than never. The
+        # promise settles empty where Chrome rejects: WebKit answers the same
+        # nothing when a listener stays silent, and a script injected through
+        # `scripting` carries no shim to tell them apart. (Match patterns
+        # carry no port, so the tab is found by its address.)
         h.open_ordinary(f"{base}/bare")
         bare = settle(page, f"chrome.tabs.query({{}}).then(t => t.filter(x => x.url === '{base}/bare').map(x => x.id))",
                       "bare tab id")["value"]
@@ -149,9 +148,9 @@ def main():
         none = "Could not establish connection. Receiving end does not exist."
         gap("no receiver, promise", send(page, {"kind": "toTab", "tabId": bare[0], "inner": {"kind": "tabPing"}}, "no receiver"),
             {"value": {"error": none}}, {"value": {"reply": None}})
-        gap("no receiver, callback", send(page, {"kind": "toTabCallback", "tabId": bare[0], "inner": {"kind": "tabPing"}},
-                                          "no receiver callback"),
-            {"value": {"reply": None, "lastError": none}}, {"value": {"reply": None, "lastError": None}})
+        h.require("no receiver, callback", send(page, {"kind": "toTabCallback", "tabId": bare[0], "inner": {"kind": "tabPing"}},
+                                                "no receiver callback"),
+                  {"value": {"reply": None, "lastError": none}})
 
         # The extension's page framed in the website: its privileged call goes
         # through, the website's process lives on, and the worker's tab

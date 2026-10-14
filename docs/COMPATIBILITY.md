@@ -140,9 +140,10 @@ Popups follow Chrome's auto-size between 25 × 25 and 800 × 600 points
 `extension_messaging.py` replays Chrome's messaging on a local fixture: the
 listener that answers among several, async and promised answers, a page that
 listens without answering, page to page, ports, content scripts both ways and
-the extension's page framed in a website. Two gaps remain: `runtime.lastError`
-is never seen in a callback (WebKit's runtime keeps its own `null`), and a
-message to a tab nobody listens in settles empty where Chrome rejects.
+the extension's page framed in a website. WebKit's runtime answers
+`lastError` itself, so pages and the worker see it through a proxy that
+reports the shim's errors to callbacks. One gap remains: a message to a tab
+nobody listens in settles empty where Chrome rejects.
 
 ### Per-extension workarounds
 

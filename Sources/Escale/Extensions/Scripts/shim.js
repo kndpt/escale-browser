@@ -122,9 +122,29 @@
     }
     for (const sub of ["local", "sync", "session", "managed"]) { try { if (ns[sub] && typeof ns[sub] === "object") kept.add(ns[sub]); } catch (e) {} }
   }
+  // WebKit's runtime answers `lastError` itself, whatever is set on it, so
+  // a callback never saw an error the shim reported. The extension's pages
+  // and worker see the runtime through a proxy that answers it while one is
+  // reported, and calls WebKit's methods on WebKit's own object.
+  let reported = null, proxy = null;
+  if (!inContent && runtime) {
+    const bound = new WeakMap();
+    proxy = new Proxy(runtime, {
+      get(target, key) {
+        if (key === "lastError" && reported) return reported;
+        const value = Reflect.get(target, key);
+        if (typeof value !== "function") return value;
+        if (!bound.has(value)) bound.set(value, value.bind(target));
+        return bound.get(value);
+      },
+    });
+    for (const api of new Set([chrome, root.browser])) {
+      if (api && api.runtime === runtime) try { Object.defineProperty(api, "runtime", { value: proxy, configurable: true, writable: true, enumerable: true }); } catch (e) {}
+    }
+  }
   const withLastError = (error, callback) => {
-    put(runtime, "lastError", { message: String(error && error.message || error) });
-    try { callback(); } finally { try { delete runtime.lastError; } catch (e) {} }
+    reported = { message: String(error && error.message || error) };
+    try { callback(); } finally { reported = null; }
   };
   // Whether a tab is in the window in front. With one set of extensions for
   // every Space each Space is a window, and Escale counts a tab's place in
@@ -549,10 +569,9 @@
           put(ns, name, (...args) => {
             const port = { name: (args.find((a) => a && typeof a === "object") || {}).name || "", sender: undefined,
               postMessage: () => {}, disconnect: () => {}, onMessage: event(), onDisconnect: event() };
-            setTimeout(() => {
-              put(runtime, "lastError", { message: "Could not establish connection. Receiving end does not exist." });
-              try { for (const f of [...port.onDisconnect.listeners]) f(port); } finally { try { delete runtime.lastError; } catch (e) {} }
-            });
+            setTimeout(() => withLastError("Could not establish connection. Receiving end does not exist.", () => {
+              for (const f of [...port.onDisconnect.listeners]) f(port);
+            }));
             return port;
           });
           continue;
@@ -589,7 +608,7 @@
     // WebKit's own, looked up at each call — not held from the page's
     // first moment, when the page isn't yet the tab or popup it will be.
     const original = Object.getPrototypeOf(runtime).sendMessage;
-    const send = (...args) => original.apply(chrome.runtime, args);
+    const send = (...args) => original.apply(chrome.runtime === proxy ? runtime : chrome.runtime, args);
     // WebKit can also lose a worker without knowing — its process
     // stopped along with a tab's — and then answers every message with
     // nothing, for good. So after waking it, a page asks the worker
@@ -1968,11 +1987,6 @@
     // The browser downloads and opens tabs from outside this page, where a blob:
     // URL of this page means nothing: those get the file itself, as a data: URL.
     const chrome = root.chrome || root.browser;
-    const lastError = (e, callback) => {
-      const runtime = chrome && chrome.runtime;
-      try { Object.defineProperty(runtime, "lastError", { value: { message: String(e && e.message || e) }, configurable: true }); } catch (x) {}
-      try { callback(); } finally { try { delete runtime.lastError; } catch (x) {} }
-    };
     const held = [];
     const swap = (space, method, urls) => {
       const ns = chrome && chrome[space];
@@ -1988,7 +2002,7 @@
           return original.call(this, copy, ...rest);
         });
         if (!callback) return p;
-        p.then((v) => callback(v), (e) => lastError(e, callback));
+        p.then((v) => callback(v), (e) => withLastError(e, callback));
       });
     };
     const one = (o) => typeof o.url === "string" ? [o.url] : Array.isArray(o.url) ? o.url : null;
