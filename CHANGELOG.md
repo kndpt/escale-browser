@@ -11,6 +11,28 @@ Search before that is in
 
 ## Unreleased
 
+## 0.11 — 2026-10-14
+
+### Highlights
+
+- **Extensions in every Space.** Install an extension once, sign in once, and use it in every Space.
+- **A colour for each Space.** Give each workspace's icon its own colour to tell them apart at a glance.
+- **An arrival worth the trip.** The first launch, and the first after each update, open with the mark drawing itself, then a small window that grows into the browser.
+- **Developer tools in a dock.** The hammer brings the page tools up in a small bar you can move.
+
+### What changed
+
+- A new browser chooses during Welcome whether extensions are shared by every Space, installed and signed in to once, or kept per Space as before; sites, sign-ins and history stay separate in each Space either way, and Settings, the extensions menu and the install question say which set they show (#132).
+- A Space's icon can wear a colour, chosen under Colour in its menu next to Icon; the rail and the top row show it (#140).
+- The Extensions button is always in the toolbar, even with nothing installed, and leads to the Chrome Web Store; after an import, it shows how many extensions are left to reinstall and installs them from its list, with progress and the reason when one fails, or lets you drop the ones you don't want (#130).
+- A Space can wear twelve more icons, for clients, projects and dev work: a person, a team, a folder, a package, tools, a server, the cloud, the web, a bug, a star and a flag (#139).
+- The first launch, and the first after each update, open with the mark drawing itself on a tile that opens into Welcome or into what the update brings, in a window of its own that grows into the browser when you carry on. A launch made to open a link goes straight to the page.
+- Welcome keeps its mark, progress and buttons in place from one step to the next, with Back at the bottom left and the button that moves on always at the bottom right.
+- Bookmarks, tabs and history show each app's own icon on a site that serves several, such as Docs and Sheets on docs.google.com, instead of whichever was opened last (#142).
+- Web Inspector opened from a page's right-click menu now follows the tab like ⌥⌘I, opens again after it was detached into its own window, and no longer leaves an empty panel or a narrowed page after a tab switch, a floating video or closing it (#141).
+- The address bar shows ⌘L at the end of the page title, at rest until you have used it once and then on hover, so the shortcut to change the address is easy to learn (#133).
+- The hammer, or ⇧⌘I, now turns on Developer mode: capture, element selection and Network move out of the top bar into a dock at the bottom of the window that you can drag anywhere, and a fine blue line round the page says the mode is on.
+
 ## 0.10 — 2026-10-12
 
 ### Highlights

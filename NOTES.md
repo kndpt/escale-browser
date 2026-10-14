@@ -1,3 +1,5 @@
+Escale 0.11: install an extension once and use it in every Space. Give each Space a colour, and find the page tools in a dock you can move.
+
 Escale 0.10: ⌘L lists a page's query parameters, to change or turn off one by one. A page whose title keeps changing, like an unread count, no longer redraws the window each time.
 
 Escale 0.9: Focus Mode hides everything but the page. In a new tab, type > to run any command, or a keyword like “npm react” to search one site.
