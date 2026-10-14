@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Escale messaging fixture",
+  "version": "1.0",
+  "description": "Test fixture for Tests/Bench/extension_messaging.py: Chrome's messaging between worker, pages, content scripts and framed pages.",
+  "permissions": ["tabs", "webNavigation"],
+  "host_permissions": ["http://127.0.0.1/*"],
+  "background": { "service_worker": "worker.js" },
+  "content_scripts": [{
+    "matches": ["http://127.0.0.1/*"],
+    "exclude_matches": ["http://127.0.0.1/*bare*"],
+    "js": ["content.js"]
+  }],
+  "web_accessible_resources": [{ "resources": ["frame.html", "frame.js"], "matches": ["http://127.0.0.1/*"] }]
+}
