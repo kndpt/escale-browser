@@ -60,9 +60,11 @@ bugs, which are Apple's.
 6. **Spaces.** Each space has its own WebKit data store and keychain tag; code
    that looks up a login, cookie or history entry is given the space. With
    extensions shared by every Space, an extension sees the tabs and addresses
-   of every Space within its permissions, and the bookmarks, history and
-   downloads of the Space on screen; sites, cookies and passwords stay per
-   Space, and its own pages keep their data in a store that is no Space's.
+   of every Space within its permissions, the bookmarks, history and
+   downloads of the Space on screen, and, with `cookies` and host access,
+   any Space's cookies through that Space's `storeId`. Sites and passwords
+   are still kept per Space, and its own pages keep their data in a store
+   that is no Space's.
 
 ## What a review should flag
 

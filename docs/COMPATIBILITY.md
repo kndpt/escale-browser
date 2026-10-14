@@ -127,8 +127,9 @@ history, downloads, sessions and top sites answer for the Space on screen;
 the extensions' own pages' store, which holds no Space's site cookies; a tab's
 store is reached by its `storeId`, and `getAllCookieStores` lists each. Calls
 by a tab's index (`describe`, `move`, `discard`, `activate`, a tab's popup)
-reach only the window on screen: elsewhere they fail as a parked Space's do,
-and `describe` leaves the address out. WebKit sends `storage.onChanged` to no
+reach only the window on screen (`inFront` in the shim): elsewhere they fail
+as a parked Space's do, and `describe` leaves the address out. When
+`windows.getLastFocused` fails, the call goes through as it did before. WebKit sends `storage.onChanged` to no
 page shown as the action's popup in a tab.
 
 Popups follow Chrome's auto-size between 25 × 25 and 800 × 600 points
