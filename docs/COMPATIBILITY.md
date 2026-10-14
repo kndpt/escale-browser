@@ -135,6 +135,15 @@ page shown as the action's popup in a tab.
 Popups follow Chrome's auto-size between 25 × 25 and 800 × 600 points
 (`popup-preferred.js`, then `popup-reach.js` as the page changes).
 
+### Messaging
+
+`extension_messaging.py` replays Chrome's messaging on a local fixture: the
+listener that answers among several, async and promised answers, a page that
+listens without answering, page to page, ports, content scripts both ways and
+the extension's page framed in a website. Two gaps remain: `runtime.lastError`
+is never seen in a callback (WebKit's runtime keeps its own `null`), and a
+message to a tab nobody listens in settles empty where Chrome rejects.
+
 ### Per-extension workarounds
 
 No scenario replays these; the extension is the one the code comment names.
@@ -170,7 +179,8 @@ unloading one removes only its work. At most `capacity` utterances of
   `bench picture`. Adding one is a bench extension ([TESTING](TESTING.md)).
 - **Extensions.** Only local fixtures in `Tests/Bench/fixtures/` are replayed.
   `compatibility.py` covers `bookmarks.getTree`, the history gate and
-  `tabGroups.get`; other families are not covered. Set
+  `tabGroups.get`, `extension_messaging.py` messaging; other families are not
+  covered. Set
   `ESCALE_EXTENSION_FIXTURE` to a copy outside Documents to avoid a macOS
   folder-access prompt.
 - **Spaces.** `space_context.py` checks the local fixture in two Spaces and
