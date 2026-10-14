@@ -49,7 +49,7 @@ def settle(page, script, label):
 def loaded_page():
     row = h.until("fixture loaded", lambda: (r if (r := installed()) and r["loaded"] else None), 30)
     page = obj("ext-page", row["id"], "page.html")["id"]
-    h.until("page ready", lambda: js(page, "document.readyState === 'complete' && typeof chrome?.power?.requestKeepAwake === 'function'"))
+    h.until("page ready", lambda: js(page, "document.readyState === 'complete' && typeof globalThis.chrome?.power?.requestKeepAwake === 'function'"))
     return row["id"], page
 
 
