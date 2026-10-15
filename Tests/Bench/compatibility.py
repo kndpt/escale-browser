@@ -250,6 +250,13 @@ def main():
         check("developer extras on in the page (_setDeveloperExtrasEnabled:)",
               probe.get("inspector") == [True], probe.get("inspector"))
         # The Web Inspector, docked at the right: the page gets narrower.
+        # The stage settles a few points after the page first lays out; the
+        # widths below are compared with the one it holds still at.
+        def still():
+            before = js(id, "innerWidth")
+            time.sleep(0.3)
+            return js(id, "innerWidth") == before
+        until("the page's width to hold still", still, 5)
         wide = js(id, "innerWidth")
         tall = js(id, "innerHeight")
         ask("press", code=34, chars="i", mods=["cmd", "opt"])
