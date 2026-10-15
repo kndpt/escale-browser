@@ -7,8 +7,12 @@
      participant without a camera shows only an avatar and a muted microphone, a shared
      screen arrives by renegotiation, the sender's own picture is a small mirrored tile,
      and a large decorative video sits behind everything. The meeting's own buttons
-     appear once joined. Names, labels and markup follow what the window looks for;
-     nothing here proves how a real Meet page behaves. -->
+     appear once joined. Names, labels and markup follow what the window looks for,
+     as read from a real Meet page in October 2026: a name marked notranslate after a
+     notice sentence (one ending with an initial, one hidden), a microphone drawn as
+     two SVGs with one hidden, and sound bars
+     whose classes change while someone speaks. Nothing here proves how Meet behaves
+     today. -->
 <meta charset="utf-8">
 <title>Synthetic call</title>
 <style>
@@ -24,6 +28,10 @@
   .tile .name { position: absolute; left: 6px; bottom: 4px; }
   .tile .avatar { position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px; border-radius: 50%; }
   .google-symbols { position: absolute; right: 6px; top: 4px; font-style: normal; }
+  .mic { position: absolute; right: 6px; top: 4px; display: flex; }
+  .mic span { display: flex; }
+  .mic svg { width: 16px; height: 16px; fill: #fff; }
+  .bars { position: absolute; left: 6px; top: 4px; width: 12px; height: 12px; }
   #selftile { position: fixed; right: 8px; bottom: 52px; width: 15vw; aspect-ratio: 16 / 9; background: #003; z-index: 4; }
   #self { width: 100%; height: 100%; display: block; transform: scaleX(-1); }
   /* The sender's own screen, drawn with the same mirror as their camera. */
@@ -34,7 +42,7 @@
 </style>
 <video id="decor" muted autoplay loop playsinline></video>
 <div id="stage"></div>
-<div id="selftile" data-participant-id="me"><video id="self" muted autoplay playsinline></video><span class="name">You</span></div>
+<div id="selftile" data-participant-id="me"><video id="self" muted autoplay playsinline></video><span>Others might still see your full video.</span><span class="name notranslate">Kim L.</span></div>
 <audio id="far" autoplay></audio>
 <div id="bar">
   <button id="join">Join</button>
@@ -90,15 +98,27 @@
     return stream;
   }
 
+  // Meet's microphone in a tile: mic_off and the open microphone, one hidden.
+  const MIC_OFF = 'M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zM4.27 3L3 4.27l16.73 16.73L21 19.73 4.27 3z';
+  const MIC_ON = 'M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z';
+
   function tile(name, track) {
     const box = document.createElement('div');
     box.className = 'tile' + (name === 'screen' ? ' presentation' : '');
     box.dataset.who = name;
     box.dataset.participantId = 'spaces/test/devices/' + name;
     const label = document.createElement('span');
-    label.className = 'name';
+    label.className = 'name notranslate';
     label.textContent = names[name];
-    box.append(label);
+    const mic = document.createElement('div');
+    mic.className = 'mic';
+    mic.setAttribute('aria-hidden', 'true');
+    mic.innerHTML = [MIC_OFF, MIC_ON].map(d => `<span><svg viewBox="0 0 24 24"><path d="${d}"/></svg></span>`).join('');
+    const bars = document.createElement('div');
+    bars.className = 'bars quiet';
+    bars.setAttribute('jsname', 'QgSmzd');
+    box.append(bars, label, mic);
+    microphone(box, true);
     if (track) {
       const video = document.createElement('video');
       video.autoplay = true; video.muted = true; video.playsInline = true;
@@ -125,16 +145,24 @@
     box.prepend(image);
   }
 
-  function silenced(box) {
-    const icon = document.createElement('i');
-    icon.className = 'google-symbols';
-    icon.textContent = 'mic_off';
-    box.append(icon);
+  function microphone(box, open) {
+    const [off, on] = box.querySelectorAll('.mic span');
+    off.style.display = open ? 'none' : '';
+    on.style.display = open ? '' : 'none';
   }
 
+  // The speaker's sound bars change class with their voice, ten times a second;
+  // everyone else's keep still.
+  let voice = 0;
   function speaking() {
     for (const box of document.querySelectorAll('.tile')) {
       box.classList.toggle('speaking', box.dataset.who === state.speaker);
+    }
+  }
+  function voices() {
+    voice = (voice + 1) % 3;
+    for (const bars of document.querySelectorAll('.tile .bars')) {
+      bars.className = 'bars ' + (bars.closest('.tile').dataset.who === state.speaker ? 'level' + voice : 'quiet');
     }
   }
 
@@ -194,8 +222,17 @@
     }
     await negotiate();
     tile('cara', null);
-    silenced(document.querySelector('.tile[data-who="cara"]'));
+    // Cara's name is marked but hidden, as in a small tile; Bob's open
+    // microphone also wears Material's outlined mic_none, which is not muted.
+    const cara = document.querySelector('.tile[data-who="cara"]');
+    microphone(cara, false);
+    cara.querySelector('.name').style.display = 'none';
+    const open = document.createElement('i');
+    open.className = 'google-symbols';
+    open.textContent = 'mic_none';
+    document.querySelector('.tile[data-who="bob"]').append(open);
     $('#controls').hidden = false;
+    timers.push(setInterval(voices, 100));
 
     $('#self').srcObject = feed('me', 320, 180);
     $('#decor').srcObject = feed('decor', 640, 360);

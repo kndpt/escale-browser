@@ -30,6 +30,12 @@ as absent, and the window offers no control it could not press.
   var hints = {
     tiles: '[data-participant-id]',
     ownName: '[data-self-name]',
+    // Google marks the names it shows so a translator leaves them alone.
+    name: '.notranslate',
+    // A notice in a tile ("Others might still see your full video.") is a
+    // sentence: four words or more, the last a word, not an initial, ending
+    // like one. "Ada L." and "Martin Luther King Jr." are names.
+    sentence: /^(\S+\s+){3,}\S{4,}[.!?…:]$/,
     microphone: { name: 'button[jsname="BOHaEe"]', label: /micro|mikro|マイク/i, among: 'button[data-is-muted]' },
     camera: { label: /camera|caméra|kamera|cámara|câmera|カメラ/i, among: 'button[data-is-muted]' },
     present: { label: /^(present|stop presenting|you are presenting|share screen|stop sharing|pr[ée]sent|vous pr[ée]sentez|arr[êe]ter la pr[ée]sentation|partager l['’][ée]cran|präsent|presentar|dejar de presentar)/i, among: 'button[aria-label]' },
@@ -39,7 +45,14 @@ as absent, and the window offers no control it could not press.
     stopping: /^(stop|lower|arr[êe]ter|baisser|beenden|senken|dejar|bajar|you are presenting|vous pr[ée]sentez)/i,
     // "Vous êtes en train de présenter", "Ada (Presentation)": accents count.
     presentation: /pr[eé]sent|präsent|presentaci|apresenta/i,
-    silent: /^mic_off$|^mic_none$/,
+    silent: /^mic_off$/,
+    // Meet draws a microphone that is off as Material's mic_off in SVG, and
+    // keeps the open one beside it, hidden.
+    silentPath: /^M19 11h-1\.7/,
+    // The sound bars by a name. Their classes change many times a second
+    // while that person speaks and keep still otherwise, so the change is
+    // read, not the classes, which are renamed with each version of the site.
+    voice: '[jsname="QgSmzd"]',
     silentLabel: /micro\w* (is )?(off|muted|coupé|désactivé|aus)|is muted|est coupé|stummgeschaltet/i,
     icon: /symbol|icon|material/i
   };
@@ -146,35 +159,71 @@ as absent, and the window offers no control it could not press.
 
   // MARK: - who is in it
 
-  // The first words in a tile that are not a button, a menu or an icon's
-  // ligature ("mic_off" is a word to a font, not a name).
+  // The words the site marks as a name, else the first words in a tile that
+  // could be one ("mic_off" is a word to a font, not a name).
   function nameOf(tile) {
     var own = tile.querySelector(hints.ownName);
     if (own && own.textContent.trim()) return own.textContent.trim();
+    // A marked name the tile shows first; one it hides (a small tile, a label
+    // shown on hover) still names them better than nothing.
+    var marked = tile.querySelectorAll(hints.name), hidden = '';
+    for (var i = 0; i < marked.length; i++) {
+      var words = marked[i].textContent.trim();
+      if (!worded(marked[i], words)) continue;
+      if (shown(marked[i])) return words;
+      hidden = hidden || words;
+    }
+    if (hidden) return hidden;
     var walker = document.createTreeWalker(tile, NodeFilter.SHOW_TEXT);
     var node;
     while ((node = walker.nextNode())) {
       var text = node.nodeValue.trim();
-      var parent = node.parentElement;
-      if (!text || text.length > 60 || !parent) continue;
-      if (parent.closest('button, [role="button"], [role="menu"], [role="tooltip"], i')) continue;
-      if (hints.icon.test(typeof parent.className === 'string' ? parent.className : '')) continue;
-      return text;
+      if (worded(node.parentElement, text) && shown(node.parentElement)) return text;
     }
     return '';
   }
 
+  // Words that could be a name: short, not a sentence, and not in a button,
+  // a menu or an icon.
+  function worded(parent, text) {
+    if (!text || text.length > 60 || !parent || hints.sentence.test(text)) return false;
+    if (parent.closest('button, [role="button"], [role="menu"], [role="tooltip"], i')) return false;
+    return !hints.icon.test(typeof parent.className === 'string' ? parent.className : '');
+  }
+
+  // Only a sign the tile shows: a site may keep both signs in its markup and
+  // hide the one that does not apply, which read everyone as muted.
   function silent(tile) {
     var icons = tile.querySelectorAll('i, [class*="symbol"], [class*="icon"]');
     for (var i = 0; i < icons.length; i++) {
-      if (hints.silent.test(icons[i].textContent.trim())) return true;
+      if (hints.silent.test(icons[i].textContent.trim()) && shown(icons[i])) return true;
     }
     var labelled = tile.querySelectorAll('[aria-label], [data-tooltip]');
     for (var j = 0; j < labelled.length; j++) {
       var label = labelled[j].getAttribute('aria-label') || labelled[j].getAttribute('data-tooltip') || '';
-      if (labelled[j].tagName !== 'BUTTON' && hints.silentLabel.test(label)) return true;
+      if (labelled[j].tagName !== 'BUTTON' && hints.silentLabel.test(label) && shown(labelled[j])) return true;
+    }
+    var paths = tile.querySelectorAll('svg path');
+    for (var k = 0; k < paths.length; k++) {
+      if (hints.silentPath.test(paths[k].getAttribute('d') || '') && shown(paths[k])) return true;
     }
     return false;
+  }
+
+  // When each tile's sound bars changed lately, as seen at each redraw. A
+  // voice changes them at nearly every one; muting or unmuting, once. So it
+  // takes two changes in a second and a half, from a microphone that is open.
+  var heard = new WeakMap();
+  function speaking(tile) {
+    var bars = tile.querySelectorAll(hints.voice), now = Date.now(), lately = false;
+    for (var i = 0; i < bars.length; i++) {
+      var look = bars[i].className, was = heard.get(bars[i]);
+      if (!was) heard.set(bars[i], was = { look: look, changes: [] });
+      else if (was.look !== look) { was.look = look; was.changes.push(now); }
+      while (was.changes.length && now - was.changes[0] >= 1500) was.changes.shift();
+      if (was.changes.length >= 2) lately = true;
+    }
+    return lately;
   }
 
   // Whether the site shows a picture mirrored, as it does a camera's preview of
@@ -254,15 +303,21 @@ as absent, and the window offers no control it could not press.
       var id = tile.getAttribute('data-participant-id');
       var video = streamOf(tile);
       if (!video && !shown(tile)) continue;
+      var muted = silent(tile), talking = speaking(tile);
       var one = {
         id: id, name: nameOf(tile), video: video, picture: video ? null : pictureOf(tile),
-        muted: silent(tile)
+        muted: muted, speaking: talking && !muted
       };
       one.presentation = hints.presentation.test(one.name) || !!(video && video.screen);
       // A site may show the same person twice, large and in a strip: the
-      // one with a moving picture is kept.
+      // one with a moving picture is kept, with what either tile shows of
+      // their microphone and their voice.
       if (seen[id]) {
-        if (!seen[id].video && video) list[list.indexOf(seen[id])] = seen[id] = one;
+        var either = seen[id];
+        if (!either.video && video) list[list.indexOf(either)] = seen[id] = one;
+        seen[id].name = seen[id].name || either.name || one.name;
+        seen[id].muted = either.muted || one.muted;
+        seen[id].speaking = (either.speaking || one.speaking) && !seen[id].muted;
         continue;
       }
       seen[id] = one;
@@ -275,7 +330,7 @@ as absent, and the window offers no control it could not press.
       if (!remote(videos[j].srcObject, 'video')) continue;
       var box = videos[j].getBoundingClientRect();
       list.push({
-        id: 'video-' + j, name: '', picture: null, muted: false, presentation: false,
+        id: 'video-' + j, name: '', picture: null, muted: false, speaking: false, presentation: false,
         video: { stream: videos[j].srcObject, area: box.width * box.height, remote: true }
       });
     }
@@ -325,9 +380,14 @@ as absent, and the window offers no control it could not press.
     root.appendChild(host);
   }
   var shade = host.shadowRoot;
-  shade.innerHTML = '<style>' + [
-    ':host { font: ' + u(11) + '/1.25 -apple-system, system-ui, sans-serif; color:' + colours.ink + ' }',
+  // Built, never parsed from a string: Meet requires Trusted Types, and WebKit
+  // refuses a string of HTML there, which kept the window from ever opening.
+  var style = document.createElement('style');
+  style.textContent = [
+    // On the room, not :host: the page sheet's all:initial on the host wins
+    // over the host's own rules, and named everyone in black serif.
     '.room { position:absolute; inset:0; display:flex; flex-direction:column; gap:' + u(6) + ';',
+    'font: ' + u(11) + '/1.25 -apple-system, system-ui, sans-serif; color:' + colours.ink + ';',
     'padding:' + u(8) + '; box-sizing:border-box; background:' + colours.ground + ' }',
     '.strip { display:flex; gap:' + u(6) + '; height:' + u(64) + '; flex:none }',
     '.strip .card { flex:1 1 0; max-width:' + u(120) + ' }',
@@ -337,6 +397,10 @@ as absent, and the window offers no control it could not press.
     'display:flex; align-items:center; justify-content:center; min-width:0; min-height:0 }',
     '.card video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover }',
     '.card.mirrored video { transform:scaleX(-1) }',
+    // A ring over the picture, not round it, so no card moves when it lights.
+    '.card::after { content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;',
+    'box-shadow:inset 0 0 0 ' + u(2) + ' transparent; transition:box-shadow .15s }',
+    '.card.speaking::after { box-shadow:inset 0 0 0 ' + u(2) + ' ' + colours.speaking + ' }',
     // A shared screen is shown whole wherever it is, never cut to fill.
     '.stage video, .card.screen video { object-fit:contain }',
     '.face { width:' + u(36) + '; height:' + u(36) + '; border-radius:50%; overflow:hidden;',
@@ -352,20 +416,34 @@ as absent, and the window offers no control it could not press.
     '.card.silent .muted { display:flex }',
     '.muted svg { width:' + u(10) + '; height:' + u(10) + ' }',
     '.more { font-size:' + u(15) + '; color:' + colours.faint + ' }'
-  ].join('') + '</style><div class="room"></div>';
-  var room = shade.querySelector('.room');
+  ].join('');
+  var room = element('div', 'room');
+  shade.replaceChildren(style, room);
 
-  var slash = '<svg viewBox="0 0 16 16" fill="none" stroke="' + colours.ink + '" stroke-width="1.6" '
-    + 'stroke-linecap="round"><path d="M8 2.5a2 2 0 0 1 2 2v3M6 6v1.5a2 2 0 0 0 3.2 1.6M4.5 7.5a3.5 3.5 0 0 0 '
-    + '5.6 2.8M11.5 7.5c0 .5-.1 1-.3 1.4M8 11v2.5M2.5 2.5l11 11"/></svg>';
+  function element(tag, name) {
+    var made = document.createElement(tag);
+    made.className = name;
+    return made;
+  }
+
+  var SVG = 'http://www.w3.org/2000/svg';
+  var slash = document.createElementNS(SVG, 'svg');
+  [['viewBox', '0 0 16 16'], ['fill', 'none'], ['stroke', colours.ink], ['stroke-width', '1.6'],
+    ['stroke-linecap', 'round']].forEach(function (pair) { slash.setAttribute(pair[0], pair[1]); });
+  var stroke = document.createElementNS(SVG, 'path');
+  stroke.setAttribute('d', 'M8 2.5a2 2 0 0 1 2 2v3M6 6v1.5a2 2 0 0 0 3.2 1.6M4.5 7.5a3.5 3.5 0 0 0 '
+    + '5.6 2.8M11.5 7.5c0 .5-.1 1-.3 1.4M8 11v2.5M2.5 2.5l11 11');
+  slash.appendChild(stroke);
 
   var cards = {};
   function card(one) {
     var made = cards[one.id];
     if (!made) {
-      made = document.createElement('div');
-      made.className = 'card';
-      made.innerHTML = '<div class="face"><span class="initial"></span></div><span class="name"></span><span class="muted">' + slash + '</span>';
+      made = element('div', 'card');
+      var round = element('div', 'face'), badge = element('span', 'muted');
+      round.appendChild(element('span', 'initial'));
+      badge.appendChild(slash.cloneNode(true));
+      made.append(round, element('span', 'name'), badge);
       cards[one.id] = made;
     }
     var video = made.querySelector('video');
@@ -387,6 +465,7 @@ as absent, and the window offers no control it could not press.
     made.classList.toggle('mirrored', !!(one.video && one.video.mirrored) && !one.presentation);
     made.classList.toggle('screen', one.presentation);
     made.classList.toggle('silent', one.muted);
+    made.classList.toggle('speaking', !!one.speaking);
     var face = made.querySelector('.face');
     face.style.display = stream ? 'none' : '';
     var letter = face.querySelector('.initial');
@@ -399,8 +478,7 @@ as absent, and the window offers no control it could not press.
   }
 
   function more(count) {
-    var made = document.createElement('div');
-    made.className = 'card more';
+    var made = element('div', 'card more');
     made.textContent = '+' + count;
     return made;
   }
@@ -458,7 +536,7 @@ as absent, and the window offers no control it could not press.
     window.__escaleMeeting = {
       stage: stage ? stage.name : null,
       cards: list.map(function (one) {
-        return { name: one.name, video: !!one.video, picture: !!one.picture, muted: one.muted };
+        return { name: one.name, video: !!one.video, picture: !!one.picture, muted: one.muted, speaking: !!one.speaking };
       }),
       more: hidden
     };

@@ -310,7 +310,7 @@ CHECKS = {
               "the meeting window: people, whole shared screen, the page's commands, cameras off, Spaces, sleep, end",
               "app", ("bundle",),
               paths=("Sources/Escale/Page/Float.swift", "Sources/Escale/Page/Meeting.swift",
-                     "Sources/Escale/Page/Scripts/meeting.js", "Sources/Escale/Page/Scripts/isolate-*.js",
+                     "Sources/Escale/Page/Knob.swift", "Sources/Escale/Page/Scripts/meeting.js", "Sources/Escale/Page/Scripts/isolate-*.js",
                      "Sources/Escale/Browser/Browser.swift",
                      "Sources/Escale/Spaces/Spaces.swift", "Sources/Escale/Tabs/Tab.swift",
                      "Tests/Bench/calls.py",

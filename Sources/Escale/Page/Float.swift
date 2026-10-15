@@ -147,7 +147,14 @@ final class Float {
             meeting.autoresizingMask = [.width, .height]
             meeting.onReturn = { [weak self] in self?.onReturn?() }
             meeting.onMinimize = { [weak self] in self?.onMinimize?() }
-            meeting.onPress = { [weak self] name in self?.onPress?(name) }
+            meeting.onPress = { [weak self] name in
+                self?.onPress?(name)
+                // Shown as soon as the page has turned its button, a press
+                // is seen to be taken.
+                DispatchQueue.main.asyncAfter(deadline: .now() + Motion.pressShown) {
+                    self?.onMeeting? { self?.meeting?.show($0) }
+                }
+            }
             ground.addSubview(meeting)
             self.meeting = meeting
         } else {
@@ -270,12 +277,12 @@ final class Float {
             didSet { line.through = progress }
         }
 
-        private let close = NSButton()
-        private let back = NSButton()
-        private let minimize = NSButton()
-        private let pause = NSButton()
-        private let rewind = NSButton()
-        private let forward = NSButton()
+        private let close = Knob()
+        private let back = Knob()
+        private let minimize = Knob()
+        private let pause = Knob()
+        private let rewind = Knob()
+        private let forward = Knob()
         private let scrim = CAGradientLayer()
         private let line = Line()
         private var near = false
@@ -406,7 +413,7 @@ class Grip: NSView {
     }
 
     /// A round button in the film's colours, added to this surface.
-    func dress(_ button: NSButton, _ symbol: String, _ size: CGFloat, round: CGFloat, action: Selector) {
+    func dress(_ button: Knob, _ symbol: String, _ size: CGFloat, round: CGFloat, action: Selector) {
         button.image = Grip.glyph(symbol, size)
         button.isBordered = false
         button.bezelStyle = .regularSquare
@@ -414,7 +421,7 @@ class Grip: NSView {
         button.target = self
         button.action = action
         button.wantsLayer = true
-        button.layer?.backgroundColor = Palette.Film.button.cgColor
+        button.tint = Palette.Film.button
         button.layer?.cornerRadius = round
         // The same fine edge as Escale's glass elsewhere, so the buttons
         // hold on a dark frame of film as well as on a bright one.

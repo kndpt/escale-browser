@@ -85,6 +85,7 @@ enum Meeting {
             "ink": Palette.Film.css(Palette.Film.ink),
             "faint": Palette.Film.css(Palette.Film.faint),
             "alert": Palette.Film.css(Palette.Film.hangUp),
+            "speaking": Palette.Film.css(Palette.Film.speaking),
             // Behind a name, so it holds on a bright picture.
             "shade": Palette.Film.css(Palette.Film.ground),
         ],
@@ -106,13 +107,13 @@ enum Meeting {
         var onMinimize: (() -> Void)?
         var onPress: ((String) -> Void)?
 
-        private let back = NSButton()
-        private let minimize = NSButton()
-        private let microphone = NSButton()
-        private let camera = NSButton()
-        private let present = NSButton()
-        private let options = NSButton()
-        private let hang = NSButton()
+        private let back = Knob()
+        private let minimize = Knob()
+        private let microphone = Knob()
+        private let camera = Knob()
+        private let present = Knob()
+        private let options = Knob()
+        private let hang = Knob()
         private var near = false
         private var state = State()
 
@@ -128,7 +129,7 @@ enum Meeting {
             dress(options, "ellipsis", 15, round: 20, action: #selector(pressedOptions))
             name(options, "More options")
             dress(hang, "phone.down.fill", 15, round: 20, action: #selector(pressedHangUp))
-            hang.layer?.backgroundColor = Palette.Film.hangUp.cgColor
+            hang.tint = Palette.Film.hangUp
             name(hang, "Leave the meeting")
             [back, minimize].forEach { $0.alphaValue = 0 }
             // What the page offers is known a beat after the window opens.
@@ -169,14 +170,14 @@ enum Meeting {
             let presenting = state.present == "on"
             present.image = Grip.glyph(presenting ? "rectangle.on.rectangle.slash" : "rectangle.on.rectangle", 14,
                                        ink: presenting ? Palette.Film.litInk : Palette.Film.ink)
-            present.layer?.backgroundColor = (presenting ? Palette.Film.lit : Palette.Film.button).cgColor
+            present.tint = presenting ? Palette.Film.lit : Palette.Film.button
             name(present, presenting ? "Stop presenting" : "Present your screen")
             // The options are the page's own, and only while it has one.
             options.isHidden = state.hand == nil
             let raised = state.hand == "up"
             options.image = Grip.glyph(raised ? "hand.raised.fill" : "ellipsis", 15,
                                        ink: raised ? Palette.Film.litInk : Palette.Film.ink)
-            options.layer?.backgroundColor = (raised ? Palette.Film.lit : Palette.Film.button).cgColor
+            options.tint = raised ? Palette.Film.lit : Palette.Film.button
             name(options, raised ? "More options, hand raised" : "More options")
             hang.isHidden = !state.leave
             needsLayout = true
@@ -185,13 +186,13 @@ enum Meeting {
         /// A toggle that is red while it is off: a microphone or a camera
         /// someone else cannot hear or see.
         private func look(
-            _ button: NSButton, _ value: String?, off: String,
+            _ button: Knob, _ value: String?, off: String,
             symbols: (on: String, off: String), size: CGFloat, labels: (on: String, off: String)
         ) {
             button.isHidden = value == nil
             let isOff = value == off
             button.image = Grip.glyph(isOff ? symbols.off : symbols.on, size)
-            button.layer?.backgroundColor = (isOff ? Palette.Film.hangUp : Palette.Film.button).cgColor
+            button.tint = isOff ? Palette.Film.hangUp : Palette.Film.button
             name(button, isOff ? labels.off : labels.on)
         }
 
@@ -206,13 +207,16 @@ enum Meeting {
             minimize.frame = back.frame.offsetBy(dx: -(back.frame.width + Metrics.mediaGap), dy: 0)
 
             // The commands the page has, centred in the band, in Meet's order.
+            // Hanging up is wider, as in Meet: the one that is not a toggle
+            // is not shaped like one.
             let shown = commands.filter { !$0.isHidden }
             let side: CGFloat = 40, gap: CGFloat = 10
-            let width = CGFloat(shown.count) * side + CGFloat(max(0, shown.count - 1)) * gap
+            let wide = { (button: NSButton) in button === self.hang ? 56 : side }
+            let width = shown.map(wide).reduce(0, +) + CGFloat(max(0, shown.count - 1)) * gap
             var x = (bounds.width - width) / 2
             for button in shown {
-                button.frame = NSRect(x: x, y: (Meeting.band - side) / 2, width: side, height: side)
-                x += side + gap
+                button.frame = NSRect(x: x, y: (Meeting.band - side) / 2, width: wide(button), height: side)
+                x += wide(button) + gap
             }
         }
 
