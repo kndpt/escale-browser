@@ -1480,7 +1480,7 @@ final class PageView: WKWebView {
     }
 
     /// Inspect Element in the right-click menu: the Web Inspector is first
-    /// made Escale's, as ⌥⌘C does, so it follows the tab (Inspector.swift);
+    /// made Escale's, as ⌥⌘C does, so it stays with the tab (Inspector.swift);
     /// WebKit's own action then picks the node that was clicked.
     var onInspect: (() -> Void)?
     private var inspectNode: (target: AnyObject?, action: Selector?) = (nil, nil)
