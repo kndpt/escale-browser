@@ -23,16 +23,24 @@ Stopping aborts its listeners and animation so disabling it leaves no page work.
   };
 
   // The mark: a round badge with its arrows, in a shadow root the page's
-  // own styles can't reach.
+  // own styles can't reach. Built, never parsed from a string: a page that
+  // requires Trusted Types refuses a string of HTML, and scrolling never began.
+  const drawn = (name, attributes) => {
+    const made = document.createElementNS('http://www.w3.org/2000/svg', name);
+    for (const key in attributes) made.setAttribute(key, attributes[key]);
+    return made;
+  };
   const mark = (x, y) => {
     const host = document.createElement('div');
     host.style.cssText = 'all:initial;position:fixed;z-index:2147483647;pointer-events:none;' +
       `left:${x - 15}px;top:${y - 15}px;width:30px;height:30px;`;
-    host.attachShadow({ mode: 'closed' }).innerHTML =
-      '<svg viewBox="0 0 30 30" width="30" height="30" style="filter:drop-shadow(0 2px 6px rgba(0,0,0,.25))">' +
-      '<circle cx="15" cy="15" r="13.5" fill="rgba(255,255,255,.94)" stroke="rgba(0,0,0,.18)"/>' +
-      '<path d="M15 6.5l3.5 4.5h-7zM15 23.5l3.5-4.5h-7z" fill="rgba(0,0,0,.62)"/>' +
-      '<circle cx="15" cy="15" r="1.6" fill="rgba(0,0,0,.62)"/></svg>';
+    const badge = drawn('svg', { viewBox: '0 0 30 30', width: '30', height: '30' });
+    badge.style.filter = 'drop-shadow(0 2px 6px rgba(0,0,0,.25))';
+    badge.append(
+      drawn('circle', { cx: '15', cy: '15', r: '13.5', fill: 'rgba(255,255,255,.94)', stroke: 'rgba(0,0,0,.18)' }),
+      drawn('path', { d: 'M15 6.5l3.5 4.5h-7zM15 23.5l3.5-4.5h-7z', fill: 'rgba(0,0,0,.62)' }),
+      drawn('circle', { cx: '15', cy: '15', r: '1.6', fill: 'rgba(0,0,0,.62)' }));
+    host.attachShadow({ mode: 'closed' }).appendChild(badge);
     document.documentElement.appendChild(host);
     return host;
   };

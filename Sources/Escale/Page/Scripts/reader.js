@@ -89,7 +89,11 @@ The heuristic discounts navigation rails without needing a site-specific rule.
 
   var wrap = document.createElement('div');
   wrap.id = 'escale-reader';
-  wrap.innerHTML = article.innerHTML;
+  // Copied as nodes, never as a string of HTML: a page that requires Trusted
+  // Types refuses the string, even an empty one, and reading did nothing.
+  for (var node = article.firstChild; node; node = node.nextSibling) {
+    wrap.appendChild(node.cloneNode(true));
+  }
 
   // What was arranged around the words rather than being part of them.
   // Not header: an article's opening image lives there as often as not.
@@ -127,7 +131,7 @@ The heuristic discounts navigation rails without needing a site-specific rule.
   from.className = 'escale-from';
   from.textContent = location.host.replace(/^www\./, '');
 
-  document.body.innerHTML = '';
+  document.body.replaceChildren();
   document.head.appendChild(sheet);
   wrap.insertBefore(from, wrap.firstChild);
   wrap.insertBefore(top, wrap.firstChild);

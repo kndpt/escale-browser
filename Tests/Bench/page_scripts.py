@@ -18,6 +18,9 @@ is there and does its part, from what it leaves in the page:
    survives restart and turning it back on restores the script. Link hover
    reports its destination and disabling the option clears it.
 3. Reading mode (⌘⇧R) turns the page into its article.
+4. On a page that requires Trusted Types, as Meet does, where WebKit refuses
+   any string of HTML, the middle button still shows its badge and starts
+   scrolling, and reading mode still turns the page into its article.
 
 Not covered here, each for its own reason: the floating video (needs a video
 playing), the selection read by the right-click menu, the Chrome Web Store's button
@@ -62,6 +65,13 @@ LOOK = """JSON.stringify({
   reader: !!document.getElementById('escale-reader'),
 })"""
 
+# A page that requires Trusted Types refuses this; one that does not, allows it.
+STRING_OF_HTML = "(() => { try { document.createElement('div').innerHTML = '<b>x</b>'; return 'allowed'; } catch (e) { return 'refused'; } })()"
+# A middle (1) or left (0) press on the article's words.
+MIDDLE = "document.querySelector('p').dispatchEvent(new MouseEvent('mousedown', {{button: {button}, bubbles: true, cancelable: true, clientX: 200, clientY: 200}})); true"
+# Scrolling has started and its badge is on the page.
+SCROLLING = "document.documentElement.style.cursor === 'all-scroll' && document.documentElement.lastElementChild.style.zIndex === '2147483647'"
+
 failures = []
 
 
@@ -69,6 +79,8 @@ class Page(BaseHTTPRequestHandler):
     def do_GET(self):
         body = ARTICLE.encode()
         self.send_response(200)
+        if self.path.startswith("/strict"):
+            self.send_header("Content-Security-Policy", "require-trusted-types-for 'script'")
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
@@ -120,6 +132,10 @@ def active():
 
 def look(id):
     return json.loads(json.loads(bench("--json", "eval", id, LOOK).stdout)["value"])
+
+
+def value(id, script):
+    return json.loads(bench("--json", "eval", id, script).stdout)["value"]
 
 
 def settle(what, id, **expected):
@@ -175,6 +191,23 @@ def exercise(base):
     # 3. Reading mode.
     bench("press", "15", "r", "cmd", "shift", deadline=10)
     settle("⌘⇧R", id, reader=True)
+
+    # 4. The same page, requiring Trusted Types.
+    strict = f"{base}/strict"
+    bench("field", strict, "go", deadline=30)
+    until(f"{strict} on screen", lambda: active()[1] == strict, 15)
+    id = active()[0]
+    bench("wait", id, "10", deadline=15)
+    if value(id, STRING_OF_HTML) != "refused":
+        failures.append("the strict page did not refuse a string of HTML: the check below proves nothing")
+    bench("eval", id, MIDDLE.format(button=1))
+    if value(id, SCROLLING) is not True:
+        failures.append("Trusted Types: the middle button showed no badge and did not start scrolling")
+    bench("eval", id, MIDDLE.format(button=0))
+    bench("press", "15", "r", "cmd", "shift", deadline=10)
+    settle("⌘⇧R under Trusted Types", id, reader=True)
+    if value(id, "document.querySelectorAll('#escale-reader p:not(.escale-from)').length") != 3:
+        failures.append("Trusted Types: reading mode lost the article's paragraphs")
 
 
 def main():
