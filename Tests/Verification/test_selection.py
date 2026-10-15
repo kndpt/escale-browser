@@ -203,6 +203,13 @@ class WorkflowTests(unittest.TestCase):
         self.assertTrue(selected['observations'])
         self.assertEqual(selected['checks'], plan(['Sources/Escale/Settings/Settings.swift'])['checks'])
 
+    def test_every_shim_part_selects_the_extension_scenarios(self):
+        for part in ('shim.js', 'shim-messaging.js', 'shim-worker.js'):
+            with self.subTest(part=part):
+                selected = plan(['Sources/Escale/Extensions/Scripts/' + part])
+                self.assertIn('extension-messaging', selected['checks'])
+                self.assertIn('shared-extensions', selected['checks'])
+
     def test_resource_collector_edit_only_runs_its_tests(self):
         selected = plan(['Tests/Bench/resource_baseline.py'])
         self.assertEqual(set(selected['checks']), {'portable', 'whitespace'})
