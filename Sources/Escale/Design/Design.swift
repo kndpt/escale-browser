@@ -168,6 +168,24 @@ enum Palette {
         static let card = NSColor(white: 0.16, alpha: 1)
         static let face = NSColor(white: 0.32, alpha: 1)
         static let faint = NSColor(white: 1, alpha: 0.6)
+        /// Who is speaking in a meeting: a ring round their card.
+        static let speaking = NSColor(red: 0.45, green: 0.78, blue: 1, alpha: 1)
+
+        /// A round button under the pointer: a step towards white, or towards
+        /// black for a light one (a lit toggle), where white would not show.
+        static func hovered(_ colour: NSColor) -> NSColor {
+            colour.blended(withFraction: 0.18, of: light(colour) ? .black : .white) ?? colour
+        }
+
+        /// A round button held down: a step darker than at rest.
+        static func held(_ colour: NSColor) -> NSColor {
+            colour.blended(withFraction: 0.3, of: .black) ?? colour
+        }
+
+        private static func light(_ colour: NSColor) -> Bool {
+            guard let rgb = colour.usingColorSpace(.sRGB) else { return false }
+            return 0.2126 * rgb.redComponent + 0.7152 * rgb.greenComponent + 0.0722 * rgb.blueComponent > 0.6
+        }
 
         /// A film colour for the meeting the page draws (meeting.js).
         static func css(_ colour: NSColor) -> String {

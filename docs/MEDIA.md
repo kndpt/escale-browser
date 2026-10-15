@@ -40,29 +40,32 @@ floats in its own window (`Meeting.swift`, `Page/Scripts/meeting.js`):
 - **Lifetime.** It opens once there is a meeting and lasts as long as the
   meeting, cameras off and across Spaces. There is no close button; going back
   to the tab, or ⇧⌘P, puts the page home with the call running.
+- **Trusted Types.** Meet requires them and WebKit enforces them, so the window
+  is built with DOM calls, never from a string of HTML.
 - **Zoom.** The floating page is zoomed to `Meeting.zoom` (0.4), so Meet lays
   out an ordinary window and keeps receiving everyone. Landing restores it.
 
 ### Reading a Meet page
 
-Every name lives in `hints` in `meeting.js`. They come from Meet's markup as
-remembered, not from a qualified page; `call_float.py` uses them on a synthetic
-call.
+Every name lives in `hints` in `meeting.js`. Names, the microphone and the
+sound bars were read from a real Meet page in October 2026; the rest is from
+Meet's markup as remembered. `call_float.py` uses them on a synthetic call.
 
 | Read | How |
 |---|---|
 | A meeting | A way to leave, or a track WebKit labels `remote audio` / `remote video` |
 | People | Tiles marked `data-participant-id`; without any, every remote video |
-| Name | `[data-self-name]`, else the tile's first text outside buttons, menus and icons |
+| Name | `[data-self-name]`, else a shown `.notranslate` outside buttons, menus and icons, else the tile's first such text; never a sentence |
 | Photo | The tile's largest loaded image of at least 24 px, drawn once into a canvas |
-| Muted microphone | An icon reading `mic_off`, or a label saying the microphone is off |
+| Muted microphone | A shown `mic_off`: Material's SVG path, an icon ligature, or a label saying the microphone is off |
+| Speaking | The tile's sound bars (`jsname="QgSmzd"`) changed class at two redraws in the last 1.5 s, with the microphone open |
 | Large picture | A tile named like a presentation (`pr[eé]sent`, `präsent`, `presentaci`, `apresenta`), a captured screen (`displaySurface`), else a picture twice any other |
 | Commands | Accessible labels in a few languages, then `jsname="BOHaEe"` (microphone) and `jsname="CQylAd"` (leave); state from `data-is-muted` and `aria-pressed` |
 | Host's question | A `dialog` / `alertdialog` button labelled like leave |
 
 The window redraws every 250 ms and reads the page's state twice a second; the
-mini player card asks once a second while shown. Who is speaking and Meet's own
-dialogs are not read. A synthetic canvas does not prove Meet screen sharing:
+mini player card asks once a second while shown, and once more 0.15 s after a
+press. Meet's own dialogs are not read, apart from the host's question. A synthetic canvas does not prove Meet screen sharing:
 test the real capture API, and judge sent picture and received audio apart.
 
 ## Capability boundary

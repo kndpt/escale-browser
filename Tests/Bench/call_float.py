@@ -10,8 +10,9 @@ by renegotiation, and tiles transformed and cut to their own painting.
 
 Checked: nothing floats before the meeting has begun, however the tab is left;
 leaving a live meeting opens the meeting window, with the page kept at an
-ordinary size behind it: everyone as a named card, a picture or their photo
-and a muted microphone where the page shows one, the speaker large, then the
+ordinary size behind it: everyone as a named card in white, a picture or their
+photo, a muted microphone where the page shows one, a light on whoever speaks
+that follows them, the speaker large, then the
 shared screen whole and at its shape with the people still along the top; the
 same document, connection, audio, camera and microphone throughout; the
 page's commands on offer (microphone, camera, presenting, the raised hand,
@@ -55,6 +56,11 @@ def stage(tab):
 def cards(tab):
     """The people the window shows, as the page drew them."""
     return {one['name']: one for one in js(tab, "window.__escaleMeeting ? window.__escaleMeeting.cards : []")}
+
+
+def speakers(tab):
+    """Whose cards are lit as speaking."""
+    return {name for name, one in cards(tab).items() if one.get('speaking')}
 
 
 def framing(tab):
@@ -154,6 +160,10 @@ def main():
         s.require('a camera is a picture', people['Bob']['video'], True)
         s.require('no camera is their photo', (people['Cara']['video'], people['Cara']['picture']), (False, True))
         s.require('a muted microphone shows', (people['Cara']['muted'], people['Bob']['muted']), (True, False))
+        s.require('names read white, in the system font', js(meeting, """(n => [getComputedStyle(n).color,
+            getComputedStyle(n).fontFamily.includes('system-ui')])(document.querySelector('escale-meeting')
+            .shadowRoot.querySelector('.name'))"""), ['rgb(255, 255, 255)', True])
+        s.until('the speaker is lit', lambda: speakers(meeting) == {'Ada'})
         time.sleep(1)
         s.require('the photo was not asked for again', c.Page.photos, photos)
         s.require('the photo is drawn', js(meeting, "!!document.querySelector('escale-meeting').shadowRoot.querySelector('.face canvas')"), True)
@@ -164,6 +174,7 @@ def main():
         # A change of speaker, a shared screen, and the screen stopping.
         js(meeting, "document.querySelector('#speaker').click(); true")
         s.until('follows the new speaker', lambda: stage(meeting) == 'Bob')
+        s.until('the light follows the speaker', lambda: speakers(meeting) == {'Bob'})
         js(meeting, "document.querySelector('#share').click(); true")
         s.until('the shared screen goes large', lambda: stage(meeting) == 'Ada (Presentation)', 20)
         framed('the whole shared screen is in the window', meeting)
