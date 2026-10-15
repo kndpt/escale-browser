@@ -60,7 +60,7 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
 
         spot?.window?.contentView?.addSubview(web)
 
-        let stage = NSView(frame: NSRect(origin: .zero, size: ExtensionPopup.lastSize[Extensions.shared.scope(context.uniqueIdentifier)] ?? NSSize(width: 360, height: 240)))
+        let stage = NSView(frame: NSRect(origin: .zero, size: Extensions.shared.popupSizes[context.uniqueIdentifier] ?? NSSize(width: 360, height: 240)))
         let host = NSViewController()
         host.view = stage
         // The popover takes its size from its view controller: left at zero,
@@ -100,8 +100,6 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
         }
     }
 
-    /// Each extension's popup size, so the next opening starts there.
-    private static var lastSize: [String: NSSize] = [:]
     private var shown = false
     /// What the popover hangs from: the anchor, or the browser's window.
     private weak var spot: NSView?
@@ -239,7 +237,7 @@ final class ExtensionPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSPopo
         // Unseen, the page is laid out at that size all the same, off to
         // the side: some take the room they find once built for good.
         if !shown { web?.frame = NSRect(x: -size.width, y: 0, width: size.width, height: size.height) }
-        if let id = extensionID { ExtensionPopup.lastSize[Extensions.shared.scope(id)] = size }
+        if let id = extensionID { Extensions.shared.popupSizes[id] = size }
     }
 
     /// How far the page reaches, as a function of "width" or "height":

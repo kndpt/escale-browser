@@ -78,7 +78,7 @@ extension ExtensionShims {
             if ExtensionPopup.shared.extensionID == id, let space = ExtensionPopup.shared.space, owner.shared || space == owner.here {
                 add("POPUP", ExtensionPopup.shared.view?.url)
             }
-            if let page = offscreen[scope] { add("OFFSCREEN_DOCUMENT", page.url) }
+            if let page = owner.offscreen[id] { add("OFFSCREEN_DOCUMENT", page.url) }
             return found
 
         // MARK: notifications — the Mac's own
@@ -138,15 +138,15 @@ extension ExtensionShims {
         // MARK: power
         case "power.requestKeepAwake":
             let display = (first as? String) == "display"
-            if let old = awake[scope] { IOPMAssertionRelease(old) }
+            if let old = owner.awake[id] { IOPMAssertionRelease(old) }
             var assertion: IOPMAssertionID = 0
             let kind = (display ? kIOPMAssertionTypePreventUserIdleDisplaySleep : kIOPMAssertionTypePreventUserIdleSystemSleep) as CFString
             if IOPMAssertionCreateWithName(kind, IOPMAssertionLevel(kIOPMAssertionLevelOn), "An extension in Escale" as CFString, &assertion) == kIOReturnSuccess {
-                awake[scope] = assertion
+                owner.awake[id] = assertion
             }
             return nil
         case "power.releaseKeepAwake":
-            if let old = awake.removeValue(forKey: scope) { IOPMAssertionRelease(old) }
+            if let old = owner.awake.removeValue(forKey: id) { IOPMAssertionRelease(old) }
             return nil
         case "power.reportActivity":
             var assertion: IOPMAssertionID = 0
