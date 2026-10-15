@@ -508,6 +508,7 @@ private struct TabPill: View {
                             // A pin holding no page is still there and still
                             // yours; it just isn't costing anything.
                             .foregroundStyle(colour.opacity(tab.asleep ? 0.45 : 1))
+                            .animation(Motion.quick, value: hovering)
                     }
                 }
                 .frame(width: metrics.length(Metrics.navigationIcon), height: metrics.length(Metrics.navigationIcon))
@@ -522,7 +523,10 @@ private struct TabPill: View {
                 loose
             }
         }
-        .background { ground }
+        // Hover animates what it changes inside the pill, never the pill's
+        // frame: that took over a frame in flight (the bar sliding away) and
+        // nudged it off a resting pointer, ending the hover, every frame.
+        .background { ground.animation(Motion.quick, value: hovering) }
         .modifier(Shake(travel: shake))
         .contentShape(RoundedRectangle(cornerRadius: metrics.length(9), style: .continuous))
         // Never both at once.
@@ -549,7 +553,6 @@ private struct TabPill: View {
         .onHover { hovering = $0 }
         .contextMenu { TabMenu(browser: browser, tab: tab) }
         .modifier(SleepHint(tab: tab, ordinary: pinned || compact ? tab.label : ""))
-        .animation(Motion.quick, value: hovering)
         .animation(Motion.glide, value: editing)
         .animation(Motion.glide, value: tab.pin)
         .onChange(of: refusals) { _, _ in
@@ -660,6 +663,7 @@ private struct TabPill: View {
             }
         }
         .animation(Motion.quick, value: tab.loading)
+        .animation(Motion.quick, value: hovering)
         .padding(.leading, metrics.length(11))
         .padding(.trailing, metrics.length(editing ? 11 : 7))
         .padding(.vertical, metrics.length(6))
