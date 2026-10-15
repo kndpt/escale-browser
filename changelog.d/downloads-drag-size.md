@@ -1,1 +1,0 @@
-Downloads can be dragged out to the Finder or an editor, show their size, and keep their whole source address, with Copy Source Address, Show in Finder and Remove from List on a right click; a file moved or deleted since says so (#41).

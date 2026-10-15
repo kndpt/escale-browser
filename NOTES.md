@@ -1,3 +1,5 @@
+Escale 0.12: ⌘K finds tabs in your other Spaces and the ones you just closed. Drag a download straight out to the Finder or your editor, and Clear tosses your tabs into the bin.
+
 Escale 0.11: install an extension once and use it in every Space. Give each Space a colour, and find the page tools in a dock you can move.
 
 Escale 0.10: ⌘L lists a page's query parameters, to change or turn off one by one. A page whose title keeps changing, like an unread count, no longer redraws the window each time.
