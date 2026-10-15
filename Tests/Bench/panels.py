@@ -132,7 +132,9 @@ def page_commands(a, b, base):
         return dict(tab=short(current['inspector']), failure=current['inspectorFailure'], foreground=current['foreground'])
     s.wait_for('inspector opens for alpha', inspector_state, dict(tab=a, failure=''))
     click_page(b)
-    s.wait_for('inspector follows bravo', inspector_state, dict(tab=b, failure=''))
+    s.wait_for('bravo, never inspected, has none', inspector_state, dict(tab='', failure=''))
+    click_page(a)
+    s.wait_for('alpha has its inspector back', inspector_state, dict(tab=a, failure=''))
     bench('press', 34, 'i', 'cmd', 'opt')
     s.until('inspector closes', lambda: state()['inspector'] == '')
     # A silent local WAV exercises actual playback and the active-tab pause

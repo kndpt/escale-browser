@@ -95,8 +95,11 @@ def main():
         for opened in (False, True):
             bench('ui', 'look', 'light')
             if opened:
-                bench('press', '34', 'i', 'cmd', 'opt')
-                s.until('right dock', lambda: len(frame()) == 4 and frame()[2] < full[2] - 100, 5)
+                # Web Inspector stays with its tab: open it on both.
+                for tab in (second, first):
+                    bench('select', tab)
+                    bench('press', '34', 'i', 'cmd', 'opt')
+                    s.until('right dock', lambda: len(frame()) == 4 and frame()[2] < full[2] - 100, 5)
             time.sleep(.4)
             home = frame()
             inspector_width = full[2] - home[2]
