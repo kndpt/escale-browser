@@ -57,7 +57,10 @@
   // `browser` globals when it delivers an event. A sandbox that locks
   // every global away (MetaMask's LavaMoat) cuts it off: nothing arrives
   // any more. Made fixed accessors, they can't be taken away, and code
-  // that assigns its own polyfill to them still can.
+  // that assigns its own polyfill to them still can. What they show is
+  // WebKit's object, but for `chrome` once the shim says otherwise (`shown`,
+  // see lastError); events come in through `browser`, which stays WebKit's.
+  let shown = (v) => v;
   for (const key of ["browser", "chrome"]) {
     const d = Object.getOwnPropertyDescriptor(root, key);
     if (!d || !d.configurable) continue;
@@ -67,7 +70,7 @@
     // from WebKit too, and nothing would reach the extension again. A
     // replacement that still carries them is taken.
     const carries = (v) => { try { return !!(v && v.runtime && v.runtime.id); } catch (e) { return false; } };
-    try { Object.defineProperty(root, key, { configurable: false, enumerable: d.enumerable, get: () => value, set: (v) => { if (carries(v)) value = v; } }); } catch (e) {}
+    try { Object.defineProperty(root, key, { configurable: false, enumerable: d.enumerable, get: () => key === "chrome" ? shown(value) : value, set: (v) => { if (carries(v)) value = v; } }); } catch (e) {}
   }
   // On a web page this is a content script: only Chrome's behaviour is
   // mended there, no API that Chrome doesn't give content scripts either.
@@ -122,9 +125,32 @@
     }
     for (const sub of ["local", "sync", "session", "managed"]) { try { if (ns[sub] && typeof ns[sub] === "object") kept.add(ns[sub]); } catch (e) {} }
   }
+  // WebKit's runtime answers `lastError` itself, whatever is set on it, so
+  // a callback never saw an error the shim reported; nor can `chrome.runtime`
+  // be replaced, WebKit's `chrome` answering that itself too. So the
+  // extension's pages and worker read the `chrome` global as a proxy whose
+  // `runtime` answers `lastError` while one is reported, and calls WebKit's
+  // methods on WebKit's own object. Every other namespace is WebKit's own,
+  // and so is `browser`, which WebKit delivers events through: proxied too,
+  // nothing reached the extension any more.
+  let reported = null, proxy = null;
+  if (!inContent && runtime) {
+    const bound = new WeakMap();
+    proxy = new Proxy(runtime, {
+      get(target, key) {
+        if (key === "lastError" && reported) return reported;
+        const value = Reflect.get(target, key);
+        if (typeof value !== "function") return value;
+        if (!bound.has(value)) bound.set(value, value.bind(target));
+        return bound.get(value);
+      },
+    });
+    const api = new Proxy(chrome, { get: (target, key) => key === "runtime" ? proxy : Reflect.get(target, key) });
+    shown = (v) => v === chrome ? api : v;
+  }
   const withLastError = (error, callback) => {
-    put(runtime, "lastError", { message: String(error && error.message || error) });
-    try { callback(); } finally { try { delete runtime.lastError; } catch (e) {} }
+    reported = { message: String(error && error.message || error) };
+    try { callback(); } finally { reported = null; }
   };
   // Whether a tab is in the window in front. With one set of extensions for
   // every Space each Space is a window, and Escale counts a tab's place in
@@ -549,10 +575,9 @@
           put(ns, name, (...args) => {
             const port = { name: (args.find((a) => a && typeof a === "object") || {}).name || "", sender: undefined,
               postMessage: () => {}, disconnect: () => {}, onMessage: event(), onDisconnect: event() };
-            setTimeout(() => {
-              put(runtime, "lastError", { message: "Could not establish connection. Receiving end does not exist." });
-              try { for (const f of [...port.onDisconnect.listeners]) f(port); } finally { try { delete runtime.lastError; } catch (e) {} }
-            });
+            setTimeout(() => withLastError("Could not establish connection. Receiving end does not exist.", () => {
+              for (const f of [...port.onDisconnect.listeners]) f(port);
+            }));
             return port;
           });
           continue;
@@ -589,7 +614,7 @@
     // WebKit's own, looked up at each call — not held from the page's
     // first moment, when the page isn't yet the tab or popup it will be.
     const original = Object.getPrototypeOf(runtime).sendMessage;
-    const send = (...args) => original.apply(chrome.runtime, args);
+    const send = (...args) => original.apply(chrome.runtime === proxy ? runtime : chrome.runtime, args);
     // WebKit can also lose a worker without knowing — its process
     // stopped along with a tab's — and then answers every message with
     // nothing, for good. So after waking it, a page asks the worker
@@ -1968,11 +1993,6 @@
     // The browser downloads and opens tabs from outside this page, where a blob:
     // URL of this page means nothing: those get the file itself, as a data: URL.
     const chrome = root.chrome || root.browser;
-    const lastError = (e, callback) => {
-      const runtime = chrome && chrome.runtime;
-      try { Object.defineProperty(runtime, "lastError", { value: { message: String(e && e.message || e) }, configurable: true }); } catch (x) {}
-      try { callback(); } finally { try { delete runtime.lastError; } catch (x) {} }
-    };
     const held = [];
     const swap = (space, method, urls) => {
       const ns = chrome && chrome[space];
@@ -1988,7 +2008,7 @@
           return original.call(this, copy, ...rest);
         });
         if (!callback) return p;
-        p.then((v) => callback(v), (e) => lastError(e, callback));
+        p.then((v) => callback(v), (e) => withLastError(e, callback));
       });
     };
     const one = (o) => typeof o.url === "string" ? [o.url] : Array.isArray(o.url) ? o.url : null;
