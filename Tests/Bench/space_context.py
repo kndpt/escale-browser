@@ -112,6 +112,10 @@ def main():
     with tempfile.TemporaryDirectory(prefix="escale-issue40-") as temp:
         copied_fixture = Path(temp) / "fixture"
         shutil.copytree(ROOT / "Tests/Bench/fixtures/shim-extension", copied_fixture)
+        # The side panel is opened below; Chrome gives it only to one that asks.
+        manifest = json.loads((copied_fixture / "manifest.json").read_text())
+        manifest["permissions"] = manifest["permissions"] + ["sidePanel"]
+        (copied_fixture / "manifest.json").write_text(json.dumps(manifest))
         try:
             run("env", f"ESCALE_PROBE={WORLD}", ROOT / "fresh.sh", "wipe")
             FOLDER.mkdir(parents=True)

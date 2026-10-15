@@ -260,11 +260,13 @@ enum ExtensionShims {
         var scope: String { owner.scope(id) }
     }
 
-    /// The families whose answers leave the extension's own origin: what the
-    /// browser knows about the person using it, and user scripts, which this
-    /// app reads from disk and writes for it. WebKit keeps no permission
-    /// object for them, they are the APIs this shim exists to supply, so the
-    /// gate reads the names the extension's own manifest asked for.
+    /// The families Chrome gives only to an extension that asked for them:
+    /// what the browser knows about the person using it, what the Mac says
+    /// about itself, and what acts on its behalf — a notification, speech,
+    /// a page out of sight, a sign-in tab. WebKit keeps no permission object
+    /// for them, they are the APIs this shim exists to supply, so the gate
+    /// reads the names the extension's own manifest asked for. Tab groups
+    /// answer nothing, and stay open.
     nonisolated private static let gates: [String: String] = [
         "bookmarks": "bookmarks",
         "history": "history",
@@ -274,12 +276,31 @@ enum ExtensionShims {
         "browsingData": "browsingData",
         "readingList": "readingList",
         "userScripts": "userScripts",
+        "notifications": "notifications",
+        "idle": "idle",
+        "power": "power",
+        "identity": "identity",
+        "offscreen": "offscreen",
+        "tts": "tts",
+        "search": "search",
+        "fontSettings": "fontSettings",
+        "sidePanel": "sidePanel",
     ]
 
     /// The names `api` needs. Opening a download hands a file to another
-    /// app, so Chrome asks for a permission of its own on top of the family's.
+    /// app, so Chrome asks for a permission of its own on top of the family's;
+    /// a setting needs its family;
+    /// each part of `system` has its own; `management` is needed for any
+    /// extension but the caller.
     nonisolated static func needs(_ api: String) -> [String] {
-        let family = gates[String(api.prefix(while: { $0 != "." }))].map { [$0] } ?? []
+        // A setting, `setting.get:privacy.…`, needs its family: privacy or proxy.
+        if api.hasPrefix("setting."), let name = api.split(separator: ":", maxSplits: 1).last {
+            return [String(name.prefix(while: { $0 != "." }))]
+        }
+        let name = String(api.prefix(while: { $0 != "." }))
+        if name == "system" { return [api.split(separator: ".").prefix(2).joined(separator: ".")] }
+        if name == "management" { return api == "management.getSelf" || api == "management.uninstallSelf" ? [] : ["management"] }
+        let family = gates[name].map { [$0] } ?? []
         return api == "downloads.open" ? family + ["downloads.open"] : family
     }
 
@@ -297,8 +318,6 @@ enum ExtensionShims {
         guard let browser = owner.browser else { throw Unsupported(what: "No browser window") }
         let first = args.first
         let id = context.uniqueIdentifier
-
-        if api.hasPrefix("setting.") { return setting(api, first as? [String: Any] ?? [:], extension: id, owner: owner) }
 
         // What leaves this app is answered here, not in the injected script:
         // the shim runs beside the extension's own code, so its checks stop
@@ -318,6 +337,8 @@ enum ExtensionShims {
                 throw Unsupported(what: "The extension never asked for \u{201C}\(missing)\u{201D}")
             }
         }
+
+        if api.hasPrefix("setting.") { return setting(api, first as? [String: Any] ?? [:], extension: id, owner: owner) }
 
         let asked = Asked(api: api, args: args, context: context, owner: owner, browser: browser)
         switch api.prefix(while: { $0 != "." }) {

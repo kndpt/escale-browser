@@ -119,9 +119,14 @@ acts: off, it stops Escale's own offer to save passwords. Defaults: that
 preference, `webRTCIPHandlingPolicy` `default`, `privacy.websites.*` `false`,
 `proxy.settings` mode `system`.
 
-**Gated by the manifest's permission**, optional grants included: bookmarks,
-history, downloads, sessions, top sites, browsing data, reading list.
-`tabs.describe` needs `tabs`.
+**Gated by the manifest's permission**, optional grants included, as Chrome
+gates them: bookmarks, history, downloads, sessions, top sites, browsing
+data, reading list, user scripts, notifications, idle, power, identity,
+offscreen, tts, search, font settings, side panel, each part of `system`,
+and `management` beyond the caller itself; `privacy.*` and `proxy.settings`
+need `privacy` and `proxy`. `tabs.describe` needs `tabs`. Tab groups answer
+nothing and need nothing. `permissions.request` grants only what the manifest
+lists in `optional_permissions`.
 
 **Refused:** `downloads.pause`, `resume`, `cancel`, `removeFile`, `getFileIcon`;
 `management.setEnabled`, `uninstallSelf`; reading-list writes; `tabGroups.get`,
