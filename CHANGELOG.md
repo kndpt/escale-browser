@@ -11,6 +11,29 @@ Search before that is in
 
 ## Unreleased
 
+## 0.12 — 2026-10-15
+
+### Highlights
+
+- **A Meet window you can trust.** The small Meet window shows real names, who is muted and who is speaking, and its buttons answer the pointer.
+- **Every tab, from every Space, in ⌘K.** Search finds the tabs open in your other workspaces, and the ones you just closed.
+- **Drag a download straight out.** Drop a downloaded file into the Finder or your editor, and see its size and where it came from.
+- **Clear throws your tabs in the bin.** Clearing the tab list now gathers the tabs and tosses them into a bin that wobbles, snaps shut and sparkles.
+
+### What changed
+
+- A tab in the top bar no longer freezes the window when the bar slides away under a pointer resting on its edge.
+- Reading mode and middle-button scrolling now work on sites that require Trusted Types, such as Google's, where they used to do nothing.
+- The Meet window names everyone in white, shows each person's real microphone state and lights the card of whoever is speaking; its buttons lighten under the pointer, darken when pressed, show a pointing hand while Escale is in front and update as soon as they are pressed, and hanging up is a wider red button (#1).
+- Web Inspector stays with the tabs it was opened on instead of opening on every tab you switch to.
+- ⌘K also finds matching tabs in your other Spaces, marked with the Space's name and icon, and recently closed tabs, which it reopens where they were (#54).
+- Downloads can be dragged out to the Finder or an editor, show their size, and keep their whole source address, with Copy Source Address, Show in Finder and Remove from List on a right click; a file moved or deleted since says so (#41).
+- Clear, at the Tabs heading, gathers the tabs into a pile and tosses them into the bin, which grows to catch them, rocks as each lands, closes with a flash and goes back to its place, in under a second and a half; Reduce Motion keeps the plain close.
+- Switching an extension off or removing it lets the Mac sleep again and closes its hidden page (#170).
+- An extension uses notifications, idle, power, sign-in, offscreen pages, speech, search, fonts, the side panel, system information, privacy and proxy settings or other extensions' details only when its manifest asks for them, as in Chrome, and can be granted at run time only what its manifest lists as optional (#168).
+- Pages open lighter with extensions: each frame of a site now gets 7 KB of Escale's extension support per extension instead of 114 KB (#165).
+- Extensions that check `chrome.runtime.lastError` in a callback now see the error, as in Chrome (#164).
+
 ## 0.11 — 2026-10-14
 
 ### Highlights
