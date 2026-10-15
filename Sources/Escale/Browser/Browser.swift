@@ -1368,7 +1368,12 @@ final class Browser: NSObject, ObservableObject {
 
     private func remember(_ tab: Tab, at index: Int) {
         guard !tab.shy, let url = tab.address else { return }
-        let ghost = Ghost(url: url, title: tab.title, index: index, space: tab.space, memory: tab.kept)
+        // A page's history weighs one to three kilobytes; one that keeps its
+        // own state in it can weigh megabytes, and twelve of those outlive
+        // the Undo. Past 256 KB, the tab comes back from its address alone.
+        let kept = tab.kept
+        let light = (kept as? Data).map { $0.count <= 256 << 10 } ?? false
+        let ghost = Ghost(url: url, title: tab.title, index: index, space: tab.space, memory: light ? kept : nil)
         closedTabs.append(ghost)
         if closedTabs.count > 12 { closedTabs.removeFirst() }
         offerUndo(ghost)
