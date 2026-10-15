@@ -96,6 +96,9 @@ def drag(id, edge, name, escape=False):
 
 def click_page(id):
     x, y, _, _ = page(id)['frame']
+    # A hand reaches the page before it presses. Left where a drag let go,
+    # the pointer kept the window answering the press instead of the page.
+    bench('pointer', 'move', x + 20, y + 20)
     bench('hit', x + 20, y + 20, 'click', 'live')
     assert active()['id'] == id
 
@@ -200,9 +203,7 @@ def main(require_reduced_motion=False):
             assert bench('eval', a, "document.querySelector('#draft').value")['value'] == 'unsent panel draft'
             # A native click into either WebKit panel retargets page commands.
             for id in (a, b):
-                x, y, w, h = page(id)['frame']
-                bench('hit', x + 20, y + 20, 'click', 'live')
-                assert active()['id'] == id, (id, active())
+                click_page(id)
                 bench('press', 37, 'l', 'cmd')
                 assert bench('probe')['typed'] == base + '/' + names[id]
                 bench('press', 53, '\x1b')
