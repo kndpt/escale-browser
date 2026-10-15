@@ -1,11 +1,13 @@
 import Foundation
 import Testing
+import WebKit
 @testable import Escale
 
 // The address field's own rules (see Field.swift): what it offers for what
 // is typed, the ending it draws, the row the arrow keys walk to and ⌘K's
 // switcher. A history on a file of the test's own; searches go to a
-// synthetic engine and nothing is fetched. No Browser, no preferences, no tab.
+// synthetic engine and nothing is fetched. No Browser, no preferences; a tab
+// only as a restored row, which holds no page.
 
 /// A folder of the test's own, removed afterwards.
 private func folder() -> URL {
@@ -201,6 +203,52 @@ private func field(in root: URL) -> Field {
 
         #expect(field.cycling)
         #expect(field.picked == 0)
+    }
+
+    @Test func theSwitcherTypedLooksAtThisSpaceThenTheOthersThenClosedTabs() throws {
+        let root = folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        // A restored tab looks for its site's icon, which reads the appearance.
+        _ = NSApplication.shared
+        let here = UUID(), there = UUID()
+        func tab(_ title: String, in space: UUID) throws -> Tab {
+            let tab = Tab(space: space, configuration: WKWebViewConfiguration())
+            tab.restore(url: try #require(URL(string: "https://\(title).example.test/")), title: title)
+            return tab
+        }
+        let local = try (1...4).map { try tab("docs-here-\($0)", in: here) }
+        let parked = try (1...3).map { try tab("docs-there-\($0)", in: there) } + [try tab("mail", in: there)]
+        let ghosts = try (1...3).map {
+            Browser.Ghost(url: try #require(URL(string: "https://docs-closed-\($0).example.test/")),
+                          title: "docs-closed-\($0)", index: 0, space: there)
+        }
+        let field = Field(history: History(file: root.appendingPathComponent("history.json")),
+                          search: searching, engine: { "Synthetic" }, others: { local },
+                          elsewhere: { parked }, closed: { ghosts })
+
+        // Empty, ⌘K is this Space's tabs, and Return takes the first.
+        field.startSummoning()
+        #expect(field.offers.map(\.space) == Array(repeating: nil, count: 4))
+        #expect(field.picked == 0)
+
+        field.typed = "docs"
+        let offers = field.offers
+        #expect(offers.count == 3 + 2 * Field.farther)
+        #expect(offers.prefix(3).allSatisfy { $0.kind == .open && $0.space == nil && $0.key.hasPrefix("docs-here") })
+        let other = offers.dropFirst(3).prefix(Field.farther)
+        #expect(other.allSatisfy { $0.kind == .open && $0.space == there && $0.key.hasPrefix("docs-there") })
+        #expect(Set(other.compactMap(\.tab)).isSubset(of: Set(parked.map(\.id))))
+        // The newest closed first, each its own row, reopened by its ghost.
+        let closed = Array(offers.suffix(Field.farther))
+        #expect(closed.map(\.key) == ["docs-closed-3", "docs-closed-2"])
+        #expect(closed.allSatisfy { $0.kind == .closed && $0.tab == nil && $0.space == there })
+        #expect(closed.map(\.ghost) == [ghosts[2].id, ghosts[1].id])
+        #expect(field.picked == 0)
+
+        // Another Space's match still shows when this Space has none.
+        field.typed = "mail"
+        #expect(field.offers.map(\.key) == ["mail"])
+        #expect(field.offers.first?.space == there)
     }
 
     @Test func refusalsAndFocusRequestsAreCounted() {

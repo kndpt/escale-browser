@@ -30,6 +30,10 @@ struct Suggestion: Identifiable, Equatable {
     var environments: [BookmarkEnvironment] = []
     /// Set when this is a browser command, typed after `>` in New Tab.
     var action: KeyAction?
+    /// The Space of a tab ⌘K found past the one on screen, open or closed.
+    var space: UUID?
+    /// Set when this is a closed tab, reopened as ⇧⌘T would.
+    var ghost: UUID?
     /// How closely it answered what was typed, so New Tab can merge its sources.
     var match: Terms.Match = .typed
 
@@ -54,9 +58,11 @@ struct Suggestion: Identifiable, Equatable {
         case keyword
         /// Not a place either: a command, run as its shortcut would run it.
         case command
+        /// A tab closed a moment ago.
+        case closed
     }
 
-    var id: String { tab?.uuidString ?? bookmark?.uuidString ?? "\(kind):\(url.absoluteString)" }
+    var id: String { tab?.uuidString ?? ghost?.uuidString ?? bookmark?.uuidString ?? "\(kind):\(url.absoluteString)" }
 }
 
 struct Visit: Codable {

@@ -35,7 +35,7 @@ struct KeyCommand: Identifiable {
         .init(.reopenTab, "Reopen Closed Tab", .tabs, "", [.init("t", [.command, .shift])]),
         .init(.closeTab, "Close Tab", .tabs, "", [.init("w", [.command])]),
         .init(.searchGitHub, "Search GitHub", .tabs, "Find a visited pull request or issue in this Space.", [.init("k", [.command, .shift])]),
-        .init(.searchTabs, "Search Tabs", .tabs, "Find an open tab in this Space.", [.init("k", [.command])]),
+        .init(.searchTabs, "Search Tabs", .tabs, "Find an open tab in this Space, then in the others, or one just closed.", [.init("k", [.command])]),
         .init(.nextTab, "Next Tab", .tabs, "", [.init("]", [.command, .shift]), .init("tab", [.control])]),
         .init(.previousTab, "Previous Tab", .tabs, "", [.init("[", [.command, .shift]), .init("tab", [.control, .shift])]),
         .init(.duplicateTab, "Duplicate Tab", .tabs, "", [.init("d", [.command])]),

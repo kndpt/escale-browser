@@ -62,7 +62,8 @@ struct Omnibox: View {
                                 ScrollView {
                                     VStack(spacing: 0) {
                                         ForEach(Array(input.offers.enumerated()), id: \.element.id) { index, offer in
-                                            Row(offer: offer, icon: browser.tabs.first { $0.id == offer.tab }?.icon,
+                                            Row(offer: offer, icon: icon(of: offer),
+                                                space: browser.spaces.first { $0.id == offer.space && $0.id != browser.spaceID },
                                                 input: input, picked: input.picked == index) { browser.take(offer) }
                                                 .id(index)
                                         }
@@ -111,6 +112,12 @@ struct Omnibox: View {
         .onChange(of: input.typed) { _, _ in refused = false }
     }
 
+    /// An open row's page icon; another Space's tab is looked for only then.
+    private func icon(of offer: Suggestion) -> NSImage? {
+        guard let id = offer.tab else { return nil }
+        return (browser.tabs.first { $0.id == id } ?? (offer.space == nil ? nil : browser.parkedTabs.first { $0.id == id }))?.icon
+    }
+
     // MARK: - modes
 
     /// The pair on screen (Bearing.swift), or none while editing this page's address.
@@ -128,6 +135,8 @@ struct Omnibox: View {
     private struct Row: View {
         let offer: Suggestion
         let icon: NSImage?
+        /// The other Space a ⌘K row is in, marked by its icon and name.
+        let space: Space?
         @ObservedObject var input: Field
         let picked: Bool
         let take: () -> Void
@@ -186,6 +195,13 @@ struct Omnibox: View {
                         .help("Active environment: \(environment.name)")
                         .accessibilityLabel("Active environment: \(environment.name)")
                 }
+                if let space {
+                    badge(Label(space.name, systemImage: space.symbol), ink: space.tint?.ink ?? Palette.muted)
+                        .accessibilityLabel("In \(space.name)")
+                }
+                if offer.kind == .closed {
+                    badge(Text("Closed"), ink: Palette.muted)
+                }
                 if offer.kind != .keyword {
                     Text(offer.title)
                         .font(.system(size: metrics.length(Metrics.searchDetail)))
@@ -198,7 +214,7 @@ struct Omnibox: View {
                 if picked {
                     HStack(spacing: metrics.length(Metrics.searchGap)) {
                         Image(systemName: "return").accessibilityHidden(true)
-                        Text(offer.kind == .command ? "Run"
+                        Text(offer.kind == .command ? "Run" : offer.kind == .closed ? "Reopen"
                              : offer.kind == .open && input.selectedEnvironment == nil ? "Switch to tab" : "Open")
                     }
                     .font(.system(size: metrics.length(Metrics.searchDetail)))
@@ -208,6 +224,17 @@ struct Omnibox: View {
             }
             .padding(.horizontal, metrics.length(Metrics.searchInset))
             .frame(height: metrics.length(Metrics.searchRowHeight))
+        }
+
+        private func badge(_ content: some View, ink: Color) -> some View {
+            content
+                .font(.system(size: metrics.length(Metrics.searchDetail), weight: .medium))
+                .foregroundStyle(ink)
+                .lineLimit(1)
+                .padding(.horizontal, metrics.length(Metrics.searchGap))
+                .padding(.vertical, metrics.length(Metrics.searchBadgeInset))
+                .background(Palette.wash, in: RoundedRectangle(cornerRadius: metrics.length(Metrics.searchGap)))
+                .fixedSize()
         }
     }
 }

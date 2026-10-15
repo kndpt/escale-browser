@@ -37,6 +37,13 @@ import Foundation
 // are offered, read from the finite catalogue (KeyCommand.swift) on each key,
 // so nothing is built or kept for it.
 //
+// ⌘K looks past the Space on screen once something is typed: after its
+// tabs come the other Spaces' that match, then the tabs closed, each source
+// with a count of its own, so a busy other Space never pushes out this one's
+// and Return on an empty ⌘K is still the last tab looked at. The closed tabs
+// are the dozen ⇧⌘T keeps, never a private one; a private field looks only
+// at private tabs.
+//
 // ⌘L over an address with a query lists its parameters instead (Query.swift):
 // the arrows walk them, each walked to has its value selected in the field,
 // and typing there re-reads them while it is still the same page.
@@ -122,6 +129,9 @@ final class Field: ObservableObject {
     private let keyword: (String) -> (keyword: Keyword, words: String, url: URL)?
     /// Eligible tabs; a pending New Tab also offers the page underneath.
     private let others: () -> [Tab]
+    /// The other Spaces' eligible tabs, and the tabs closed, newest last.
+    private let elsewhere: () -> [Tab]
+    private let closed: () -> [Browser.Ghost]
     private let newTab: () -> Bool
     private let bookmarks: () -> [Bookmark]
     private let bookmarkForTab: (UUID) -> Bookmark?
@@ -138,6 +148,8 @@ final class Field: ObservableObject {
         engine: @escaping () -> String,
         keyword: @escaping (String) -> (keyword: Keyword, words: String, url: URL)? = { _ in nil },
         others: @escaping () -> [Tab],
+        elsewhere: @escaping () -> [Tab] = { [] },
+        closed: @escaping () -> [Browser.Ghost] = { [] },
         newTab: @escaping () -> Bool = { false },
         bookmarks: @escaping () -> [Bookmark] = { [] },
         bookmarkForTab: @escaping (UUID) -> Bookmark? = { _ in nil },
@@ -150,6 +162,8 @@ final class Field: ObservableObject {
         self.engine = engine
         self.keyword = keyword
         self.others = others
+        self.elsewhere = elsewhere
+        self.closed = closed
         self.newTab = newTab
         self.bookmarks = bookmarks
         self.bookmarkForTab = bookmarkForTab
@@ -164,18 +178,23 @@ final class Field: ObservableObject {
         engine: @escaping () -> String,
         keyword: @escaping (String) -> (keyword: Keyword, words: String, url: URL)? = { _ in nil },
         others: @escaping () -> [Tab],
+        elsewhere: @escaping () -> [Tab] = { [] },
+        closed: @escaping () -> [Browser.Ghost] = { [] },
         newTab: @escaping () -> Bool = { false },
         bookmarks: @escaping () -> [Bookmark] = { [] },
         bookmarkForTab: @escaping (UUID) -> Bookmark? = { _ in nil },
         habits: Habits? = nil,
         available: @escaping (KeyAction) -> Bool = { _ in true }
     ) {
-        self.init(history: { history }, search: search, engine: engine, keyword: keyword, others: others, newTab: newTab,
+        self.init(history: { history }, search: search, engine: engine, keyword: keyword, others: others,
+                  elsewhere: elsewhere, closed: closed, newTab: newTab,
                   bookmarks: bookmarks, bookmarkForTab: bookmarkForTab, habits: { habits }, available: available)
     }
 
     /// Rows New Tab shows before its search row; ⌘L shows three.
     static let room = 6
+    /// Rows typed ⌘K adds from the other Spaces, then from the closed tabs.
+    static let farther = 2
 
     /// Typed plus whatever the field is quietly finishing for you; on a
     /// walked-to row, where Return goes. Walking off the top gives back what
@@ -204,8 +223,8 @@ final class Field: ObservableObject {
     /// What was typed can't be gone to; the field says so.
     func refuse() { refusals += 1 }
 
-    /// ⌘K. Only what is open, nothing else: the list is the open pages from
-    /// the first frame, before anything is typed.
+    /// ⌘K. The list is this Space's open pages from the first frame, before
+    /// anything is typed.
     func startSummoning() {
         stopOpening()
         summoning = true
@@ -345,9 +364,9 @@ final class Field: ObservableObject {
         let learned = Set(lifts.keys)
         guard !summoning else {
             // Learned tabs past the cut compete, then the switcher keeps its count.
-            let limit = Terms(typed).isEmpty ? Field.room : 3
+            let terms = Terms(typed)
             offers = Array(Field.ranked(openPages(matching: typed, keeping: learned), environments: false, lifts: lifts)
-                .prefix(limit))
+                .prefix(terms.isEmpty ? Field.room : 3)) + (terms.isEmpty ? [] : farther(matching: terms))
             ending = nil
             // The most recent page is already chosen, so ⌘K then Return is the
             // whole gesture.
@@ -494,6 +513,30 @@ final class Field: ObservableObject {
                 return Suggestion(key: found.command.title, title: keys(action).map(\.label).joined(separator: " · "),
                                   url: url, kind: .command, action: action, match: found.match)
             }
+    }
+
+    /// Typed ⌘K past this Space: the other Spaces' tabs, most recently looked
+    /// at first, then the closed tabs, newest first; the closer match first in
+    /// each, and each cut to its own count.
+    private func farther(matching terms: Terms) -> [Suggestion] {
+        let tabs = elsewhere()
+            .compactMap { tab -> (tab: Tab, url: URL, match: Terms.Match)? in
+                guard let url = tab.address, let match = terms.match([tab.label, Address.pretty(url)]) else { return nil }
+                return (tab, url, match)
+            }
+            .sorted { $0.match != $1.match ? $0.match < $1.match : $0.tab.touched > $1.tab.touched }
+            .prefix(Field.farther)
+            .map { Suggestion(key: $0.tab.label, title: Address.pretty($0.url), url: $0.url, kind: .open,
+                              tab: $0.tab.id, space: $0.tab.space, match: $0.match) }
+        let ghosts = closed().reversed().enumerated()
+            .compactMap { offset, ghost -> (ghost: Browser.Ghost, offset: Int, match: Terms.Match)? in
+                terms.match([ghost.label, Address.pretty(ghost.url)]).map { (ghost, offset, $0) }
+            }
+            .sorted { $0.match != $1.match ? $0.match < $1.match : $0.offset < $1.offset }
+            .prefix(Field.farther)
+            .map { Suggestion(key: $0.ghost.label, title: Address.pretty($0.ghost.url), url: $0.ghost.url, kind: .closed,
+                              space: $0.ghost.space, ghost: $0.ghost.id, match: $0.match) }
+        return tabs + ghosts
     }
 
     /// What is open, most recently looked at first, filtered by what has been
