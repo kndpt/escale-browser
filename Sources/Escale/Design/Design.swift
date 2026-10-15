@@ -72,6 +72,9 @@ enum Palette {
     static let scrim = Color(nsColor: NS.scrim)
     /// A shadow under anything lifted over something else.
     static let shadow = Color(nsColor: NS.shadow)
+    /// A burst of light, added to what is under it (Toss.swift): white in
+    /// both looks, so it shines on dark glass and barely shows on light.
+    static let flash = Color(nsColor: NS.flash)
     /// Refused, failed, removed: said in words as well, never in red alone.
     static let danger = Color(nsColor: NS.danger)
     /// GitHub states always have a distinct symbol and accessible name too.
@@ -241,6 +244,7 @@ enum Palette {
         static let selection = veil(light: (1, 0.86), dark: (1, 0.11), contrast: nil)
         static let scrim = veil(light: (0, 0.1), dark: (0, 0.3), contrast: nil)
         static let shadow = veil(light: (0, 0.12), dark: (0, 0.42), contrast: nil)
+        static let flash = veil(light: (1, 0.95), dark: (1, 0.9), contrast: nil)
         /// Escale's states: brick for danger, forest and ochre for a
         /// connection, at the weight of the landing's environment colours.
         static let danger = tint(light: (0.78, 0.16, 0.16), dark: (1.0, 0.45, 0.45), escale: (0xA3372B, 0xF0897A))
@@ -909,6 +913,19 @@ enum Motion {
     /// The animation's length plus a frame, before the plane is removed.
     static let downloadFlightNanoseconds = UInt64((downloadFlightDuration + 0.04) * 1_000_000_000)
     static let downloadFlightFreshness: TimeInterval = 1
+    /// Clear's show (Toss.swift), in seconds; the `…At` ones from the press.
+    /// Each card lifts, the next a little after, and gathers on the pile;
+    /// the bin grows and opens its lid meanwhile. The throws are spread over
+    /// `tossThrows`, a card's flight at most `tossThrowGap` after the last.
+    /// Each landing squashes the bin for `tossHit`; the lid shuts just after
+    /// the last, the clap and its flash follow, and the bin goes home. With
+    /// sixteen cards it all ends under a second and a half.
+    static let tossLift = 0.1, tossRipple = 0.1, tossRippleGap = 0.02, tossGather = 0.3
+    static let tossGrowAt = 0.03, tossGrow = 0.3, tossLidAt = 0.2, tossLid = 0.14
+    static let tossThrowAt = 0.36, tossThrows = 0.32, tossThrowGap = 0.06, tossFlight = 0.28
+    static let tossHit = 0.12, tossShutAfter = 0.02, tossShut = 0.13
+    static let tossClapAfter = 0.1, tossPop = 0.2, tossFlash = 0.45
+    static let tossHomeAfter = 0.12, tossHome = 0.3, tossFade = 0.08, tossTail = 0.06
     /// One calm curve for arrival pages, disclosure and import state changes.
     static let arrival = Animation.smooth(duration: 0.34, extraBounce: 0)
     static let glide = Animation.spring(response: 0.34, dampingFraction: 0.82)
