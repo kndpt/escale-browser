@@ -665,6 +665,14 @@ final class Bench {
                 "downloads": browser.hoarding,
                 "keptDownloads": browser.loot.kept.map(\.name),
                 "handedDownloads": Loot.handed,
+                // Each kept line as the panel draws it, and what a drag of it
+                // carries: nothing once the file has gone, as its row.
+                "keptFiles": browser.loot.kept.map { keep -> [String: Any] in
+                    let there = keep.stillThere
+                    return ["name": keep.name, "size": keep.size as Any? ?? NSNull(), "address": keep.address ?? "",
+                            "there": there, "carries": there ? keep.carried.registeredTypeIdentifiers : []]
+                },
+                "announcement": browser.announcement ?? "",
                 "bookmarks": browser.bookmarking,
                 "bookmarksDropdown": browser.bookmarksOpen,
                 // The page on screen's bookmark in this Space, as its door finds it.

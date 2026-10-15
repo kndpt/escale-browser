@@ -6,7 +6,8 @@ history. Space deletion cancels outstanding downloads without leaving observers.
 After a restart, the Downloads panel by real key presses: ↑ and ↓ within the
 list, Return opens a file and ⌘Return shows it in the Finder (a scripted world
 notes both rather than hand the file to another app), ⌫ forgets the line and
-leaves the file, Escape closes.
+leaves the file, Escape closes. Each kept file has its size, its whole source
+address and a file URL to drag; one deleted from disk is said so on Return.
 INSPECT=1 pauses with two transfers, then after completion, for native button
 and popover/cancel/history checks;
 write /tmp/escale-download-resume to continue, context is in /tmp/escale-download-world.json.
@@ -70,6 +71,16 @@ def start(base, name):
     return tab['id']
 
 
+def kept_files(base):
+    files = {f['name']: f for f in state()['keptFiles']}
+    for name in ('one.bin', 'two.bin', 'unknown.bin'):
+        f = files[name]
+        s.require(name + ' size', f['size'], len(body))
+        s.require(name + ' address', f['address'], f'{base}/{name[:-4]}')
+        s.require(name + ' on disk', f['there'], True)
+        s.require(name + ' drags as a file', 'public.file-url' in f['carries'], True)
+
+
 def keyboard():
     kept = state()['keptDownloads']
     s.require('at least three kept files', len(kept) >= 3, True)
@@ -88,6 +99,16 @@ def keyboard():
     s.require('⌫ leaves the file', file.exists(), True)
     bench('press', *RETURN)
     s.require('the next line is chosen', state()['handedDownloads'][-1], f'open {kept[2]}')
+    gone = s.SOCKET.parent / 'Downloads' / kept[2]
+    gone.unlink()
+    missing = next(f for f in state()['keptFiles'] if f['name'] == kept[2])
+    s.require('a deleted file is not there', missing['there'], False)
+    s.require('a deleted file does not drag', missing['carries'], [])
+    handed = state()['handedDownloads']
+    bench('press', *RETURN)
+    p = state()
+    s.require('a deleted file is not opened', p['handedDownloads'], handed)
+    s.require('a deleted file is explained', p['announcement'], f'{kept[2]} is no longer in Downloads')
     bench('press', *ESCAPE)
     s.until('Escape closes Downloads', lambda: not state()['downloads'], 10)
 
@@ -159,8 +180,9 @@ def main():
         s.launch()
         s.require('restart hides session door', state()['downloadDoorVisible'], False)
         assert 'unknown.bin' in state()['keptDownloads']
+        kept_files(base)
         keyboard()
-        print('ok: keyboard in the Downloads panel')
+        print('ok: size, address and drag of kept files; keyboard and a deleted file in the Downloads panel')
         print('ok: active count, equal mean, unknown/mixed total, parked/closed source, completion, failure, cancellation, observer teardown')
     except Exception:
         print(state(), flush=True)
