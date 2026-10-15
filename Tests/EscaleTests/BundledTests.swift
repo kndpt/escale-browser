@@ -81,6 +81,36 @@ import Testing
         #expect(try ExtensionShims.version.get().count >= 16)
     }
 
+    @Test func aPackagesOwnFileUnderTheShimsNameIsNeverOverwritten() throws {
+        guard #available(macOS 15.4, *) else { return }
+        let url = try folder()
+        defer { try? FileManager.default.removeItem(at: url) }
+        try JSONSerialization.data(withJSONObject: ["manifest_version": 3, "name": "Own", "version": "1"])
+            .write(to: url.appendingPathComponent("manifest.json"))
+        try "mine()".write(to: url.appendingPathComponent(ExtensionShims.contentFile), atomically: true, encoding: .utf8)
+        #expect(throws: (any Error).self) { try ExtensionShims.prepare(url) }
+        #expect(try String(contentsOf: url.appendingPathComponent(ExtensionShims.contentFile), encoding: .utf8) == "mine()")
+    }
+
+    @Test func contentScriptsGetOnlyTheirPartOfTheShim() throws {
+        guard #available(macOS 15.4, *) else { return }
+        let url = try folder()
+        defer { try? FileManager.default.removeItem(at: url) }
+        try JSONSerialization.data(withJSONObject: [
+            "manifest_version": 3, "name": "Content", "version": "1",
+            "content_scripts": [["matches": ["<all_urls>"], "js": [ExtensionShims.file, "content.js"]]],
+        ]).write(to: url.appendingPathComponent("manifest.json"))
+        try "".write(to: url.appendingPathComponent("content.js"), atomically: true, encoding: .utf8)
+        try ExtensionShims.prepare(url)
+        let shim = try String(contentsOf: url.appendingPathComponent(ExtensionShims.file), encoding: .utf8)
+        let content = try String(contentsOf: url.appendingPathComponent(ExtensionShims.contentFile), encoding: .utf8)
+        #expect(content.hasSuffix("})();\n") && content.count * 4 < shim.count)
+        #expect(!content.contains("if (inContent) return;") && !content.contains("class WebSocket"))
+        let manifest = try JSONSerialization.jsonObject(with: Data(contentsOf: url.appendingPathComponent("manifest.json"))) as? [String: Any]
+        let entry = (manifest?["content_scripts"] as? [[String: Any]])?.first
+        #expect(entry?["js"] as? [String] == [ExtensionShims.contentFile, "content.js"])
+    }
+
     @Test func onlyTheUserScriptWorldGetsItsOwnChrome() throws {
         guard #available(macOS 15.4, *) else { return }
         let url = try folder()

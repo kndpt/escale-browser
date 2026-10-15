@@ -26,6 +26,9 @@ enum ExtensionShims {
     /// The name native messages to the browser itself go to.
     static let application = "escale"
     nonisolated static let file = "escale-shim.js"
+    /// What content scripts get: the part of the shim that runs on a web
+    /// page, in every matching frame of every site, so the rest stays out.
+    nonisolated static let contentFile = "escale-content.js"
     /// The first line of a worker that already carries the shim.
     nonisolated static let marker = "/* Escale: Chrome APIs WebKit lacks, filled in (ExtensionShims.swift) */"
     nonisolated static let ender = "/* Escale: end of shim */"
@@ -50,8 +53,15 @@ enum ExtensionShims {
         guard var manifest = try JSONSerialization.jsonObject(with: Data(contentsOf: manifestURL)) as? [String: Any]
         else { throw Crx.Refused.unpack }
 
+        // A package never prepared that ships a file under one of these
+        // names is refused: writing over it would lose the extension's code.
+        if !files.fileExists(atPath: stampURL.path),
+           [file, contentFile].contains(where: { files.fileExists(atPath: folder.appendingPathComponent($0).path) }) {
+            throw Crx.Refused.unpack
+        }
         let script = try shim(for: folder)
         try script.write(to: folder.appendingPathComponent(file), atomically: true, encoding: .utf8)
+        try content(of: script).write(to: folder.appendingPathComponent(contentFile), atomically: true, encoding: .utf8)
 
         // Native messaging is how the shim reaches the browser; user scripts
         // are carried out through WebKit's registered content scripts, which
@@ -102,12 +112,14 @@ enum ExtensionShims {
             manifest["background"] = background
         }
 
-        // Content scripts too — there only the sendMessage mend applies.
+        // Content scripts get their own part, in place of the whole shim an
+        // earlier Escale put there.
         if let entries = manifest["content_scripts"] as? [[String: Any]] {
             manifest["content_scripts"] = entries.map { entry -> [String: Any] in
                 var entry = entry
-                if var js = entry["js"] as? [String], js.first != file {
-                    js.insert(file, at: 0)
+                if var js = entry["js"] as? [String], js.first != contentFile {
+                    if js.first == file { js.removeFirst() }
+                    js.insert(contentFile, at: 0)
                     entry["js"] = js
                 }
                 return entry
@@ -159,7 +171,7 @@ enum ExtensionShims {
         let pattern = try! NSRegularExpression(pattern: #"\.([a-zA-Z]+)\.(on[A-Z][A-Za-z]+)\b"#)
         let walker = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: nil)
         while let url = walker?.nextObject() as? URL {
-            guard url.pathExtension == "js", url.lastPathComponent != file,
+            guard url.pathExtension == "js", url.lastPathComponent != file, url.lastPathComponent != contentFile,
                   var text = try? String(contentsOf: url, encoding: .utf8) else { continue }
             // Not the shim's own words, in a worker that already carries it.
             if text.hasPrefix(marker), let end = text.range(of: ender) { text = String(text[end.upperBound...]) }
@@ -186,6 +198,13 @@ enum ExtensionShims {
             .replacingOccurrences(of: "__ESCALE_SCRIPTS__", with: shipped)
             .replacingOccurrences(of: "__ESCALE_CHROME__", with: Crx.chromeVersion)
             .replacingOccurrences(of: "__ESCALE_VERBOSE__", with: Store.testing ? "true" : "false")
+    }
+
+    /// The shim up to where a content script stops (`if (inContent)
+    /// return;`), closed there. Without that line, the whole shim.
+    nonisolated static func content(of script: String) -> String {
+        guard let stop = script.range(of: "\n  if (inContent) return;\n") else { return script }
+        return script[..<stop.lowerBound] + "\n})();\n"
     }
 
     /// Defines only what is missing, so the day WebKit implements an API,
