@@ -260,7 +260,11 @@ def main():
         bench("bookmark", second, "new")
         until("the next tab to load", lambda: at(second) and not at(second)["loading"], 10)
         second_id = at(second)["id"]
-        check("the right-docked inspector follows a new tab",
+        check("a new tab keeps its whole width: the inspector stays with its tab",
+              wait_for(lambda: js(second_id, "innerWidth") == wide, 5),
+              f"innerWidth {js(second_id, 'innerWidth')}, was {wide}")
+        ask("press", code=34, chars="i", mods=["cmd", "opt"])
+        check("⌥⌘I docks one on the new tab too",
               wait_for(lambda: js(second_id, "innerWidth") < wide - 100, 5),
               f"innerWidth {js(second_id, 'innerWidth')}, was {wide}")
         ask("press", code=17, chars="t", mods=["cmd"])
@@ -273,6 +277,11 @@ def main():
               wait_for(lambda: js(second_id, "innerWidth") == wide, 5),
               f"innerWidth {js(second_id, 'innerWidth')}, was {wide}")
         ask("select", id=id)
+        check("the first tab kept its own",
+              wait_for(lambda: js(id, "innerWidth") < wide - 100, 5),
+              f"innerWidth {js(id, 'innerWidth')}, was {wide}")
+        ask("press", code=34, chars="i", mods=["cmd", "opt"])
+        wait_for(lambda: js(id, "innerWidth") == wide, 5)
 
         # The API Calls panel (Calls.swift) on the same session: `connect`
         # loads the frontend unseen, `inspectorWebView` gives its page, the

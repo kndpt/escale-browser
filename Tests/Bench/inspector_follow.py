@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Web Inspector follows its page, however it was opened, and leaves no gap.
+"""Web Inspector stays with its page, however it was opened, and leaves no gap.
 
 An owned probe world serves two local pages and a playing canvas video. The
 inspector is opened from the page's right-click menu (WebKit's own Inspect
@@ -114,9 +114,19 @@ def main():
         expect('right-click › Inspect Element docks it at the right', docked)
         assert bench('calls', first)['inspection']['session'] is True, 'the menu bypassed InspectorSession'
         bench('select', second)
-        expect('it follows to the next tab', docked)
+        expect('the next tab, never inspected, fills its stage', full)
         bench('select', first)
         expect('and back, with its inspector beside it, not an empty gap', docked)
+        bench('select', second)
+        toggle()
+        expect('⌥⌘I docks one on the second tab too', docked)
+        bench('select', first)
+        expect('each tab keeps its own', docked)
+        bench('select', second)
+        toggle()
+        expect('closing the second one', full)
+        bench('select', first)
+        expect('leaves the first one open', docked)
 
         bench('space', 'new', 'Other')
         bench('space', 'go', '1')
@@ -144,7 +154,7 @@ def main():
         bench('press', '35', 'p', 'cmd', 'shift')
         s.until('the video lands', lambda: not floating(), 5)
         expect('the landed page fills the stage', full)
-        print('ok: right-click and ⌥⌘I inspectors follow tabs and Spaces and close without a gap', flush=True)
+        print('ok: right-click and ⌥⌘I inspectors stay with their tabs and Spaces and close without a gap', flush=True)
 
 
 if __name__ == '__main__':

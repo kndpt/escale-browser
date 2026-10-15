@@ -3,8 +3,9 @@
 // menu included, so no inspector is left behind in a page host that is gone),
 // then uses WebKit's own dock request to put it at the right of that page,
 // wherever WebKit last left it. The frontend-loaded callback is the first
-// point at which that request can be made. A tab switch puts
-// the old inspector away and opens the new page's after it wakes; no
+// point at which that request can be made. Web Inspector belongs to the
+// tabs it was opened on: a tab switch puts the old inspector away and opens
+// the new page's, after it wakes, only if that tab had it open; no
 // recurring polling or extra page is kept alive by this owner (only a
 // bounded readiness query while an API Calls collection connects, below).
 // A split pane, or a page narrowed by the API Calls panel, can be too narrow
@@ -34,7 +35,8 @@ final class InspectorSession: NSObject, ObservableObject {
     /// Web Inspector's page: on screen, or on its way.
     private weak var currentInspector: NSObject?
     private var openingTab: Tab.ID?
-    private var following = false
+    /// Tabs that keep Web Inspector open while another tab is on screen.
+    private var inspected = Set<Tab.ID>()
     private var allowsDetached = false
     /// Inspectors whose frontend has announced itself loaded. An entry goes
     /// when its inspector is closed, so an identity is never reused stale.
@@ -90,10 +92,10 @@ final class InspectorSession: NSObject, ObservableObject {
     }
 
     func follow(browser: Browser, from old: Tab.ID?) {
-        guard old != browser.activeID, following else { return }
-        allowsDetached = browser.panels.group(browser.activeID) != nil
-        close(keepFollowing: true)
-        let next = browser.activeID
+        guard old != browser.activeID else { return }
+        if currentInspector != nil { close(forget: false) }
+        guard let next = browser.activeID, inspected.contains(next) else { return }
+        allowsDetached = browser.panels.group(next) != nil
         DispatchQueue.main.async { [weak browser, weak self] in
             guard let browser, browser.activeID == next else { return }
             self?.open(browser.active)
@@ -124,10 +126,10 @@ final class InspectorSession: NSObject, ObservableObject {
         }
         loaded.remove(ObjectIdentifier(inspector))
         guard inspector === currentInspector else { return }
+        if let tab = visibleTab ?? openingTab { inspected.remove(tab) }
         currentInspector = nil
         openingTab = nil
         visibleTab = nil
-        following = false
     }
 
     /// An API Calls panel asks for its tab's inspector frontend, loaded and
@@ -290,17 +292,18 @@ final class InspectorSession: NSObject, ObservableObject {
         adopt(inspector)
         openingTab = tab.id
         visibleTab = nil
-        following = true
+        inspected.insert(tab.id)
         send(inspector, "show")
         if warm { dock(inspector, tab: tab.id, attempts: 10) }
     }
 
-    private func close(keepFollowing: Bool = false) {
+    /// `forget` false keeps the tab's Web Inspector for when it is back.
+    private func close(forget: Bool = true) {
+        if forget, let tab = visibleTab ?? openingTab { inspected.remove(tab) }
         let inspector = currentInspector
         currentInspector = nil
         openingTab = nil
         visibleTab = nil
-        following = keepFollowing
         if let inspector { putAway(inspector) }
     }
 
