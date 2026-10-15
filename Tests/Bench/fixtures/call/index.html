@@ -9,7 +9,8 @@
      and a large decorative video sits behind everything. The meeting's own buttons
      appear once joined. Names, labels and markup follow what the window looks for,
      as read from a real Meet page in October 2026: a name marked notranslate after a
-     notice sentence, a microphone drawn as two SVGs with one hidden, and sound bars
+     notice sentence (one ending with an initial, one hidden), a microphone drawn as
+     two SVGs with one hidden, and sound bars
      whose classes change while someone speaks. Nothing here proves how Meet behaves
      today. -->
 <meta charset="utf-8">
@@ -41,7 +42,7 @@
 </style>
 <video id="decor" muted autoplay loop playsinline></video>
 <div id="stage"></div>
-<div id="selftile" data-participant-id="me"><video id="self" muted autoplay playsinline></video><span>Others might still see your full video.</span><span class="name notranslate">You</span></div>
+<div id="selftile" data-participant-id="me"><video id="self" muted autoplay playsinline></video><span>Others might still see your full video.</span><span class="name notranslate">Kim L.</span></div>
 <audio id="far" autoplay></audio>
 <div id="bar">
   <button id="join">Join</button>
@@ -221,7 +222,15 @@
     }
     await negotiate();
     tile('cara', null);
-    microphone(document.querySelector('.tile[data-who="cara"]'), false);
+    // Cara's name is marked but hidden, as in a small tile; Bob's open
+    // microphone also wears Material's outlined mic_none, which is not muted.
+    const cara = document.querySelector('.tile[data-who="cara"]');
+    microphone(cara, false);
+    cara.querySelector('.name').style.display = 'none';
+    const open = document.createElement('i');
+    open.className = 'google-symbols';
+    open.textContent = 'mic_none';
+    document.querySelector('.tile[data-who="bob"]').append(open);
     $('#controls').hidden = false;
     timers.push(setInterval(voices, 100));
 

@@ -55,7 +55,7 @@ Meet's markup as remembered. `call_float.py` uses them on a synthetic call.
 |---|---|
 | A meeting | A way to leave, or a track WebKit labels `remote audio` / `remote video` |
 | People | Tiles marked `data-participant-id`; without any, every remote video |
-| Name | `[data-self-name]`, else a shown `.notranslate` outside buttons, menus and icons, else the tile's first such text; never a sentence |
+| Name | `[data-self-name]`, else a `.notranslate` outside buttons, menus and icons (a shown one first), else the tile's first such shown text; never a sentence of four words or more |
 | Photo | The tile's largest loaded image of at least 24 px, drawn once into a canvas |
 | Muted microphone | A shown `mic_off`: Material's SVG path, an icon ligature, or a label saying the microphone is off |
 | Speaking | The tile's sound bars (`jsname="QgSmzd"`) changed class at two redraws in the last 1.5 s, with the microphone open |

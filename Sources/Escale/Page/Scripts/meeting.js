@@ -33,8 +33,9 @@ as absent, and the window offers no control it could not press.
     // Google marks the names it shows so a translator leaves them alone.
     name: '.notranslate',
     // A notice in a tile ("Others might still see your full video.") is a
-    // sentence; a name does not end like one.
-    sentence: /[.!?…:]$/,
+    // sentence: four words or more, the last a word, not an initial, ending
+    // like one. "Ada L." and "Martin Luther King Jr." are names.
+    sentence: /^(\S+\s+){3,}\S{4,}[.!?…:]$/,
     microphone: { name: 'button[jsname="BOHaEe"]', label: /micro|mikro|マイク/i, among: 'button[data-is-muted]' },
     camera: { label: /camera|caméra|kamera|cámara|câmera|カメラ/i, among: 'button[data-is-muted]' },
     present: { label: /^(present|stop presenting|you are presenting|share screen|stop sharing|pr[ée]sent|vous pr[ée]sentez|arr[êe]ter la pr[ée]sentation|partager l['’][ée]cran|präsent|presentar|dejar de presentar)/i, among: 'button[aria-label]' },
@@ -44,7 +45,7 @@ as absent, and the window offers no control it could not press.
     stopping: /^(stop|lower|arr[êe]ter|baisser|beenden|senken|dejar|bajar|you are presenting|vous pr[ée]sentez)/i,
     // "Vous êtes en train de présenter", "Ada (Presentation)": accents count.
     presentation: /pr[eé]sent|präsent|presentaci|apresenta/i,
-    silent: /^mic_off$|^mic_none$/,
+    silent: /^mic_off$/,
     // Meet draws a microphone that is off as Material's mic_off in SVG, and
     // keeps the open one beside it, hidden.
     silentPath: /^M19 11h-1\.7/,
@@ -163,24 +164,29 @@ as absent, and the window offers no control it could not press.
   function nameOf(tile) {
     var own = tile.querySelector(hints.ownName);
     if (own && own.textContent.trim()) return own.textContent.trim();
-    var marked = tile.querySelectorAll(hints.name);
+    // A marked name the tile shows first; one it hides (a small tile, a label
+    // shown on hover) still names them better than nothing.
+    var marked = tile.querySelectorAll(hints.name), hidden = '';
     for (var i = 0; i < marked.length; i++) {
       var words = marked[i].textContent.trim();
-      if (worded(marked[i], words)) return words;
+      if (!worded(marked[i], words)) continue;
+      if (shown(marked[i])) return words;
+      hidden = hidden || words;
     }
+    if (hidden) return hidden;
     var walker = document.createTreeWalker(tile, NodeFilter.SHOW_TEXT);
     var node;
     while ((node = walker.nextNode())) {
       var text = node.nodeValue.trim();
-      if (worded(node.parentElement, text)) return text;
+      if (worded(node.parentElement, text) && shown(node.parentElement)) return text;
     }
     return '';
   }
 
-  // Words that could be a name: shown, short, not a sentence, and not in a
-  // button, a menu or an icon.
+  // Words that could be a name: short, not a sentence, and not in a button,
+  // a menu or an icon.
   function worded(parent, text) {
-    if (!text || text.length > 60 || !parent || !shown(parent) || hints.sentence.test(text)) return false;
+    if (!text || text.length > 60 || !parent || hints.sentence.test(text)) return false;
     if (parent.closest('button, [role="button"], [role="menu"], [role="tooltip"], i')) return false;
     return !hints.icon.test(typeof parent.className === 'string' ? parent.className : '');
   }
@@ -214,7 +220,7 @@ as absent, and the window offers no control it could not press.
       var look = bars[i].className, was = heard.get(bars[i]);
       if (!was) heard.set(bars[i], was = { look: look, changes: [] });
       else if (was.look !== look) { was.look = look; was.changes.push(now); }
-      was.changes = was.changes.filter(function (at) { return now - at < 1500; });
+      while (was.changes.length && now - was.changes[0] >= 1500) was.changes.shift();
       if (was.changes.length >= 2) lately = true;
     }
     return lately;
@@ -309,6 +315,7 @@ as absent, and the window offers no control it could not press.
       if (seen[id]) {
         var either = seen[id];
         if (!either.video && video) list[list.indexOf(either)] = seen[id] = one;
+        seen[id].name = seen[id].name || either.name || one.name;
         seen[id].muted = either.muted || one.muted;
         seen[id].speaking = (either.speaking || one.speaking) && !seen[id].muted;
         continue;
@@ -471,8 +478,7 @@ as absent, and the window offers no control it could not press.
   }
 
   function more(count) {
-    var made = document.createElement('div');
-    made.className = 'card more';
+    var made = element('div', 'card more');
     made.textContent = '+' + count;
     return made;
   }

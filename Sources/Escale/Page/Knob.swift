@@ -1,5 +1,3 @@
-import AppKit
-
 // A round button over a floating window's picture (Grip.dress). It answers the
 // pointer before it is pressed: a step lighter under it, a step darker while
 // held, and a pointing hand. A window that floats over someone's work, holding a
@@ -12,6 +10,9 @@ import AppKit
 // arrow at the next move. It is set again at each move over the button, which
 // holds while Escale is in front. Behind another app, macOS keeps that app's
 // pointer, and the step lighter says it alone.
+
+import AppKit
+
 final class Knob: NSButton {
     /// Its colour at rest; under the pointer and held down are worked out from it.
     var tint = Palette.Film.button {

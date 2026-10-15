@@ -919,6 +919,9 @@ enum Motion {
     /// Fade the retained preview over an already opaque page, then release it.
     static let returnReveal = Animation.easeOut(duration: 0.22)
     static let pageRevealDuration: TimeInterval = 0.12
+    /// A meeting's page turns its button within a beat of a press; the
+    /// window reads it again then, not at its next half-second read.
+    static let pressShown: TimeInterval = 0.15
     /// The plane slows as it reaches the download door; no bounce or repeat.
     /// It once flew for 0.72 s, which read as too quick to follow.
     static let downloadFlightDuration: TimeInterval = 1.0

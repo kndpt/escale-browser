@@ -149,9 +149,9 @@ final class Float {
             meeting.onMinimize = { [weak self] in self?.onMinimize?() }
             meeting.onPress = { [weak self] name in
                 self?.onPress?(name)
-                // The page turns its button within a beat. Shown then, not at
-                // the next half-second read, a press is seen to be taken.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                // Shown as soon as the page has turned its button, a press
+                // is seen to be taken.
+                DispatchQueue.main.asyncAfter(deadline: .now() + Motion.pressShown) {
                     self?.onMeeting? { self?.meeting?.show($0) }
                 }
             }
