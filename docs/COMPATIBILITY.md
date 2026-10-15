@@ -91,7 +91,9 @@ WebKit lacks:
   `escale-shim.js` first in the background and every shipped page, and
   `escale-content.js`, the part that runs on a web page, first in its
   content scripts, adds `nativeMessaging` (and `scripting` for `userScripts`), and records
-  the additions in `.escale-added`. Its `run` switch answers native calls.
+  the additions in `.escale-added`. Its `run` checks the permission a call
+  needs and hands it to its family's file (`ExtensionBookmarks.swift` and the
+  files beside it).
 - **`Extensions/Scripts/shim*.js`** define the APIs in JavaScript and hold
   most engine workarounds: one function in files assembled in order
   (`ExtensionShims.parts`). `shim.js` opens it and is what content scripts
