@@ -48,6 +48,17 @@ final class Bench {
         return codes[Character(character.lowercased())] ?? 49
     }
 
+    /// The button accessibility finds under `label`, as VoiceOver reaches it.
+    /// Pages are not walked: only the window's own controls.
+    static func accessible(button label: String, in element: Any?, depth: Int = 0) -> NSAccessibilityProtocol? {
+        guard let element = element as? NSAccessibilityProtocol, depth < 64, !(element is WKWebView) else { return nil }
+        if element.accessibilityRole() == .button, element.accessibilityLabel() == label { return element }
+        for child in element.accessibilityChildren() ?? [] {
+            if let found = accessible(button: label, in: child, depth: depth + 1) { return found }
+        }
+        return nil
+    }
+
     /// Where the traffic lights are: each one's left edge and its centre's
     /// height from the top, in the window's points.
     static func lights(of window: NSWindow) -> [[Int]] {
@@ -256,6 +267,14 @@ final class Bench {
         case "tabs":
             // "closed": what History › Recently Closed lists for this Space, oldest first.
             answer(["tabs": browser.tabs.map(describe), "closed": browser.ghosts.map(\.label)])
+        case "undo":
+            // The line offering closed tabs back in this Space, and its button
+            // as VoiceOver reaches it; "press": pressed the way VoiceOver does.
+            let closing = browser.undoing?.space == browser.spaceID ? browser.undoing : nil
+            let button = Bench.accessible(button: "Undo", in: Links.window?.contentView)
+            let pressed = request["press"] as? Bool == true && Store.testing && button?.accessibilityPerformPress() == true
+            answer(["label": closing?.label ?? "", "count": closing?.ghosts.count ?? 0, "pressed": pressed,
+                    "button": button.map { $0.accessibilityValue() as? String ?? "" } as Any? ?? NSNull()])
 
         case "media":
             guard Store.testing else { answer(["error": "only in a test run"]); return }
@@ -1789,6 +1808,10 @@ final class Bench {
                 browser.beginTabRename(tab)
                 browser.tabDraft = text
                 browser.commitTabEdit()
+            }
+            // Close Other Tabs on the tab on screen, as its menu does.
+            if Store.testing, request["closeothers"] as? Bool == true, let tab = browser.active {
+                browser.closeOthers(but: tab)
             }
             if #available(macOS 15.4, *), let on = request["extensions"] as? Bool { Extensions.shared.menuOpen = on }
             answer(["ok": true])

@@ -1,0 +1,1 @@
+After Clear or Close Other Tabs, the line at the bottom of the window offers Undo for a few seconds, and Undo (or ⇧⌘T while it shows) brings every tab back in its place with the one you were on selected; only that one loads until you look at the others (#62).

@@ -50,6 +50,8 @@
     ./bench submit ID SELECTOR         the form around SELECTOR
     ./bench shot ID [PATH] [WIDTH]     a PNG of the page → its path
     ./bench close ID | all             only tabs the bench opened
+    ./bench undo [press]               the line offering closed tabs back here: label, count, and its button as
+                                       VoiceOver finds it; press: test run, that button pressed as VoiceOver does
     ./bench media [ID [JSON]]          test run: sources/listeners; action pause/play/previous/next/volume/dismiss/return, value 0...1
     ./bench popover [X Y]              test world: the open popover's size, or a click X Y points from its top left,
                                        through the app's event dispatch (the pointer stays where it is)
@@ -129,7 +131,8 @@
                                        bar on|off, shelf on|off, folded on|off, peek on|off,
                                        autoscroll on|off, links on|off, reading on|off, saving on|off, filling on|off,
                                        clearHistory on (test-world history reset),
-                                       renametab NAME (test run: the tab on screen named NAME)
+                                       renametab NAME (test run: the tab on screen named NAME),
+                                       closeothers on (test run: Close Other Tabs on the tab on screen)
 
 Needs Settings › Developer › "Let a script drive Escale" switched on in the
 running app. IDs are the first characters of a tab's id, as `tabs` prints
@@ -428,6 +431,9 @@ def main(argv, out=None, err=None, timeout=None, cwd=None):
         request["text"] = args[0]
         request["type"] = "type" in args[1:]
         request["go"] = "go" in args[1:]
+    elif verb == "undo":
+        if args not in ([], ["press"]): sys.exit("usage: bench undo [press]")
+        request["press"] = args == ["press"]
     elif verb == "row":
         if len(args) != 1: sys.exit("usage: bench row INDEX")
         request["index"] = int(args[0])
