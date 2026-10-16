@@ -1108,8 +1108,9 @@ final class Browser: NSObject, ObservableObject {
                 guard let self else { return }
                 // Sent before Preferences' didSet sets it.
                 Tab.defaultZoom = CGFloat(percent) / 100
-                // A floating meeting keeps its own size until it lands.
-                for tab in tabs + parkedTabs where !tab.floating { tab.applyRememberedZoom() }
+                // A floating meeting keeps its own size until it lands, which
+                // reapplies the default; a floating video has none of its own.
+                for tab in tabs + parkedTabs where !(tab.floating && floatingMeeting) { tab.applyRememberedZoom() }
             }
             .store(in: &bag)
 
