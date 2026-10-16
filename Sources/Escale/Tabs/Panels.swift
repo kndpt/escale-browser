@@ -117,6 +117,16 @@ final class Panels: ObservableObject {
         groups[i].members.swapAt(from, from + step)
         groups[i].weights.swapAt(from, from + step)
     }
+    /// The last page has no next one, so it trades with the one before.
+    func swap(_ id: UUID) {
+        guard let members = group(id)?.members else { return }
+        move(id, by: members.last == id ? -1 : 1)
+    }
+    /// The page beside this one, wrapping at the ends as Next Tab does.
+    func neighbour(of id: UUID, by step: Int) -> UUID? {
+        guard let members = group(id)?.members, let at = members.firstIndex(of: id) else { return nil }
+        return members[((at + step) % members.count + members.count) % members.count]
+    }
     func resize(_ id: UUID, weights: [Double]) {
         guard let i = groups.firstIndex(where: { $0.id == id }),
               weights.count == groups[i].members.count, weights.allSatisfy({ $0.isFinite && $0 > 0 }) else { return }
@@ -264,6 +274,22 @@ extension Browser {
         action(panels)
         for tab in watched { tab.touch() }
         rememberSession(tab.space)
+    }
+
+    /// Next and Previous Panel select the page as a click on it would, so the
+    /// focus ring, ⌘L and the keyboard follow it.
+    func focusPanel(by step: Int) {
+        guard let activeID, let next = panels.neighbour(of: activeID, by: step),
+              let tab = tabs.first(where: { $0.id == next }) else { return }
+        select(tab)
+    }
+
+    /// The Tabs menu's split commands act on the page in focus, as its
+    /// context menu does on the page it was opened from.
+    func changeActivePanel(_ action: (Panels, UUID) -> Void) {
+        guard let tab = active, panels.group(tab.id) != nil else { return }
+        let reduced = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        withAnimation(reduced ? nil : Motion.settle) { changePanels(tab) { action($0, tab.id) } }
     }
 
     func chooseSplit(_ edge: PanelEdge) {

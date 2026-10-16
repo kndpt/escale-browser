@@ -7,7 +7,7 @@ enum KeyAction: String, CaseIterable, Codable {
     // Network keeps "developer", its ID from when Developer Mode was the
     // Network column, so a key someone chose or removed for it stays with it;
     // the dock that now has the name is "workbench".
-    case closeWindow, newTab, privateTab, reopenTab, closeTab, searchTabs, searchGitHub, nextTab, previousTab, duplicateTab, renameTab, pinTab, changeLetter, closeOthers, clearTabs, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, lastTab, splitRight, splitLeft, splitTop, splitBottom, openAddress, back, forward, reload, stopLoading, copyAddress, copyMarkdown, pasteGo, history, clearHistory, addBookmark, bookmarks, previousSpace, nextSpace, newSpace, renameSpace, duplicateSpace, moveSpaceUp, moveSpaceDown, deleteSpace, find, findNext, findPrevious, zoomIn, zoomOut, resetZoom, print, reader, floatVideo, stopSound, hideElements, hiddenElements, resetSite, siteData, inspector, console, inspectElement, visual, capture, captureArea, captureFull, developer = "workbench", network = "developer", localhost, settings, fold, focus, sidebar, downloads, passwords, welcome, feedback, space1, space2, space3, space4, space5, space6, space7, space8, space9
+    case closeWindow, newTab, privateTab, reopenTab, closeTab, searchTabs, searchGitHub, nextTab, previousTab, duplicateTab, renameTab, pinTab, changeLetter, closeOthers, clearTabs, sleepTab, sleepOthers, moveTabToPreviousSpace, moveTabToNextSpace, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, lastTab, splitRight, splitLeft, splitTop, splitBottom, nextPanel, previousPanel, swapPanel, movePanelOut, separatePanels, openAddress, back, forward, reload, stopLoading, copyAddress, copyMarkdown, pasteGo, history, clearHistory, addBookmark, bookmarks, previousSpace, nextSpace, newSpace, renameSpace, duplicateSpace, moveSpaceUp, moveSpaceDown, deleteSpace, find, findNext, findPrevious, zoomIn, zoomOut, resetZoom, print, reader, floatVideo, stopSound, hideElements, hiddenElements, resetSite, siteData, inspector, console, inspectElement, visual, capture, captureArea, captureFull, developer = "workbench", network = "developer", localhost, settings, fold, focus, sidebar, downloads, passwords, welcome, feedback, space1, space2, space3, space4, space5, space6, space7, space8, space9
 
     var command: KeyCommand { KeyCommand.catalog[self] ?? KeyCommand(self, rawValue, .app) }
     var index: Int? { Int(rawValue.dropFirst(rawValue.hasPrefix("space") ? 5 : 3)) }
@@ -44,6 +44,10 @@ struct KeyCommand: Identifiable {
         .init(.changeLetter, "Change Pinned Letter", .tabs, "", []),
         .init(.closeOthers, "Close Other Tabs", .tabs, "", []),
         .init(.clearTabs, "Clear Ordinary Tabs", .tabs, "Keep pins and bookmarks.", []),
+        .init(.sleepTab, "Sleep Tab", .tabs, "Go back to the previous tab and let this page go until you return.", []),
+        .init(.sleepOthers, "Sleep Other Tabs", .tabs, "In this Space. Pins, sound, calls, downloads and typed text stay awake.", []),
+        .init(.moveTabToPreviousSpace, "Move Tab to Previous Space", .tabs, "Follow the displayed order; wrap at the ends.", []),
+        .init(.moveTabToNextSpace, "Move Tab to Next Space", .tabs, "Follow the displayed order; wrap at the ends.", []),
         .init(.tab1, "Go to Tab 1", .tabs, "By its position in the current Space.", [.init("#1", [.command])]),
         .init(.tab2, "Go to Tab 2", .tabs, "By its position in the current Space.", [.init("#2", [.command])]),
         .init(.tab3, "Go to Tab 3", .tabs, "By its position in the current Space.", [.init("#3", [.command])]),
@@ -57,6 +61,11 @@ struct KeyCommand: Identifiable {
         .init(.splitLeft, "Add Left Split", .tabs, "", []),
         .init(.splitTop, "Add Top Split", .tabs, "", []),
         .init(.splitBottom, "Add Bottom Split", .tabs, "", []),
+        .init(.nextPanel, "Next Panel", .tabs, "Focus the next page of the split on screen.", []),
+        .init(.previousPanel, "Previous Panel", .tabs, "Focus the previous page of the split on screen.", []),
+        .init(.swapPanel, "Swap with Next Panel", .tabs, "The page in focus trades places with its neighbour.", []),
+        .init(.movePanelOut, "Move Out of Split", .tabs, "The page in focus becomes an ordinary tab again.", []),
+        .init(.separatePanels, "Separate Split", .tabs, "Every page of the split on screen becomes an ordinary tab.", []),
         .init(.openAddress, "Open Address", .navigation, "Change the address of this page.", [.init("l", [.command])]),
         .init(.back, "Back", .navigation, "The arrow alternative belongs to text fields while typing.", [.init("[", [.command]), .init("left", [.command])]),
         .init(.forward, "Forward", .navigation, "The arrow alternative belongs to text fields while typing.", [.init("]", [.command]), .init("right", [.command])]),

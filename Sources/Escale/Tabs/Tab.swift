@@ -95,7 +95,7 @@ enum Web {
         config.mediaTypesRequiringUserActionForPlayback = .audio
         if Store.testing, !Store.measuring, !Store.beta { config.preferences.inactiveSchedulingPolicy = .none }
         inspector(config.preferences)
-        if Store.testing, !Store.beta { mockCapture(config.preferences) }
+        if Store.testing, !Store.beta { mockCapture(config.preferences); plainICE(config.preferences) }
         return config
     }
 
@@ -111,6 +111,17 @@ enum Web {
         guard preferences.responds(to: set) else { return }
         typealias Setter = @convention(c) (AnyObject, Selector, Bool) -> Void
         unsafeBitCast(preferences.method(for: set), to: Setter.self)(preferences, set, true)
+    }
+
+    /// A test run's WebRTC gives its own addresses as they are. WebKit otherwise
+    /// hides them behind a `.local` name it registers with Bonjour, and every
+    /// new test identity then gets a Local Network prompt that takes the front.
+    /// A page capturing a camera gets them unhidden anyway.
+    static func plainICE(_ preferences: WKPreferences) {
+        let set = NSSelectorFromString("_setICECandidateFilteringEnabled:")
+        guard preferences.responds(to: set) else { return }
+        typealias Setter = @convention(c) (AnyObject, Selector, Bool) -> Void
+        unsafeBitCast(preferences.method(for: set), to: Setter.self)(preferences, set, false)
     }
 
     /// WebKit's "developer extras": Inspect Element in a page's right-click
