@@ -850,6 +850,19 @@ enum Metrics {
     static let settingsKeywords: CGFloat = 64
 
     // Keyboard uses aligned command/key columns and room between groups.
+    // The panels' type (History, Bookmarks, Passwords, the site card, find,
+    // announcements), in compact points: ChromeMetrics scales it with the
+    // interface size, as it does the column's.
+    static let panelLead: CGFloat = 14
+    static let panelTitle: CGFloat = 13
+    static let panelText: CGFloat = 12.5
+    static let panelNote: CGFloat = 12
+    static let panelDetail: CGFloat = 11.5
+    static let panelSymbol: CGFloat = 11
+    static let panelSmall: CGFloat = 10.5
+    static let panelMark: CGFloat = 10
+    static let panelBadge: CGFloat = 9
+
     static let keyboardPinnedHeight: CGFloat = 440
     static let keyboardToolbarGap: CGFloat = 14
     static let keyboardFilterWidth: CGFloat = 180

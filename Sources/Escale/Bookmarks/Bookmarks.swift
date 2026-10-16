@@ -455,6 +455,7 @@ final class Bookmarks: ObservableObject {
 /// in the full manager — the interaction is the same size either way, the
 /// keyboard's included (Walk.swift).
 struct BookmarkOutline: View {
+    @SwiftUI.Environment(\.chromeMetrics) private var metrics
     let browser: Browser
     @ObservedObject var bookmarks: Bookmarks
     /// The scroll view it is in, to keep the chosen row in sight.
@@ -582,7 +583,7 @@ struct BookmarkOutline: View {
                     AnyView(rows(kids, depth: depth + 1, parent: node.id))
                 } else {
                     Text("Empty")
-                        .font(.system(size: 12))
+                        .font(.system(size: metrics.length(Metrics.panelNote)))
                         .foregroundStyle(Palette.faint)
                         .padding(.leading, indent(depth + 1) + 26)
                         .padding(.vertical, 5)
@@ -668,6 +669,7 @@ struct BookmarkOutline: View {
     }
 
     private struct Row: View {
+        @SwiftUI.Environment(\.chromeMetrics) private var metrics
         let node: Bookmark
         let browser: Browser
         let bookmarks: Bookmarks
@@ -697,24 +699,24 @@ struct BookmarkOutline: View {
             HStack(spacing: 8) {
                 if node.isFolder {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.system(size: metrics.length(Metrics.panelBadge), weight: .medium))
                         .foregroundStyle(Palette.faint)
                         .rotationEffect(.degrees(isOpen ? 90 : 0))
-                        .frame(width: 10)
-                    Mark(icon: nil, letter: "", size: 15)
+                        .frame(width: metrics.length(10))
+                    Mark(icon: nil, letter: "", size: metrics.length(15))
                         .overlay(
                             Image(systemName: "folder.fill")
-                                .font(.system(size: 9))
+                                .font(.system(size: metrics.length(Metrics.panelBadge)))
                                 .foregroundStyle(Palette.muted)
                         )
                 } else {
-                    Spacer().frame(width: 10)
+                    Spacer().frame(width: metrics.length(10))
                     SiteMark(host: node.host ?? "", page: node.url.flatMap(URL.init(string:)),
-                             letter: String((node.host ?? "•").prefix(1)).uppercased(), size: 15)
+                             letter: String((node.host ?? "•").prefix(1)).uppercased(), size: metrics.length(15))
                 }
                 if naming {
                     TextField("Folder name", text: $folderName)
-                        .font(.system(size: 12.5))
+                        .font(.system(size: metrics.length(Metrics.panelText)))
                         .textFieldStyle(.plain)
                         .focused($nameFocused)
                         .onSubmit(finishName)
@@ -722,14 +724,14 @@ struct BookmarkOutline: View {
                         .onChange(of: nameFocused) { _, focused in if !focused { finishName() } }
                 } else {
                     Text(node.title)
-                        .font(.system(size: 12.5))
+                        .font(.system(size: metrics.length(Metrics.panelText)))
                         .foregroundStyle(Palette.ink)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
                 if mergeReady {
                     Image(systemName: "folder.badge.plus")
-                        .font(.system(size: 11))
+                        .font(.system(size: metrics.length(Metrics.panelSymbol)))
                         .foregroundStyle(Palette.muted)
                 }
                 if !node.destinations.isEmpty {
@@ -745,7 +747,7 @@ struct BookmarkOutline: View {
                 }
                 if node.isFolder, let kids = node.children, !kids.isEmpty {
                     Text("\(Bookmarks.count(kids))")
-                        .font(.system(size: 11))
+                        .font(.system(size: metrics.length(Metrics.panelSymbol)))
                         .foregroundStyle(Palette.faint)
                 }
             }
@@ -828,6 +830,7 @@ struct BookmarkDoor: View {
 /// The button's dropdown: the tree, and the things that aren't in it. On a
 /// page already kept, what can be done to its bookmark stands in for adding it.
 struct BookmarksDropdown: View {
+    @SwiftUI.Environment(\.chromeMetrics) private var metrics
     @ObservedObject var browser: Browser
     @ObservedObject var bookmarks: Bookmarks
     /// The page on screen's own bookmark, as the door found it.
@@ -839,7 +842,7 @@ struct BookmarksDropdown: View {
         VStack(alignment: .leading, spacing: 0) {
             if bookmarks.isEmpty {
                 Text("No bookmarks yet")
-                    .font(.system(size: 12.5))
+                    .font(.system(size: metrics.length(Metrics.panelText)))
                     .foregroundStyle(Palette.muted)
                     .padding(14)
             } else {
@@ -866,12 +869,13 @@ struct BookmarksDropdown: View {
             }
             .padding(6)
         }
-        .frame(width: 280)
+        .frame(width: metrics.length(280))
         // The popover's own material shows through (Glass.swift).
         .popoverGround()
     }
 
     private struct Foot: View {
+        @SwiftUI.Environment(\.chromeMetrics) private var metrics
         let symbol: String?
         let title: String
         let act: () -> Void
@@ -888,11 +892,11 @@ struct BookmarksDropdown: View {
             Button(action: act) {
                 HStack(spacing: 8) {
                     if let symbol {
-                        Image(systemName: symbol).font(.system(size: 11)).foregroundStyle(Palette.muted).frame(width: 14)
+                        Image(systemName: symbol).font(.system(size: metrics.length(Metrics.panelSymbol))).foregroundStyle(Palette.muted).frame(width: metrics.length(14))
                     } else {
-                        Spacer().frame(width: 14)
+                        Spacer().frame(width: metrics.length(14))
                     }
-                    Text(title).font(.system(size: 12.5)).foregroundStyle(Palette.ink)
+                    Text(title).font(.system(size: metrics.length(Metrics.panelText))).foregroundStyle(Palette.ink)
                     Spacer(minLength: 0)
                 }
                 .padding(.horizontal, 10)
@@ -908,6 +912,7 @@ struct BookmarksDropdown: View {
 
 /// The full list, for taking things out of it or bringing more in.
 struct BookmarksPanel: View {
+    @SwiftUI.Environment(\.chromeMetrics) private var metrics
     @ObservedObject var browser: Browser
     @ObservedObject var bookmarks: Bookmarks
 
@@ -935,7 +940,7 @@ struct BookmarksPanel: View {
                 Pill("Import bookmarks…") { browser.showMigration() }
                 Spacer()
                 Text(bookmarks.count == 1 ? "1 bookmark" : "\(bookmarks.count) bookmarks")
-                    .font(.system(size: 12))
+                    .font(.system(size: metrics.length(Metrics.panelNote)))
                     .foregroundStyle(Palette.muted)
             }
         }
