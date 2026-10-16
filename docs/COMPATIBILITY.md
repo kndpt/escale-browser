@@ -53,6 +53,10 @@ is a gap, not a failure.
 - `_setMockCaptureDevicesEnabled:` (`Web.mockCapture`, test runs but the beta): WebKit's
   synthetic camera and microphone for `space_media.py` and `call_float.py`.
   Without it those scenarios fail rather than skip.
+- `_setICECandidateFilteringEnabled:` (`Web.plainICE`, the same runs): WebRTC gives
+  the Mac's own addresses instead of registering a `.local` name with Bonjour,
+  which shows each new test identity a Local Network prompt. Without it the
+  prompt comes back.
 
 ## Page-script workarounds
 
