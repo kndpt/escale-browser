@@ -68,7 +68,7 @@ struct SettingsPanel: View {
             case .github: return "github bearings pull requests issues local search repository"
             case .routing: return "link routing route rules links open site host domain url space spaces meet routage liens"
             case .tabs: return "tabs spaces sidebar folded address bookmarks copy icons reading sleep delay idle"
-            case .pages: return "web pages links scroll middle button"
+            case .pages: return "web pages zoom default size links scroll middle button"
             case .migration: return "import migration bookmarks history passwords browser profiles safari firefox chrome arc zen orion aside"
             case .passwords: return "passwords passkeys keychain sign in import accounts"
             case .privacy: return "privacy ads trackers block camera microphone history cookies cache site data"
@@ -451,6 +451,13 @@ struct SettingsPanel: View {
     private var webPages: some View {
         VStack(alignment: .leading, spacing: metrics.length(Metrics.settingsGap)) {
             Card {
+                Line("Default zoom", "For every site you haven't zoomed. Actual Size returns a site to it") {
+                    MigrationField(title: "Default zoom", options: PageZoom.defaults.map { ($0, "\($0)%") },
+                                   selection: $prefs.defaultZoom, height: Metrics.settingsRow, showsTitle: false)
+                        .frame(width: metrics.length(Metrics.settingsZoomWidth))
+                        .accessibilityLabel("Default zoom")
+                }
+                Rule()
                 Line("Show where links go", "Point at a link and its address shows at the bottom of the page") {
                     Switch(on: $prefs.showsLinks)
                 }

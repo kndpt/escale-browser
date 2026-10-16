@@ -1788,6 +1788,7 @@ final class Bench {
             if let look = (request["look"] as? String).flatMap(Look.init) { browser.prefs.look = look }
             if let tone = (request["tone"] as? String).flatMap(Tone.init) { browser.prefs.tone = tone }
             if let size = (request["size"] as? String).flatMap(InterfaceSize.init) { browser.prefs.interfaceSize = size }
+            if let zoom = request["zoom"] as? Int, PageZoom.defaults.contains(zoom) { browser.prefs.defaultZoom = zoom }
             if let depth = (request["depth"] as? String).flatMap(Depth.init) { browser.prefs.depth = depth }
             if Store.testing, let on = request["fasterShortcuts"] as? Bool { browser.prefs.fasterShortcuts = on }
             if let on = request["contrast"] as? Bool { browser.prefs.increasesContrast = on }
