@@ -1,11 +1,10 @@
-import Foundation
-import Testing
-@testable import Escale
-
 // Where Undo puts back what Clear or Close Other Tabs closed. Each tab is
 // closed from the row as it is at that moment, and remembers the index it
 // left from; Undo must give back the row as it was, however many there are.
 // Rows are letters; no Browser, Tab or WebKit is needed.
+import Foundation
+import Testing
+@testable import Escale
 
 @Suite struct UndoCloseTests {
     private let space = UUID()
