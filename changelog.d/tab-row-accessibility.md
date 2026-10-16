@@ -1,0 +1,1 @@
+VoiceOver and Full Keyboard Access now see each tab, in the sidebar and the top bar, as a button named by its title and saying whether it is active, pinned or sleeping, with Close Tab and Copy Link among its actions, so neither needs the pointer to hover (#4).

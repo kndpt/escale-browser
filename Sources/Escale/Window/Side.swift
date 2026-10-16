@@ -912,8 +912,9 @@ private struct PinSquare: View {
         // Put down, like ⌘W: close() is what knows a pin isn't removed.
         .overlay { MiddleClick { browser.close(tab) } }
         .onHover { hovering = $0 }
+        .modifier(TabAccess(browser: browser, tab: tab, live: live, pinned: true, editing: lettering,
+                            closes: true, ordinary: tab.label))
         .contextMenu { TabMenu(browser: browser, tab: tab) }
-        .modifier(SleepHint(tab: tab, ordinary: tab.label))
         .animation(Motion.quick, value: hovering)
         .transition(.scale(scale: 0.8).combined(with: .opacity))
     }
@@ -1038,8 +1039,9 @@ private struct SideRow: View {
         })
         .overlay { MiddleClick(act: close) }
         .onHover { hovering = $0 }
+        .modifier(TabAccess(browser: browser, tab: tab, live: live, pinned: tab.pin != nil,
+                            editing: editing, closes: closes))
         .contextMenu { TabMenu(browser: browser, tab: tab) }
-        .modifier(SleepHint(tab: tab))
         .animation(Motion.quick, value: hovering)
         .animation(Motion.glide, value: editing)
         .onChange(of: refusals) { _, _ in
