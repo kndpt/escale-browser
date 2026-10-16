@@ -1785,6 +1785,7 @@ final class Bench {
             if request["clearHistory"] as? Bool == true { browser.clearHistory() }
             if let on = request["downloads"] as? Bool { browser.hoarding = on }
             if let on = request["bookmarks"] as? Bool { browser.bookmarking = on }
+            if let on = request["keyChart"] as? Bool { browser.listingKeys = on }
             if let on = request["hidden"] as? Bool { browser.reviewing = on }
             if let look = (request["look"] as? String).flatMap(Look.init) { browser.prefs.look = look }
             if let tone = (request["tone"] as? String).flatMap(Tone.init) { browser.prefs.tone = tone }

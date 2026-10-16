@@ -119,6 +119,12 @@ def run():
             press(44, '/', 'cmd')
             h.wait_for('⌘/ reaches a field on the page', lambda: {'slash': h.ask('eval', id=restored, js="document.querySelector('#draft').dataset.slash || ''")['value']}, {'slash': 'yes'}, 5)
             h.require('⌘/ while typing leaves the chart closed', ask('probe')['keyChart'], False)
+            # Opened from the Help menu while typing, ⌘/ closes it rather than reaching the page.
+            h.ask('eval', id=restored, js="delete document.querySelector('#draft').dataset.slash")
+            ask('ui', 'keyChart', 'on')
+            press(44, '/', 'cmd')
+            h.require('⌘/ closes a chart opened while typing', ask('probe')['keyChart'], False)
+            h.require('the closing ⌘/ stays out of the page', h.ask('eval', id=restored, js="document.querySelector('#draft').dataset.slash || ''")['value'], '')
             # Web editors own their formatting commands; the app must deliver the keys
             # despite a profile that previously bound them to browser commands.
             for code, key, formatting in [(11, 'b', 'bold'), (34, 'i', 'italic'), (32, 'u', 'underline')]:
