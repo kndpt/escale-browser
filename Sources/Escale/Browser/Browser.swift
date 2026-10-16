@@ -1100,6 +1100,19 @@ final class Browser: NSObject, ObservableObject {
             }
             .store(in: &bag)
 
+        // Pages already open follow a new default unless their site has its
+        // own; one not built yet reads it when it is.
+        prefs.$defaultZoom
+            .dropFirst()
+            .sink { [weak self] percent in
+                guard let self else { return }
+                // Sent before Preferences' didSet sets it.
+                Tab.defaultZoom = CGFloat(percent) / 100
+                // A floating meeting keeps its own size until it lands.
+                for tab in tabs + parkedTabs where !tab.floating { tab.applyRememberedZoom() }
+            }
+            .store(in: &bag)
+
         // The reading bar: every tab's next page, and the page each is showing
         // now, report their scroll only while it is shown (see ScrollRelay).
         prefs.$showsReading
