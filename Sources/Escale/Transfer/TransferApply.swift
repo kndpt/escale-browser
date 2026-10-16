@@ -11,6 +11,13 @@
 // old identity, so the same file opened again finds its Spaces instead of
 // making more, and a password that was refused the first time is retried.
 //
+// One exception: an Escale with nothing of its own yet (`isPristine`) takes the
+// file's first Space in its first Space. That one can't be deleted, as it owns
+// the locations from before Spaces, so beside the import it would stay empty
+// for good. The identity it stands for is kept in the settings, which an
+// older Escale rewriting the Space list leaves alone, so the same file opened
+// again finds it there.
+//
 // Each new Space gets a WebKit store of its own on first use: no cookie,
 // sign-in or site data of the source travels, and none is shared.
 import Foundation
@@ -42,6 +49,25 @@ enum TransferApply {
 
     static func fails(_ step: String) -> Bool { Store.testing && failing.contains(step) }
 
+    /// The identity of the file's Space that filled the first Space.
+    private static let filledKey = "transfer.first"
+
+    /// Kept once the first Space took the file's Space with this identity.
+    static func fill(_ identity: UUID, settings: UserDefaults = Store.settings) {
+        settings.set(identity.uuidString, forKey: filledKey)
+    }
+
+    /// Where a Space of the file goes, and whether an earlier opening already
+    /// put it there: the first Space once it was filled with this one, or
+    /// now when this Escale is pristine and it is the file's first; its own
+    /// identity otherwise.
+    static func target(_ identity: UUID, index: Int, pristine: Bool, here: [UUID],
+                       settings: UserDefaults = Store.settings) -> (id: UUID, already: Bool) {
+        let home = settings.string(forKey: filledKey) == identity.uuidString ? Space.firstID : identity
+        if here.contains(home) { return (home, true) }
+        return (pristine && index == 0 ? Space.firstID : home, false)
+    }
+
     /// What an imported Space is to reinstall: its own list and the source's
     /// shared set, once each, less what already runs in every Space here.
     static func plan(_ own: [PlannedExtension], shared: [PlannedExtension], running: [Installed]) -> [PlannedExtension] {
@@ -65,12 +91,14 @@ extension Browser {
     func applyTransfer(_ payload: TransferPayload, preferences: Bool, progress: @escaping (String) -> Void) async -> TransferReport {
         var report = TransferReport()
         var arrived: [UUID: UUID] = [:]
+        let pristine = isPristine
         for (index, space) in payload.spaces.enumerated() {
             if TransferApply.fails("slow") { try? await Task.sleep(nanoseconds: 800_000_000) }
             if Task.isCancelled { report.stopped = true; break }
             progress("Saving “\(space.name)” (\(index + 1) of \(payload.spaces.count))…")
-            let id = TransferApply.identity(payload.id, space.id)
-            if spaces.contains(where: { $0.id == id }) {
+            let (id, already) = TransferApply.target(TransferApply.identity(payload.id, space.id), index: index,
+                                                     pristine: pristine, here: spaces.map(\.id))
+            if already {
                 report.already.append(space.name)
             } else if place(space, as: id, from: payload.id, shared: payload.sharedExtensions ?? []) {
                 report.imported.append(space.name)
@@ -120,7 +148,8 @@ extension Browser {
         if preferences && !report.stopped {
             report.preferences = TransferPreferences.apply(payload.preferences, to: prefs)
         }
-        if !self.prefs.usesSpaces && !report.imported.isEmpty {
+        // The first Space shows with Spaces off: only the others are hidden.
+        if !self.prefs.usesSpaces && arrived.values.contains(where: { $0 != Space.firstID }) && !report.imported.isEmpty {
             report.notes.append("Spaces are switched off in Settings, so the imported Spaces won't show until you switch them on.")
         }
         return report
@@ -130,7 +159,17 @@ extension Browser {
     /// last, so a failure anywhere before leaves nothing visible and nothing
     /// of it on disk. The source's shared set, if it had one, is planned
     /// here too: this Mac's mode decides how plans show (SpaceCopy.swift).
+    /// The first Space is filled rather than made: its owners write what they
+    /// hold first, so nothing of theirs lands over what arrives, and what it
+    /// hid and learned is kept to be put back if this fails.
     private func place(_ space: TransferSpace, as id: UUID, from transfer: UUID, shared: [PlannedExtension]) -> Bool {
+        let filling = id == Space.firstID
+        if filling {
+            writeSession(of: id, now: true)
+            histories[id]?.flush(); curtains[id]?.flush(); habitsBySpace[id]?.flush()
+        }
+        let hidden = filling ? curtain(for: id).byHost : [:]
+        let learned = filling ? Habits.saved(space: id) : [:]
         var bookmarkIDs: [UUID: UUID] = [:]
         func collect(_ nodes: [Bookmark]) {
             for node in nodes {
@@ -139,34 +178,63 @@ extension Browser {
             }
         }
         collect(space.bookmarks)
+        // The first Space's own extensions run in it already, shared or not.
         var running: [Installed] = []
-        if #available(macOS 15.4, *), prefs.sharedExtensions == true { running = Extensions.saved(space: Space.firstID) }
+        if #available(macOS 15.4, *), prefs.sharedExtensions == true || filling { running = Extensions.saved(space: Space.firstID) }
         let planned = TransferApply.plan(space.extensions, shared: shared, running: running)
         let made = Space(id: id, name: space.name, colour: space.colour, icon: space.icon, swatch: space.swatch, sharesSignIns: nil,
-                         downloads: nil, plannedExtensions: planned.isEmpty ? nil : planned)
+                         downloads: filling ? spaces.first(where: \.isFirst)?.downloads : nil,
+                         plannedExtensions: planned.isEmpty ? nil : planned)
+        let list = filling ? spaces.map { $0.isFirst ? made : $0 } : spaces + [made]
         let written = !TransferApply.fails("files")
             && Session.copy(space.session, to: id, bookmarks: bookmarkIDs)
             && Bookmarks.copy(space.bookmarks, to: id, identities: bookmarkIDs)
             && Curtain.copy(space.hidden, to: id)
             && History.restore(space.history, to: id)
             && Habits.restore(space.habits, to: id, bookmarks: bookmarkIDs)
-        if written {
-            for (host, zoom) in space.zoom { Store.settings.set(zoom, forKey: Store.zoomKey(host, space: id)) }
-            for host in space.paused { Shield.shared.pause(host, true, in: id) }
-            if !space.never.isEmpty { Vault.setNever(Set(space.never), in: id) }
-        }
-        guard written, !TransferApply.fails("spaces"), Spaces.write(spaces + [made]) else {
+        guard written, !TransferApply.fails("spaces"), Spaces.write(list) else {
+            if filling {
+                // Pristine: no tab, bookmark or visit to put back.
+                _ = Session.copy(Session.Shape(tabs: [], active: 0), to: id)
+                _ = Bookmarks.copy([], to: id)
+                _ = Curtain.copy(hidden, to: id)
+                _ = History.restore([], to: id)
+                _ = Habits.restore(learned, to: id, bookmarks: [:])
+                return false
+            }
             Session.erase(space: id)
             Bookmarks.erase(space: id)
             Curtain.erase(space: id)
             History.erase(space: id)
             Habits.erase(space: id)
-            Shield.shared.erase(space: id)
-            Store.eraseZoom(space: id)
-            Vault.erase(space: id)
             return false
         }
-        spaces.append(made)
+        // Settings, not files: set once the list stands, so a failure has none to take back.
+        for (host, zoom) in space.zoom { Store.settings.set(zoom, forKey: Store.zoomKey(host, space: id)) }
+        for host in space.paused { Shield.shared.pause(host, true, in: id) }
+        if !space.never.isEmpty { Vault.setNever(Vault.never(in: id).union(space.never), in: id) }
+        guard filling else {
+            spaces.append(made)
+            return true
+        }
+        TransferApply.fill(TransferApply.identity(transfer, space.id))
+        // Its owners read again what arrived, and its row shows the tabs that came.
+        shelves[id] = nil; histories[id] = nil; historyWatches[id] = nil
+        curtains[id] = nil; habitsBySpace[id] = nil
+        spaces = list
+        showArrived()
         return true
+    }
+
+    /// The first Space's row after an import filled it: the tabs that came,
+    /// then any the person still has open, while only an empty tab is let go.
+    private func showArrived() {
+        guard spaceID == Space.firstID else { return }
+        let row = loadRow(Space.firstID)
+        guard !row.tabs.isEmpty else { return }
+        let blank = tabs.filter(\.isBlank)
+        showRow(row.tabs + tabs.filter { !$0.isBlank }, active: row.active)
+        for tab in blank { tab.close() }
+        wakePanels()
     }
 }

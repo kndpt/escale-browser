@@ -1,0 +1,1 @@
+A tab's right-click menu and the Tabs menu gain Move to Space, listing the other Spaces with their icons, and Move Tab to Next Space and Move Tab to Previous Space can be given keys in the shortcut settings. The tab moves as it does when dragged onto a Space's icon, and a tab that cannot move says so (#57).

@@ -25,6 +25,8 @@ final class Links: NSObject, NSApplicationDelegate {
     /// none of them owed the last 1.2 seconds of typing anywhere to finish
     /// writing it down on their own.
     private static var flush: (() -> Void)?
+    /// A test world fresh.sh opened behind the app in front (ESCALE_BACKGROUND=1).
+    private static let behind = Store.testing && ProcessInfo.processInfo.environment["ESCALE_BACKGROUND"] != nil
 
     /// Session cookies go with the session (see Jar.swift). WebKit hands them
     /// over asynchronously, so the quit waits for them, a second at most.
@@ -74,6 +76,13 @@ final class Links: NSObject, NSApplicationDelegate {
             NSApp.setActivationPolicy(.regular)
             DispatchQueue.main.async { NSApp.activate() }
         }
+        // `open -g` does not keep a world behind on its own. Launches that
+        // overlap while a system alert holds the front all get the
+        // bring-forward one of them was waiting for, and AppKit honours it as
+        // launch ends: a world opened behind took the front, and the window,
+        // from the check running in front. An accessory app is not brought
+        // forward; the world is a regular app again once launched.
+        if Links.behind { NSApp.setActivationPolicy(.accessory) }
         Links.watchForTrouble()
         // A test world's script is the only one typing into it while the
         // bench listens (BenchKeys.swift).
@@ -91,6 +100,7 @@ final class Links: NSObject, NSApplicationDelegate {
     /// window is asked for here instead; started hidden, it stays hidden
     /// with the app until the app is shown.
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if Links.behind { NSApp.setActivationPolicy(.regular) }
         let plain = notification.userInfo?[NSApplication.launchIsDefaultUserInfoKey] as? Bool ?? true
         guard !plain else { return }
         DispatchQueue.main.async {

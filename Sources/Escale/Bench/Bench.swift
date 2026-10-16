@@ -618,7 +618,11 @@ final class Bench {
                                 if type == down { view.mouseDown(with: event) } else { view.mouseUp(with: event) }
                             }
                         }
-                        answer(["ok": true, "at": point.map { Int($0) }])
+                        // WebKit sends the release only once the page has taken the
+                        // press. A script evaluated in between, such as the caller's
+                        // next `eval`, leaves the release and the click without the
+                        // press's user activation, so the click cannot start sound.
+                        Bench.afterMouse(view) { answer(["ok": true, "at": point.map { Int($0) }]) }
                     }
                 }
             }
@@ -1695,7 +1699,7 @@ final class Bench {
             case "transfer":
                 if let index = request["index"] as? Int, browser.spaces.indices.contains(index - 1),
                    let tab = find(request, in: browser) {
-                    browser.transfer(tab, to: browser.spaces[index - 1].id)
+                    browser.send(tab, to: browser.spaces[index - 1].id)
                 }
             default: break
             }
@@ -2011,6 +2015,15 @@ final class Bench {
         if let field = view as? NSTextField, field.delegate is AddressField.Coordinator { return field }
         for sub in view.subviews { if let found = addressField(in: sub) { return found } }
         return nil
+    }
+
+    /// Runs `then` once the page has handled every mouse event sent to it, or
+    /// at once where WebKit lacks the hook (see COMPATIBILITY.md).
+    static func afterMouse(_ view: WKWebView, _ then: @escaping @MainActor () -> Void) {
+        let wait = NSSelectorFromString("_doAfterProcessingAllPendingMouseEvents:")
+        guard view.responds(to: wait) else { then(); return }
+        typealias Call = @convention(c) (AnyObject, Selector, @escaping @convention(block) () -> Void) -> Void
+        unsafeBitCast(view.method(for: wait), to: Call.self)(view, wait) { MainActor.assumeIsolated { then() } }
     }
 
     /// When `condition` holds, checked at each rest of the run loop, and

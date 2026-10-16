@@ -249,11 +249,13 @@ final class Updater: ObservableObject {
     /// environment and a relaunch must not land on the real data.
     private static var reopen: [String] {
         var arguments = ["/usr/bin/open"]
-        for key in ["ESCALE_PROBE", "ESCALE_FEED"] {
+        for key in ["ESCALE_PROBE", "ESCALE_FEED", "ESCALE_BACKGROUND"] {
             if let value = ProcessInfo.processInfo.environment[key] {
                 arguments += ["--env", "\(key)=\(value)"]
             }
         }
+        // A world opened behind comes back behind (fresh.sh, Links.swift).
+        if ProcessInfo.processInfo.environment["ESCALE_BACKGROUND"] != nil { arguments.append("-g") }
         return arguments + [Bundle.main.bundleURL.path]
     }
 
