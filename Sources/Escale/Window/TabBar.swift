@@ -853,6 +853,7 @@ struct TabMenu: View {
         } label: { Label("Copy Link", systemImage: "link") }
         .disabled(tab.isBlank)
         LinkRouteMenu(browser: browser, address: tab.address, space: tab.space)
+        MoveToSpaceMenu(browser: browser, tab: tab)
         Divider()
         // The tab on screen is the one being read: it never sleeps.
         if !browser.panelTabs.contains(where: { $0.id == tab.id }) {

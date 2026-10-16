@@ -1694,7 +1694,7 @@ final class Bench {
             case "transfer":
                 if let index = request["index"] as? Int, browser.spaces.indices.contains(index - 1),
                    let tab = find(request, in: browser) {
-                    browser.transfer(tab, to: browser.spaces[index - 1].id)
+                    browser.send(tab, to: browser.spaces[index - 1].id)
                 }
             default: break
             }

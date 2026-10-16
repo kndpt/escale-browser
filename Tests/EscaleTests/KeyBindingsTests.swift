@@ -34,6 +34,15 @@ import Testing
         }
         #expect(KeyBindings().matches(KeyAction.separatePanels.command, query: "separate split"))
     }
+    @Test func moveTabToSpaceCommandsStartUnbound() {
+        for action in [KeyAction.moveTabToPreviousSpace, .moveTabToNextSpace] {
+            #expect(action.command.group == .tabs)
+            #expect(action.command.defaults.isEmpty)
+            #expect(action.index == nil)
+            #expect(KeyBindings().keys(action).isEmpty)
+        }
+        #expect(KeyBindings().matches(KeyAction.moveTabToNextSpace.command, query: "move tab next space"))
+    }
     @Test func reassignmentAndRemovalSurviveReload() {
         var bindings = KeyBindings()
         let custom = KeyStroke("t", [.command, .option])
