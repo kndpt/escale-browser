@@ -16,6 +16,10 @@ import WebKit
 // with ⌘W), a tab playing sound, on a call, sending a download, holding its
 // video out in the little window, or holding something typed and not sent.
 //
+// A heavy page can also be put to sleep by hand, from its tab's menu or with
+// Sleep Other Tabs, without waiting for the clock. The same tabs stay awake,
+// and one kept awake says why, since you asked for it.
+//
 // When macOS says memory is short, the delay shrinks: to five minutes on
 // a warning, to nothing when it is critical — and then the pages go without
 // a picture, since each would cost an image before anything is let go.
@@ -193,5 +197,55 @@ extension Browser {
                 return self.awake(because: tab) == nil
             }, asleep)
         }
+    }
+
+    /// Sleep Tab, from a tab's menu: past the same checks as the clock's,
+    /// then said, so a tab kept awake tells you why.
+    func sleepByHand(_ tab: Tab) {
+        sleep(tab) { [weak self] said in self?.announce(Browser.slept([said])) }
+    }
+
+    /// Sleep Tab from the keyboard. The tab on screen can't sleep, so first
+    /// back to the one looked at before it, off screen, as Clear lands.
+    func sleepActive() {
+        guard let tab = active, let back = landing(leaving: tab) else { return }
+        select(back)
+        sleepByHand(tab)
+    }
+
+    /// Where Sleep Tab from the keyboard lands; nil when there is nowhere.
+    func landing(leaving tab: Tab) -> Tab? {
+        let shown = Set(panelTabs.map(\.id))
+        return tabs.filter { $0.id != tab.id && !shown.contains($0.id) }.max { $0.touched < $1.touched }
+    }
+
+    /// What Sleep Other Tabs asks: this Space's row but `keep`, less the tabs
+    /// holding no page, which have nothing to give back.
+    func sleepers(but keep: Tab) -> [Tab] {
+        tabs.filter { $0.id != keep.id && !$0.asleep && !$0.isBlank && $0.built != nil }
+    }
+
+    /// One line once every tab has answered, not one per tab.
+    func sleepOthers(but keep: Tab) {
+        let others = sleepers(but: keep)
+        var said: [String] = []
+        for tab in others {
+            sleep(tab) { [weak self] reason in
+                said.append(reason)
+                if said.count == others.count { self?.announce(Browser.slept(said)) }
+            }
+        }
+    }
+
+    /// What putting tabs to sleep by hand says, from each tab's answer to
+    /// `sleep`: how many went and, once each, what kept the others awake.
+    static func slept(_ answers: [String]) -> String {
+        let kept = answers.filter { $0 != "asleep" }
+        if answers.count == 1 { return kept.first.map { "Kept awake: \($0)" } ?? "Tab asleep" }
+        var why: [String] = []
+        for reason in kept where !why.contains(reason) { why.append(reason) }
+        let went = answers.count - kept.count
+        let asleep = went == 0 ? "No tab asleep" : went == 1 ? "1 tab asleep" : "\(went) tabs asleep"
+        return kept.isEmpty ? asleep : "\(asleep), \(kept.count) kept awake: \(why.joined(separator: ", "))"
     }
 }
