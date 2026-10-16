@@ -275,6 +275,8 @@ struct TabBar: View {
             }
             .frame(height: metrics.strip)
             .allowsHitTesting(false)
+            // Nor for VoiceOver: pressed, it would select a tab of a parked space.
+            .accessibilityHidden(true)
         }
     }
 
@@ -551,8 +553,10 @@ private struct TabPill: View {
         })
         .overlay { MiddleClick(act: close) }
         .onHover { hovering = $0 }
+        .modifier(TabAccess(browser: browser, tab: tab, live: live, pinned: tab.pin != nil,
+                            editing: editing || lettering, closes: closes,
+                            ordinary: pinned || compact ? tab.label : ""))
         .contextMenu { TabMenu(browser: browser, tab: tab) }
-        .modifier(SleepHint(tab: tab, ordinary: pinned || compact ? tab.label : ""))
         .animation(Motion.glide, value: editing)
         .animation(Motion.glide, value: tab.pin)
         .onChange(of: refusals) { _, _ in
@@ -850,6 +854,14 @@ struct TabMenu: View {
         .disabled(tab.isBlank)
         LinkRouteMenu(browser: browser, address: tab.address, space: tab.space)
         MoveToSpaceMenu(browser: browser, tab: tab)
+        Divider()
+        // The tab on screen is the one being read: it never sleeps.
+        if !browser.panelTabs.contains(where: { $0.id == tab.id }) {
+            Button { browser.sleepByHand(tab) } label: { Label("Sleep Tab", systemImage: "zzz") }
+                .disabled(tab.asleep || tab.isBlank)
+        }
+        Button { browser.sleepOthers(but: tab) } label: { Label("Sleep Other Tabs", systemImage: "zzz") }
+            .disabled(browser.sleepers(but: tab).isEmpty)
         Divider()
         if tab.pin != nil {
             Button { browser.close(tab) } label: { Label("Close Tab", systemImage: "xmark") }

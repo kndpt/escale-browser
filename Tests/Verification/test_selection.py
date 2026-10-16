@@ -190,6 +190,15 @@ class WorkflowTests(unittest.TestCase):
                 self.assertLess(selected['checks'].index('bundle'), selected['checks'].index('tab-source'))
         self.assertEqual(CHECKS['tab-source'].command, ('python3', 'Tests/Bench/tab_source.py'))
 
+    def test_transfer_code_selects_the_transfer_scenario(self):
+        for path in ('Sources/Escale/Transfer/TransferApply.swift', 'Sources/Escale/Spaces/Session.swift',
+                     'Sources/Escale/Bookmarks/Bookmarks.swift', 'Tests/Bench/transfer.py'):
+            with self.subTest(path=path):
+                selected = plan([path])
+                self.assertIn('transfer', selected['checks'])
+                self.assertLess(selected['checks'].index('bundle'), selected['checks'].index('transfer'))
+        self.assertEqual(CHECKS['transfer'].command, ('python3', 'Tests/Bench/transfer.py'))
+
     def test_shared_launcher_selects_all_supported_app_scenarios(self):
         for path in ('fresh.sh', 'bench', 'Tests/Bench/suite.py', 'Tests/Bench/diagnostics.py'):
             with self.subTest(path=path):

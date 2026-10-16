@@ -67,8 +67,12 @@ extension Browser {
         case .find: return field.opening == nil && active?.isBlank == false
         case .renameTab: return active != nil
         case .changeLetter: return active?.pin != nil
+        case .nextPanel, .previousPanel, .swapPanel, .movePanelOut, .separatePanels: return panels.group(activeID) != nil
         case .closeOthers: return tabs.count > 1
         case .clearTabs: return !clearableTabs().isEmpty
+        // A pin stays awake: leaving it only to be told so would be a detour.
+        case .sleepTab: return active.map { $0.pin == nil && !$0.isBlank && landing(leaving: $0) != nil } ?? false
+        case .sleepOthers: return active.map { !sleepers(but: $0).isEmpty } ?? false
         case .resetSite: return ["http", "https"].contains(active?.address?.scheme?.lowercased() ?? "")
         default: return true
         }
@@ -99,12 +103,19 @@ extension Browser {
         case .changeLetter: if let tab = active { editLetter(tab) }
         case .closeOthers: if let tab = active { closeOthers(but: tab) }
         case .clearTabs: clearTabs()
+        case .sleepTab: sleepActive()
+        case .sleepOthers: if let tab = active { sleepOthers(but: tab) }
         case .moveTabToPreviousSpace, .moveTabToNextSpace:
             if let tab = active, let to = neighbourSpace(by: action == .moveTabToNextSpace ? 1 : -1) { send(tab, to: to) }
         case .splitRight: chooseSplit(.right)
         case .splitLeft: chooseSplit(.left)
         case .splitTop: chooseSplit(.top)
         case .splitBottom: chooseSplit(.bottom)
+        case .nextPanel: focusPanel(by: 1)
+        case .previousPanel: focusPanel(by: -1)
+        case .swapPanel: changeActivePanel { $0.swap($1) }
+        case .movePanelOut: changeActivePanel { $0.remove($1) }
+        case .separatePanels: changeActivePanel { $0.separate($1) }
         case .openAddress:
             // Only the binding passes its event: Return on Bearings' command
             // or a menu walked by keys is a key-down too, not ⌘L learned.

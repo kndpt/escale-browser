@@ -190,6 +190,55 @@ import Testing
         #expect(TransferApply.identity(transfer, old) != Space.firstID)
     }
 
+    // MARK: - the first Space of a pristine Escale
+
+    /// A settings suite of the test's own, gone afterwards.
+    private func suite(_ body: (UserDefaults) -> Void) {
+        let name = "escale-tests-transfer-\(UUID().uuidString)"
+        guard let settings = UserDefaults(suiteName: name) else { Issue.record("no settings suite"); return }
+        defer { settings.removePersistentDomain(forName: name) }
+        body(settings)
+    }
+
+    @Test func aPristineEscaleTakesTheFilesFirstSpaceInItsFirst() {
+        suite { settings in
+            let transfer = UUID(), first = UUID(), second = UUID()
+            let one = TransferApply.target(TransferApply.identity(transfer, first), index: 0, pristine: true,
+                                           here: [Space.firstID], settings: settings)
+            let two = TransferApply.target(TransferApply.identity(transfer, second), index: 1, pristine: true,
+                                           here: [Space.firstID], settings: settings)
+            #expect(one.id == Space.firstID && !one.already)
+            #expect(two.id == TransferApply.identity(transfer, second) && !two.already)
+        }
+    }
+
+    @Test func aUsedEscaleKeepsItsFirstSpaceAndAddsTheFilesBeside() {
+        suite { settings in
+            let transfer = UUID(), first = UUID()
+            let identity = TransferApply.identity(transfer, first)
+            let placed = TransferApply.target(identity, index: 0, pristine: false, here: [Space.firstID, UUID()], settings: settings)
+            #expect(placed.id == identity && !placed.already)
+        }
+    }
+
+    @Test func theSameFileAgainFindsTheFirstSpaceItFilled() {
+        suite { settings in
+            let transfer = UUID(), first = UUID()
+            let identity = TransferApply.identity(transfer, first)
+            TransferApply.fill(identity, settings: settings)
+            let here = [Space.firstID, TransferApply.identity(transfer, UUID())]
+            let again = TransferApply.target(identity, index: 0, pristine: false, here: here, settings: settings)
+            #expect(again.id == Space.firstID && again.already)
+            // Emptied by hand since, it is still found rather than filled twice.
+            let emptied = TransferApply.target(identity, index: 0, pristine: true, here: [Space.firstID], settings: settings)
+            #expect(emptied.id == Space.firstID && emptied.already)
+            // Another file's first Space is not taken for it.
+            let other = TransferApply.identity(UUID(), first)
+            let beside = TransferApply.target(other, index: 0, pristine: false, here: here, settings: settings)
+            #expect(beside.id == other && !beside.already)
+        }
+    }
+
     @Test func preferencesAreAClosedList() {
         let known = TransferPreferences.known(["look": .word("dark"), "bench": .flag(true), "downloads": .word("/tmp"), "sidebar": .flag(false),
                                                "search.keywords": .word("npm https://npm.example.test/?q=%s"),
