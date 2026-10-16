@@ -471,7 +471,7 @@ private func field(in root: URL) -> Field {
         let field = commands(in: root) { $0 != .splitLeft }
 
         field.typed = "> split"
-        #expect(field.offers.map(\.action) == [.splitRight, .splitTop, .splitBottom])
+        #expect(field.offers.map(\.action) == [.splitRight, .splitTop, .splitBottom, .movePanelOut, .separatePanels])
 
         // Editing and macOS references are not browser commands.
         field.typed = "> select all"
