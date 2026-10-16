@@ -433,6 +433,8 @@ struct SideBar: View {
             newTab
         }
         .allowsHitTesting(false)
+        // Nor for VoiceOver: pressed, it would select a tab of a parked space.
+        .accessibilityHidden(true)
     }
 
     /// Where the rows stop and the window's own drag area starts. Added up

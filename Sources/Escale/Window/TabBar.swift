@@ -275,6 +275,8 @@ struct TabBar: View {
             }
             .frame(height: metrics.strip)
             .allowsHitTesting(false)
+            // Nor for VoiceOver: pressed, it would select a tab of a parked space.
+            .accessibilityHidden(true)
         }
     }
 
