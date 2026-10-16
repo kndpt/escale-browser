@@ -65,17 +65,25 @@ enum PanelBench {
     }
 
     /// A Tabs menu item as the menu bar has it, chosen as a click would when
-    /// it is enabled. Its key is the binding the menu shows.
+    /// it is enabled. Its key is the binding the menu shows; `available` is
+    /// the browser's own rule, to tell a stale item from a wrong rule.
     static func menu(_ title: String, browser: Browser) -> [String: Any] {
-        guard let menu = NSApp.mainMenu?.items.first(where: { $0.title == "Tabs" })?.submenu else { return ["error": "no Tabs menu"] }
+        guard let main = NSApp.mainMenu, let menu = main.items.first(where: { $0.title == "Tabs" })?.submenu
+        else { return ["error": "no Tabs menu"] }
+        // SwiftUI brings its items up to date only as the menu bar is
+        // tracked, as for the Bookmarks menu (Bench.swift, "menu").
+        NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: main)
+        defer { NotificationCenter.default.post(name: NSMenu.didEndTrackingNotification, object: main) }
+        menu.delegate?.menuNeedsUpdate?(menu)
         menu.update()
         guard let index = menu.items.firstIndex(where: { $0.title == title }) else {
             return ["error": "no \(title) in the Tabs menu", "items": menu.items.map(\.title)]
         }
         let item = menu.items[index]
         let enabled = item.isEnabled
+        let available = KeyCommand.all.first { $0.title == title }.map { browser.keyAvailable($0.action) } ?? false
         if enabled { menu.performActionForItem(at: index) }
-        return state(browser).merging(["enabled": enabled, "key": item.keyEquivalent,
+        return state(browser).merging(["enabled": enabled, "available": available, "key": item.keyEquivalent,
                                        "modifiers": item.keyEquivalentModifierMask.rawValue]) { _, new in new }
     }
 }

@@ -48,6 +48,7 @@ def menu(action):
     item = bench('panels', 'menu', TITLES[action])
     assert 'error' not in item, item
     s.require(f'{TITLES[action]} shows its bound key', item['key'].lower(), KEYS[action][1])
+    s.require(f'{TITLES[action]} item follows the browser', item['enabled'], item['available'])
     return item['enabled']
 
 
