@@ -1,9 +1,9 @@
-import Testing
-@testable import Escale
-
 // Putting tabs to sleep by hand: both commands start with no key, and what is
 // said afterwards counts the tabs that went and names, once each, what kept
 // the others awake, so a refusal is never silent.
+import Testing
+@testable import Escale
+
 @Suite struct SleepByHandTests {
     @Test func commandsAreListedWithoutAKey() {
         for action in [KeyAction.sleepTab, .sleepOthers] {
