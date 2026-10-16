@@ -1,10 +1,11 @@
 // Welcome's one lasting choice, so a step of its own: whether one set of
 // extensions serves every Space or each Space keeps its own (see
 // Extensions.swift). It is asked only on a first arrival with nothing
-// installed, since changing it later would move what extensions keep, and
-// it is written as the step is left. Each card draws its answer from
-// Palette and Metrics, with no image: three Spaces under one band of
-// extensions, or three Spaces each under its own.
+// installed, since changing it later moves what extensions keep and takes a
+// relaunch (ExtensionSwitch.swift, from Settings), and it is written as the
+// step is left. Each card draws its answer from Palette and Metrics, with no
+// image: three Spaces under one band of extensions, or three Spaces each
+// under its own.
 import SwiftUI
 
 extension WelcomePanel {

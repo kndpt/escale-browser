@@ -72,7 +72,7 @@ struct SettingsPanel: View {
             case .migration: return "import migration bookmarks history passwords browser profiles safari firefox chrome arc zen orion aside"
             case .passwords: return "passwords passkeys keychain sign in import accounts"
             case .privacy: return "privacy ads trackers block camera microphone history cookies cache site data"
-            case .extensions: return "extensions chrome web store add folder"
+            case .extensions: return "extensions chrome web store add folder shared every space separate"
             case .developer: return "developer notifications alerts agents builds pull requests workflows script bench"
             case .keyboard: return "keyboard shortcuts keys commands bearings"
             case .about: return "about updates version feedback"

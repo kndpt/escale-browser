@@ -27,10 +27,15 @@ struct ExtensionsPage: View {
         var body: some View {
             VStack(alignment: .leading, spacing: metrics.length(Metrics.settingsGap)) {
                 if let whose = extensions.whose {
-                    Text(extensions.shared ? "Shared by every Space." : "Each Space has its own extensions. These are “\(whose)”’s.")
-                        .font(.system(size: metrics.length(density.detail)))
-                        .foregroundStyle(Palette.muted)
-                        .fixedSize(horizontal: false, vertical: true)
+                    // Whoever arrived before Welcome asked can still choose
+                    // (ExtensionSwitch.swift).
+                    Card {
+                        Line(extensions.shared ? "Shared by every Space" : "Each Space has its own extensions",
+                             extensions.shared ? "Installed and signed in to once. Sites and sign-ins stay separate in every Space."
+                                 : "These are “\(whose)”’s.") {
+                            Pill(extensions.shared ? "Separate…" : "Share…") { browser.askToSwitchExtensions() }
+                        }
+                    }
                 }
                 Card {
                     VStack(alignment: .leading, spacing: metrics.length(8)) {
@@ -101,7 +106,7 @@ struct ExtensionsPage: View {
                             Text("Extensions to reinstall")
                                 .font(.system(size: metrics.length(density.title), weight: .medium))
                                 .foregroundStyle(Palette.ink)
-                            Text("The copy has no extension data, accounts or permissions. Each installation asks again.")
+                            Text("They start with no extension data, accounts or permissions. Each installation asks again.")
                                 .font(.system(size: metrics.length(density.detail)))
                                 .foregroundStyle(Palette.muted)
                             ForEach(Array(planned.enumerated()), id: \.offset) { _, item in

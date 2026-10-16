@@ -1786,7 +1786,7 @@ final class Bench {
             if #available(macOS 15.4, *), let on = request["extensions"] as? Bool { Extensions.shared.menuOpen = on }
             answer(["ok": true])
 
-        case "extensions", "ext-add", "ext-folder", "ext-press", "ext-remove", "ext-reload", "ext-page", "ext-popup", "ext-menu", "ext-pin", "ext-shot", "ext-answer", "ext-enable":
+        case "extensions", "ext-add", "ext-folder", "ext-press", "ext-remove", "ext-reload", "ext-page", "ext-popup", "ext-menu", "ext-pin", "ext-shot", "ext-answer", "ext-enable", "ext-mode":
             guard #available(macOS 15.4, *) else {
                 answer(["error": "extensions need macOS 15.4"])
                 return
@@ -1861,6 +1861,11 @@ final class Bench {
             guard let id = request["id"] as? String else { answer(["error": "ext-enable needs an id"]); return }
             extensions.setEnabled(id, request["on"] as? Bool ?? true)
             answer(["enabled": request["on"] as? Bool ?? true])
+        case "ext-mode":
+            // Settings' switch without its question or relaunch: the
+            // scenario quits and launches again itself.
+            let shared = request["shared"] as? Bool ?? true
+            answer(["stored": browser.keepExtensions(shared: shared), "shared": shared])
         case "ext-answer":
             // In a test run: answer every extension's question yes or no
             // without asking, or go back to asking.

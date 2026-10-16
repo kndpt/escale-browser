@@ -283,6 +283,12 @@ CHECKS = {
                      "Sources/Escale/Storage/Store.swift", "Sources/Escale/Spaces/Spaces.swift",
                      "Sources/Escale/Spaces/SpaceCopy.swift", "Sources/Escale/Transfer/TransferApply.swift",
                      "Sources/Escale/Transfer/TransferExport.swift", "Tests/Bench/fixtures/shared-extension/**")),
+        Check("extension-switch", ("python3", "Tests/Bench/extension_switch.py"),
+              BENCH + ("Tests/Bench/extension_switch.py", "Tests/Bench/fixtures/shared-extension/**"),
+              "switching how extensions are kept, after Welcome, keeps every Space's set and storage and lists the rest to reinstall",
+              "app", ("bundle",),
+              paths=("Sources/Escale/Extensions/ExtensionSwitch.swift", "Sources/Escale/Extensions/Extensions.swift",
+                     "Sources/Escale/Spaces/SpaceCopy.swift")),
         Check("welcome-extensions", ("python3", "Tests/Bench/welcome_extensions.py"),
               BENCH + ("Tests/Bench/welcome_extensions.py",),
               "Welcome's extensions step writes the mode as it is left and makes the first tabs again with the chosen set",
@@ -394,7 +400,7 @@ def plan(paths, risks=(), checks=(), quick=False, acknowledge=None):
     # Dependencies are small and explicit; no scoring or model-specific workflow.
     order = ["icons", "harness", "portable", "links", "whitespace", "changelog", "build", "swift",
              "bundle", "app", "wake", "sleeping", "tabs", "closed-tabs", "shortcut-motion", "sidebar-rows", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus",
-             "routes", "tab-source", "environments", "bookmarked-page", "inspector", "calls", "calls-browse", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "welcome-extensions", "space-media", "space-reorder", "call-float", "warnings"]
+             "routes", "tab-source", "environments", "bookmarked-page", "inspector", "calls", "calls-browse", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "extension-switch", "welcome-extensions", "space-media", "space-reorder", "call-float", "warnings"]
     return {"checks": [n for n in order if n in chosen], "reasons": chosen,
             "risks": list(risks), "requested": list(checks),
             "unknown": unknown, "acknowledge": acknowledge, "quick": quick,
