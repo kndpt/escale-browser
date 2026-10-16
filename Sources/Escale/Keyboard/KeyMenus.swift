@@ -43,6 +43,8 @@ struct KeyMenus: Commands {
         CommandMenu("Tabs") {
             items([.splitRight, .splitLeft, .splitTop, .splitBottom])
             Divider()
+            PanelItems(browser: browser, panels: browser.panels, prefs: prefs)
+            Divider()
             items([.back, .forward])
             Divider()
             items([.nextTab, .previousTab, .searchTabs, .searchGitHub])
@@ -112,9 +114,24 @@ private struct KeyMenuItem: View {
     @ObservedObject var browser: Browser
     @ObservedObject var prefs: Preferences
     var title: String? = nil
+    var available: Bool? = nil
     var body: some View {
         Button(title ?? action.command.title) { Motion.command { browser.performKeyAction(action) } }
             .keyboardShortcut(prefs.keyBindings.keys(action).first?.shortcut)
-            .disabled(!browser.keyAvailable(action))
+            .disabled(!(available ?? browser.keyAvailable(action)))
+    }
+}
+
+/// Panels, not the browser, publishes a split being made or undone, so these
+/// items observe it and pass their state in: an item whose inputs are
+/// unchanged is not redrawn.
+private struct PanelItems: View {
+    @ObservedObject var browser: Browser
+    @ObservedObject var panels: Panels
+    @ObservedObject var prefs: Preferences
+    var body: some View {
+        ForEach([KeyAction.nextPanel, .previousPanel, .swapPanel, .movePanelOut, .separatePanels], id: \.self) {
+            KeyMenuItem(action: $0, browser: browser, prefs: prefs, available: browser.keyAvailable($0))
+        }
     }
 }

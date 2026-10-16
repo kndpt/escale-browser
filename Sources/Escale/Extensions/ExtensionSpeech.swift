@@ -20,6 +20,9 @@ final class ExtensionSpeech: NSObject, AVSpeechSynthesizerDelegate {
     private struct Reading {
         let scope: String
         let utterance: AVSpeechUtterance
+        /// AVFoundation gives a voiceless utterance the system voice once spoken,
+        /// so the voice Escale chose is kept before that.
+        let voice: String
     }
 
     private var synthesizer: AVSpeechSynthesizer?
@@ -34,7 +37,7 @@ final class ExtensionSpeech: NSObject, AVSpeechSynthesizerDelegate {
         ["active": synthesizer != nil, "speaking": isSpeaking,
          "paused": synthesizer?.isPaused ?? false, "started": started,
          "queued": waiting.count, "scope": current?.scope ?? "",
-         "voiceName": current?.utterance.voice?.name ?? "",
+         "voiceName": current?.voice ?? "",
          "rate": current?.utterance.rate ?? AVSpeechUtteranceDefaultSpeechRate]
     }
 
@@ -70,7 +73,7 @@ final class ExtensionSpeech: NSObject, AVSpeechSynthesizerDelegate {
         if enqueue, waiting.count + (current == nil ? 0 : 1) >= Self.capacity {
             throw Refused(reason: "Speech queue is full (32 utterances)")
         }
-        waiting.append(Reading(scope: scope, utterance: utterance))
+        waiting.append(Reading(scope: scope, utterance: utterance, voice: utterance.voice?.name ?? ""))
         advance()
     }
 

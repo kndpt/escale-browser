@@ -80,6 +80,31 @@ import Testing
         panels.remove(b)
         #expect(panels.group(c)?.active == c)
     }
+    @Test func keyboardWalksAndSwapsWithinTheGroup() {
+        let panels = Panels(), a = UUID(), b = UUID(), c = UUID(), loose = UUID()
+        #expect(panels.neighbour(of: a, by: 1) == nil)
+        #expect(panels.add(b, to: a, edge: .right))
+        #expect(panels.add(c, to: a, edge: .right))
+        #expect(panels.group(a)?.members == [a, b, c])
+        // Next and Previous wrap at the ends, like Next Tab.
+        #expect(panels.neighbour(of: a, by: 1) == b)
+        #expect(panels.neighbour(of: b, by: 1) == c)
+        #expect(panels.neighbour(of: c, by: 1) == a)
+        #expect(panels.neighbour(of: a, by: -1) == c)
+        #expect(panels.neighbour(of: loose, by: 1) == nil)
+        // A page swaps with the next one; the last, with the one before.
+        panels.swap(a)
+        #expect(panels.group(a)?.members == [b, a, c])
+        panels.swap(c)
+        #expect(panels.group(a)?.members == [b, c, a])
+        let before = panels.groups
+        panels.swap(loose)
+        #expect(panels.groups == before)
+        // Two pages: the neighbour either way is the other one.
+        panels.remove(b)
+        #expect(panels.neighbour(of: c, by: 1) == a)
+        #expect(panels.neighbour(of: c, by: -1) == a)
+    }
     @Test func backwardReadingAndInvalidGroups() throws {
         let legacy = Data(#"{"tabs":[{"url":"https://example.invalid","title":"A"}],"active":0}"#.utf8)
         let old = try JSONDecoder().decode(Session.Shape.self, from: legacy)

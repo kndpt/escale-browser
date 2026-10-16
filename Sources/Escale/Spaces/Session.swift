@@ -79,8 +79,8 @@ enum Session {
 
     /// A duplication writes only saved addresses and pin metadata, never a
     /// live page or its form state. The new file is visible only after flush.
+    /// The first Space's only when an import fills it (TransferApply.swift).
     static func copy(_ shape: Shape, to space: UUID, bookmarks: [UUID: UUID] = [:]) -> Bool {
-        guard space != Space.firstID else { return false }
         let writer = Writer.to(file(space))
         // Both files receive the same new identities for grouped bookmarks.
         // A missing bookmark never becomes a reference into another Space.

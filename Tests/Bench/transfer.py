@@ -7,9 +7,11 @@ Bearings learned, hidden elements, zoom, blocker pauses, link rules, settings,
 one password per Space), saved with `bench transfer`, and brought into fresh
 worlds: an empty one, a used one, and ones that refuse. Persistence is read
 from the destination's own files and across a real restart; nothing of the
-source is touched and no page is started by the import. Refusals (wrong
+source is touched and no page is started by the import. An empty destination
+takes the file's first Space in its own first Space, which can't be deleted, so
+none stays empty; a used one adds every Space beside its own. Refusals (wrong
 passphrase, altered, cut, newer, oversized) and failed writes must leave the
-destination exactly as it was. Every world is random and wiped in `finally`.
+destination as it was. Every world is random and wiped in `finally`.
 """
 from datetime import datetime, timedelta, timezone
 from http.server import ThreadingHTTPServer
@@ -144,7 +146,8 @@ def seed(world, base):
     def name(space): return 'session.json' if space == FIRST else f'session-{space}.json'
     def pick(space, stem):
         return stem if space == FIRST else f'{stem[:-5]}-{space}.json'
-    spaces = [dict(id=i, name=n, colour=k, icon=None) for k, (n, i) in enumerate(names)]
+    # The first wears an icon of its own, so an empty destination shows it took the file's first Space.
+    spaces = [dict(id=i, name=n, colour=k, icon='star' if i == FIRST else None) for k, (n, i) in enumerate(names)]
     world.file('spaces.json').write_text(json.dumps(spaces))
     for space, nodes in marks.items():
         world.file('bookmarks.json' if space == FIRST else f'bookmarks-{space}.json').write_text(json.dumps(nodes))
@@ -171,6 +174,12 @@ def seed(world, base):
     world.default(f'shield.paused.{work}', '-array', 'paused.invalid')
     world.default(f'passwords.never.{work}', '-array', 'never.invalid')
     return dict(work=work, twin=twin, marks=marks, spec_work=spec_work)
+
+
+def release(world):
+    """A first Space's password has no keychain path, so on one Mac it collides
+    with another world's first Space: this world's synthetic one goes."""
+    world.run('security', 'delete-internet-password', '-l', f'Escale ({world.name})', '-s', 'issue40.invalid', check=False)
 
 
 def keychain(world, space, user):
@@ -286,20 +295,23 @@ def main():
         assert summary['includesPasswords'] and summary['linkRules'] == 1 and summary['preferences'] >= 10
         assert empty.transfer('state')['takesPreferences'] is True, 'an empty Escale takes the file settings by default'
         started = time.monotonic()
+        release(source)
         empty.transfer('apply')
         report = empty.until_state('import finished', bringing='finished')['report']
         print(f"import: {time.monotonic() - started:.2f}s", flush=True)
         assert report['imported'] == ['Personal', 'Work', 'Personal'] and not report['failed'] and not report['already'], report
         assert report['passwordsAdded'] == 2 and report['passwordsFailed'] == 0 and report['linkRules'] == 1 and report['preferences'] >= 10, report
+        # The file's first Space filled the empty first Space: none is left empty beside the import.
         arrived = empty.transfer('state')['spaces']
-        assert [space['name'] for space in arrived] == ['Personal', 'Personal', 'Work', 'Personal'], arrived
+        assert [space['name'] for space in arrived] == ['Personal', 'Work', 'Personal'], arrived
         ids = [space['id'] for space in arrived]
-        assert FIRST.upper() in ids[0].upper() and len(set(ids)) == 4 and not {fixture['work'], fixture['twin']} & set(ids)
-        first_new, work_new, twin_new = ids[1], ids[2], ids[3]
+        assert ids[0].upper() == FIRST and len(set(ids)) == 3 and not {fixture['work'], fixture['twin']} & set(ids)
+        assert empty.json('spaces.json')[0]['icon'] == 'star', "the first Space wears the file's first Space's icon"
+        first_new, work_new, twin_new = ids
         assert empty.bench('probe')['look'] == 'dark' and empty.bench('probe')['interfaceSize'] == 'large'
 
         def check(world, first_new, work_new, twin_new):
-            files = lambda stem, space: world.json(f'{stem}-{space}.json')
+            files = lambda stem, space: world.json(f'{stem}.json' if space.upper() == FIRST else f'{stem}-{space}.json')
             for new_id, old in ((first_new, FIRST), (work_new, fixture['work']), (twin_new, fixture['twin'])):
                 assert tree(files('bookmarks', new_id)) == tree(fixture['marks'][old]), f'bookmarks of {new_id}'
                 old_ids = {n['id'] for _, n in flat(fixture['marks'][old])}
@@ -331,29 +343,33 @@ def main():
                 if path.is_file() and path.suffix != '.escale':
                     assert SECRET.encode() not in path.read_bytes(), f'a password sits in clear in {path}'
         # Imported tabs are addresses, not pages: nothing starts until a tab is used.
-        empty.bench('space', 'go', 2)
+        # They take the place of the empty tab the first Space had.
+        empty.bench('space', 'go', 1)
         listed = [t for t in empty.bench('tabs')['tabs'] if not t['bench']]
         assert len(listed) == 4, listed
         # Only the tab the person lands on wakes; the rest are addresses.
         assert sum(1 for t in listed if t['view']) <= 1 and all(t['asleep'] or t['active'] for t in listed), listed
-        assert all(t['space'].lower() == arrived[1]['id'].lower() for t in listed)
+        assert all(t['space'].lower() == arrived[0]['id'].lower() for t in listed)
         print('destination: Spaces, bookmarks, tabs, history, learning, rules, settings and passwords arrived, lazily', flush=True)
 
         # --- across a restart, and the same file again ------------------
         empty.restart()
-        assert [space['name'] for space in empty.transfer('state')['spaces']] == ['Personal', 'Personal', 'Work', 'Personal']
+        assert [space['name'] for space in empty.transfer('state')['spaces']] == ['Personal', 'Work', 'Personal']
         check(empty, first_new, work_new, twin_new)
-        empty.bench('space', 'go', 2)
+        empty.bench('space', 'go', 1)
         empty.bench('bookmark', base + '/local-edit', 'new'); empty.bench('press', 12, 'q', 'cmd')
         s.until('quit', lambda: not empty.running(), 20); empty.launch()
-        after_edit = empty.json(f'session-{first_new}.json')
+        after_edit = empty.json('session.json')
         assert any(t['url'].endswith('/local-edit') for t in after_edit['tabs']), 'the local edit was saved'
         spaces_before = empty.transfer('state')['spaces']
         again = bring(empty, str(export))['report']
         assert again['imported'] == [] and sorted(again['already']) == ['Personal', 'Personal', 'Work'], again
         assert empty.transfer('state')['spaces'] == spaces_before, 'the same file made Spaces twice'
-        assert empty.json(f'session-{first_new}.json') == after_edit, 'the local edit was overwritten'
+        assert empty.json('session.json') == after_edit, 'the local edit was overwritten'
         print('destination: survives a restart; the same file again adds nothing and keeps local edits', flush=True)
+        # The source's first-Space password again, for the files still to make.
+        release(empty)
+        assert source.bench('space', 'credentials', 'first-user')['saved']
 
         # --- a destination where only a setting was changed --------------
         tuned = new(); tuned.launch(layout=False)
@@ -456,6 +472,27 @@ def main():
         assert rest['already'] == ['Personal'] and rest['imported'] == ['Work', 'Personal'] and not rest['failed'], rest
         assert [space['name'] for space in halted.transfer('state')['spaces']] == ['Personal', 'Personal', 'Work', 'Personal']
         print('a stop between Spaces keeps what was saved; opening the file again adds the rest', flush=True)
+
+        # --- an empty destination whose Space list can't be written ---------
+        # The first Space it was filling stays empty; the file opened again,
+        # its settings kept so this Escale is still empty, fills it.
+        undone = new(); undone.launch(layout=False)
+        undone_file = exported('undone.escale')
+        release(source)
+        undone.transfer('fail', 'spaces')
+        outcome = bring(undone, str(undone_file), args=['keep'])['report']
+        assert outcome['imported'] == [] and len(outcome['failed']) == 3, outcome
+        assert [space['id'].upper() for space in undone.transfer('state')['spaces']] == [FIRST]
+        for stem, nothing in (('bookmarks', []), ('history', [])):
+            assert not undone.file(f'{stem}.json').exists() or undone.json(f'{stem}.json') == nothing, f'{stem} kept a failed import'
+        assert not undone.file('session.json').exists() or undone.json('session.json')['tabs'] == []
+        assert not [t for t in undone.bench('tabs')['tabs'] if not t['bench'] and t['url']], 'a failed import left tabs'
+        undone.transfer('fail')
+        filled = bring(undone, str(undone_file), args=['keep'])['report']
+        assert filled['imported'] == ['Personal', 'Work', 'Personal'] and filled['passwordsAdded'] == 2, filled
+        assert [space['name'] for space in undone.transfer('state')['spaces']] == ['Personal', 'Work', 'Personal']
+        assert undone.json('spaces.json')[0]['icon'] == 'star'
+        print('a failed import into an empty Escale leaves its first Space empty; opening the file again fills it', flush=True)
         print('ok: one sealed file carries every Space between isolated worlds, refuses what it cannot open, and never changes what it does not bring')
     finally:
         for world in worlds:

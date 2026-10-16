@@ -65,6 +65,7 @@ extension Browser {
         case .find: return field.opening == nil && active?.isBlank == false
         case .renameTab: return active != nil
         case .changeLetter: return active?.pin != nil
+        case .nextPanel, .previousPanel, .swapPanel, .movePanelOut, .separatePanels: return panels.group(activeID) != nil
         case .closeOthers: return tabs.count > 1
         case .clearTabs: return !clearableTabs().isEmpty
         // A pin stays awake: leaving it only to be told so would be a detour.
@@ -106,6 +107,11 @@ extension Browser {
         case .splitLeft: chooseSplit(.left)
         case .splitTop: chooseSplit(.top)
         case .splitBottom: chooseSplit(.bottom)
+        case .nextPanel: focusPanel(by: 1)
+        case .previousPanel: focusPanel(by: -1)
+        case .swapPanel: changeActivePanel { $0.swap($1) }
+        case .movePanelOut: changeActivePanel { $0.remove($1) }
+        case .separatePanels: changeActivePanel { $0.separate($1) }
         case .openAddress:
             // Only the binding passes its event: Return on Bearings' command
             // or a menu walked by keys is a key-down too, not ⌘L learned.

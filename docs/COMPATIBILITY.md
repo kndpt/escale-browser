@@ -30,6 +30,7 @@ is a gap, not a failure.
 | `connect`, `hide`, `isConnected`, `inspectorWebView` on `_WKInspector` | `Inspector.swift`, `Calls.swift` | API Calls reads WebKit's network collection with the inspector loaded but unseen, at most `Calls.limit` at once | Checked with `close` and `setDelegate:`; a missing one stops the panel, names it and offers Web Inspector. A leftover connected session is closed first | `compatibility.py`, `network_calls.py` |
 | Readiness query `WI.networkManager`, `WI.mainTarget` | `Inspector.swift` (`settle`) | A frontend WebKit reuses is not always announced again | Asked four times a second for at most 10 s, then the collection fails with its reason | `network_calls.py` |
 | Frontend model: `WI.Frame`, `WI.Target`, `WI.Resource` events, `WI.networkManager`, `NetworkAgent.getResponseBody` | `Page/Scripts/calls.js` (frontend page only) | API Calls rows, headers, bodies and search, without instrumenting the page | Checks the classes and counts its six listeners; fewer stops the panel. Bodies with no `NetworkAgent` are named unavailable; a read times out after 10 s | `network_calls.py`, `network_calls_browse.py` |
+| A script awaited in the frontend (`__escaleCalls.awake()`) | `Calls.swift`, `Page/Scripts/calls.js` | Hidden, the frontend's process is suspended soon after Escale last spoke to it (macOS 26.5), and network events wait with it; WebKit keeps a process running while a script is awaited in it | Public `callAsyncJavaScript`, settled by `stop()`; without it, rows lag until Escale next speaks to the frontend | `network_calls_browse.py` |
 | `_isPlayingAudio` (KVO on `WKWebView`) | `Tab.swift` (`AudioWatch`), `Tabs/Media.swift` | Tab audio indicator; activates the media reader | `responds(to:)`; without it, no indicator and one public `requestMediaPlaybackState` on leaving a page. `_playingAudio` crashed and is not used | `media_player.py` |
 | `_setObservedRenderingProgressEvents:`, delegate `_webView:renderingProgressDidChange:` | `Tab.swift` (`PageView`), `Browser.swift` | First-frame reveal; sleep and process-recovery handoff | `responds(to:)`; without it a view shows at once and a return waits for `didFinish` | `wake_transition.py` |
 | Delegate `_webView:navigationDidFinishDocumentLoad:` | `ExtensionPopup.swift` | Size a popup at DOMContentLoaded, as Chrome does | `didFinish` measures too; measured at 3 s and shown at 5 s regardless | `compatibility.py` |
@@ -53,6 +54,10 @@ is a gap, not a failure.
 - `_setMockCaptureDevicesEnabled:` (`Web.mockCapture`, test runs but the beta): WebKit's
   synthetic camera and microphone for `space_media.py` and `call_float.py`.
   Without it those scenarios fail rather than skip.
+- `_setICECandidateFilteringEnabled:` (`Web.plainICE`, the same runs): WebRTC gives
+  the Mac's own addresses instead of registering a `.local` name with Bonjour,
+  which shows each new test identity a Local Network prompt. Without it the
+  prompt comes back.
 
 ## Page-script workarounds
 
