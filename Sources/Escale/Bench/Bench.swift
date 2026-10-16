@@ -254,7 +254,8 @@ final class Bench {
             guard Store.testing else { answer(["error": "github-data needs a test world"]); return }
             GitHubDataBench.run(request, browser: browser, tab: find(request, in: browser), answer: answer)
         case "tabs":
-            answer(["tabs": browser.tabs.map(describe)])
+            // "closed": what History › Recently Closed lists for this Space, oldest first.
+            answer(["tabs": browser.tabs.map(describe), "closed": browser.ghosts.map(\.label)])
 
         case "media":
             guard Store.testing else { answer(["error": "only in a test run"]); return }
@@ -1787,6 +1788,12 @@ final class Bench {
                 browser.tabDraft = text
             }
             if request["finishedit"] as? Bool == true { browser.finishTabEdit() }
+            // The tab on screen named this, as Rename and Return name it.
+            if Store.testing, let text = request["renametab"] as? String, let tab = browser.active {
+                browser.beginTabRename(tab)
+                browser.tabDraft = text
+                browser.commitTabEdit()
+            }
             if #available(macOS 15.4, *), let on = request["extensions"] as? Bool { Extensions.shared.menuOpen = on }
             answer(["ok": true])
 

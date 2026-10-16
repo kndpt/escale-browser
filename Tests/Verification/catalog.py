@@ -92,6 +92,11 @@ CHECKS = {
               BENCH + ("Tests/Bench/tab_close_views.py",),
               "a tab closed with ⌘W gets no new page view: live content controllers stay level", "app", ("bundle",),
               paths=("Sources/Escale/Tabs/Tab.swift", "Sources/Escale/Window/Stage.swift")),
+        Check("tab-reopen", ("python3", "Tests/Bench/tab_reopen.py"),
+              BENCH + ("Tests/Bench/tab_reopen.py",),
+              "⇧⌘T in two Spaces: each reopens its own closed tabs, names included; one Space never evicts another's",
+              "app", ("bundle",),
+              paths=("Sources/Escale/Browser/Browser.swift", "Tests/EscaleTests/ClosedTabsTests.swift")),
         Check("shortcut-motion", ("python3", "Tests/Bench/shortcut_motion.py"),
               BENCH + ("Tests/Bench/shortcut_motion.py",),
               "shortcut bursts, stable tab slots, pointer origin, create/close and persisted pace in both layouts",
@@ -431,7 +436,7 @@ def plan(paths, risks=(), checks=(), quick=False, acknowledge=None):
         include_dependencies(name)
     # Dependencies are small and explicit; no scoring or model-specific workflow.
     order = ["icons", "harness", "portable", "links", "whitespace", "changelog", "build", "swift",
-             "bundle", "app", "wake", "sleeping", "sleep-by-hand", "tabs", "closed-tabs", "shortcut-motion", "sidebar-rows", "tab-access", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "panel-keys", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus",
+             "bundle", "app", "wake", "sleeping", "sleep-by-hand", "tabs", "closed-tabs", "tab-reopen", "shortcut-motion", "sidebar-rows", "tab-access", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "panel-keys", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus",
              "routes", "tab-source", "environments", "bookmarked-page", "inspector", "calls", "calls-browse", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "welcome-extensions", "space-media", "space-reorder", "space-send", "call-float", "transfer", "warnings"]
     return {"checks": [n for n in order if n in chosen], "reasons": chosen,
             "risks": list(risks), "requested": list(checks),

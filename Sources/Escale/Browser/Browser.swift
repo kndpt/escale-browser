@@ -678,23 +678,44 @@ final class Browser: NSObject, ObservableObject {
     }
 
     /// Tabs you closed, newest last, so ⌘⇧T can put them back where they were
-    /// and the History menu can offer them by name.
+    /// and the History menu can offer them by name. Each Space keeps its own
+    /// last `Ghost.kept`, so clearing one never empties another's: at most
+    /// that many per Space, each holding no more than 256 KB of history.
     @Published private(set) var closedTabs: [Ghost] = []
     var ghosts: [Ghost] { ghosts(in: spaceID) }
     func ghosts(in space: UUID) -> [Ghost] { closedTabs.filter { $0.space == space } }
     func eraseClosedTabs(in space: UUID) { closedTabs.removeAll { $0.space == space } }
 
     struct Ghost: Identifiable, Equatable {
+        /// Closed tabs kept per Space: as many as the History menu lists.
+        static let kept = 10
+
         let id = UUID()
         let url: URL
         let title: String
         let index: Int
         let space: UUID
+        /// The name you gave the tab, which it gets back.
+        var name: String? = nil
         /// The page's history (Tab.kept), so it comes back with Back still
         /// going back and scrolled where it was.
         var memory: Any? = nil
 
-        var label: String { title.isEmpty ? Address.pretty(url) : title }
+        var label: String {
+            if let name, !name.isEmpty { return name }
+            return title.isEmpty ? Address.pretty(url) : title
+        }
+
+        /// `ghost` added last, and its own Space's oldest let go past `limit`:
+        /// another Space's closed tabs are never what makes room.
+        static func adding(_ ghost: Ghost, to ghosts: [Ghost], limit: Int = kept) -> [Ghost] {
+            var all = ghosts + [ghost]
+            while all.filter({ $0.space == ghost.space }).count > limit,
+                  let oldest = all.firstIndex(where: { $0.space == ghost.space }) {
+                all.remove(at: oldest)
+            }
+            return all
+        }
 
         static func == (a: Ghost, b: Ghost) -> Bool { a.id == b.id }
     }
@@ -1361,7 +1382,7 @@ final class Browser: NSObject, ObservableObject {
         if undoing == ghost { offerUndo(nil) }
         let tab = Tab()
         prepare(tab)
-        tab.restore(url: ghost.url, title: ghost.title, memory: ghost.memory)
+        tab.restore(url: ghost.url, title: ghost.title, name: ghost.name, memory: ghost.memory)
         tabs.insert(tab, at: min(ghost.index, tabs.count))
         select(tab)
     }
@@ -1369,13 +1390,13 @@ final class Browser: NSObject, ObservableObject {
     private func remember(_ tab: Tab, at index: Int) {
         guard !tab.shy, let url = tab.address else { return }
         // A page's history weighs one to three kilobytes; one that keeps its
-        // own state in it can weigh megabytes, and twelve of those outlive
-        // the Undo. Past 256 KB, the tab comes back from its address alone.
+        // own state in it can weigh megabytes, and ten of those per Space
+        // outlive the Undo. Past 256 KB, the tab comes back from its address alone.
         let kept = tab.kept
         let light = (kept as? Data).map { $0.count <= 256 << 10 } ?? false
-        let ghost = Ghost(url: url, title: tab.title, index: index, space: tab.space, memory: light ? kept : nil)
-        closedTabs.append(ghost)
-        if closedTabs.count > 12 { closedTabs.removeFirst() }
+        let ghost = Ghost(url: url, title: tab.title, index: index, space: tab.space,
+                          name: tab.name, memory: light ? kept : nil)
+        closedTabs = Ghost.adding(ghost, to: closedTabs)
         offerUndo(ghost)
     }
 
