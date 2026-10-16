@@ -54,7 +54,7 @@ struct KeyMenus: Commands {
             if browser.active?.pin != nil { items([.changeLetter]) }
             items([.renameTab, .duplicateTab, .copyAddress, .copyMarkdown, .pasteGo])
             Divider()
-            items([.closeOthers, .clearTabs, .stopSound])
+            items([.closeOthers, .clearTabs, .sleepOthers, .stopSound])
         }
         CommandMenu("Spaces") {
             items([.previousSpace, .nextSpace])
