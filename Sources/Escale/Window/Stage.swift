@@ -29,6 +29,7 @@ struct PageFrame: PreferenceKey {
 /// the page is never cut by its corner. Changing the corner or the frame is a
 /// layout change of the stage, never a new web view.
 struct Page: View {
+    @SwiftUI.Environment(\.chromeMetrics) private var metrics
     @ObservedObject var tab: Tab
     /// The frame's corner; none while a page is immersed.
     var corner: CGFloat = 0
@@ -78,7 +79,7 @@ struct Page: View {
                 // The tab is not empty, its page is simply elsewhere. Saying so
                 // is kinder than a white rectangle.
                 Text("This page is playing in the floating window.")
-                    .font(.system(size: 13))
+                    .font(.system(size: metrics.length(Metrics.panelTitle)))
                     .foregroundStyle(Palette.muted)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Palette.ground)
@@ -273,17 +274,18 @@ final class StageView: NSView {
 /// What there is to say when the page never came. One line, and the only thing
 /// worth offering — another go.
 private struct Trouble: View {
+    @SwiftUI.Environment(\.chromeMetrics) private var metrics
     let message: String
     let retry: () -> Void
 
     var body: some View {
         VStack(spacing: 10) {
             Text(message)
-                .font(.system(size: 14))
+                .font(.system(size: metrics.length(Metrics.panelLead)))
                 .foregroundStyle(Palette.ink)
             Button("Try again", action: retry)
                 .buttonStyle(.plain)
-                .font(.system(size: 12))
+                .font(.system(size: metrics.length(Metrics.panelNote)))
                 .foregroundStyle(Palette.muted)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

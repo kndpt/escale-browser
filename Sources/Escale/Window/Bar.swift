@@ -284,6 +284,7 @@ extension AddressBar {
 /// connection's line goes a step further in, to what it means and the
 /// certificate behind it.
 struct SiteCard: View {
+    @SwiftUI.Environment(\.chromeMetrics) private var metrics
     let browser: Browser
     @ObservedObject var tab: Tab
     let close: () -> Void
@@ -309,7 +310,7 @@ struct SiteCard: View {
                 front
             }
         }
-        .frame(width: 300)
+        .frame(width: metrics.length(300))
         // The popover's own material shows through (Glass.swift).
         .popoverGround()
         .transition(.opacity)
@@ -323,7 +324,7 @@ struct SiteCard: View {
         VStack(alignment: .leading, spacing: 0) {
             if let url = tab.address {
                 Text(AddressBar.site(url))
-                    .font(.system(size: 11.5))
+                    .font(.system(size: metrics.length(Metrics.panelDetail)))
                     .foregroundStyle(Palette.muted)
                     .padding(.horizontal, 16)
                     .padding(.top, 12)
@@ -364,20 +365,20 @@ struct SiteCard: View {
     private var zoom: some View {
         HStack(spacing: 8) {
             Image(systemName: "plus.magnifyingglass")
-                .font(.system(size: 11))
+                .font(.system(size: metrics.length(Metrics.panelSymbol)))
                 .foregroundStyle(Palette.muted)
-                .frame(width: 14)
+                .frame(width: metrics.length(14))
             Text("Zoom")
-                .font(.system(size: 12.5))
+                .font(.system(size: metrics.length(Metrics.panelText)))
                 .foregroundStyle(Palette.ink)
             Spacer(minLength: 0)
             Door(icon: "minus", help: browser.prefs.keyHelp(.zoomOut)) { browser.zoom(by: 1 / 1.1) }
             Button { browser.resetZoom() } label: {
                 Text("\(Int((tab.zoom * 100).rounded()))%")
-                    .font(.system(size: 12))
+                    .font(.system(size: metrics.length(Metrics.panelNote)))
                     .monospacedDigit()
                     .foregroundStyle(Palette.ink)
-                    .frame(width: 40)
+                    .frame(width: metrics.length(40))
             }
             .buttonStyle(.plain)
             .help(browser.prefs.keyHelp(.resetZoom))
@@ -385,7 +386,7 @@ struct SiteCard: View {
         }
         .padding(.leading, 10)
         .padding(.trailing, 2)
-        .frame(height: 30)
+        .frame(height: metrics.length(30))
     }
 
     // MARK: - one step in
@@ -396,11 +397,11 @@ struct SiteCard: View {
                 Door(icon: "arrow.left", help: "Back") { deeper = false }
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Security")
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.system(size: metrics.length(Metrics.panelTitle), weight: .regular))
                         .foregroundStyle(Palette.ink)
                     if let url = tab.address {
                         Text(AddressBar.site(url))
-                            .font(.system(size: 11.5))
+                            .font(.system(size: metrics.length(Metrics.panelDetail)))
                             .foregroundStyle(Palette.muted)
                     }
                 }
@@ -414,16 +415,16 @@ struct SiteCard: View {
 
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: safety.symbol)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.system(size: metrics.length(Metrics.panelTitle), weight: .regular))
                     .foregroundStyle(safety.tint)
-                    .frame(width: 16)
+                    .frame(width: metrics.length(16))
                     .padding(.top, 1)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(safety.title)
-                        .font(.system(size: 12.5, weight: .regular))
+                        .font(.system(size: metrics.length(Metrics.panelText), weight: .regular))
                         .foregroundStyle(Palette.ink)
                     Text(safety.detail)
-                        .font(.system(size: 12))
+                        .font(.system(size: metrics.length(Metrics.panelNote)))
                         .foregroundStyle(Palette.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -525,6 +526,7 @@ struct SiteCard: View {
     /// a tint it says it in colour, on a wash of the same. A mark at the end
     /// says where it leads.
     private struct Entry: View {
+        @SwiftUI.Environment(\.chromeMetrics) private var metrics
         let symbol: String
         let title: String
         var keys = ""
@@ -554,26 +556,26 @@ struct SiteCard: View {
             Button { act?() } label: {
             HStack(spacing: 8) {
                 Image(systemName: symbol)
-                    .font(.system(size: 11))
+                    .font(.system(size: metrics.length(Metrics.panelSymbol)))
                     .foregroundStyle(tint ?? Palette.muted)
-                    .frame(width: 14)
+                    .frame(width: metrics.length(14))
                 Text(title)
-                    .font(.system(size: 12.5, weight: .regular))
+                    .font(.system(size: metrics.length(Metrics.panelText), weight: .regular))
                     .foregroundStyle(tint ?? Palette.ink)
                 Spacer(minLength: 0)
                 if !keys.isEmpty {
                     Text(keys)
-                        .font(.system(size: 11.5))
+                        .font(.system(size: metrics.length(Metrics.panelDetail)))
                         .foregroundStyle(Palette.muted)
                 }
                 if let mark {
                     Image(systemName: mark)
-                        .font(.system(size: 10, weight: .regular))
+                        .font(.system(size: metrics.length(Metrics.panelMark), weight: .regular))
                         .foregroundStyle(tint ?? Palette.muted)
                 }
             }
             .padding(.horizontal, 10)
-            .frame(height: 30)
+            .frame(height: metrics.length(30))
             .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(ground))
             .contentShape(Rectangle())
             }
