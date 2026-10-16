@@ -7,6 +7,7 @@ Asserted, through the production owner and real key presses:
 - ↑ / ↓ from the opened call go to the newer / older call of the list as
   shown, stop at both ends, follow a filtered list, and ⌥↑ / ⌥↓ do the same;
   stepping quickly reads fewer responses than calls passed.
+- A call answering after the panel was left idle finishes in the list.
 - Pause keeps every row, lets a call under way finish, never lists a call
   made while paused (even one finishing after resuming), keeps rows
   readable; Clear empties the list in either state without changing it, and
@@ -208,6 +209,13 @@ def main():
         print(f'ok: 30 quick steps read {spent} responses', flush=True)
         s.require('fewer reads than steps', spent < 30, True)
         calls(action='select')
+
+        # Left alone, a hidden frontend's process was suspended: the
+        # response of a call made meanwhile never reached the list.
+        bench('eval', tab, "slow('idle'); true")
+        settled('slow call listed', lambda: len(tagged('idle')) == 1)
+        settled('a call answering while the panel is idle finishes', lambda: tagged('idle')[0]['state'] == 'done', 10)
+        print('ok: a call answering while the panel is idle finishes', flush=True)
 
         # Recording paused: rows kept, a call under way finishes, calls made meanwhile never listed.
         bench('eval', tab, "slow('underway'); true")
