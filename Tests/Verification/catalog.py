@@ -85,8 +85,10 @@ CHECKS = {
                      "Sources/Escale/Keyboard/KeyMenus.swift")),
         Check("tabs", ("python3", "Tests/Bench/tab_clear.py"),
               BENCH + ("Tests/Bench/tab_clear.py",),
-              "Clear at the Tabs heading: loose tabs only, landing, other Space and a real click", "app", ("bundle",),
-              paths=("Sources/Escale/Bookmarks/Shelf.swift", "Sources/Escale/Browser/Browser.swift"),
+              "Clear at the Tabs heading: loose tabs only, landing, other Space and a real click; "
+              "Undo of Clear and Close Other Tabs: order, one page loaded, VoiceOver and ⇧⌘T, expiry", "app", ("bundle",),
+              paths=("Sources/Escale/Bookmarks/Shelf.swift", "Sources/Escale/Browser/Browser.swift",
+                     "Sources/Escale/Tabs/UndoClose.swift", "Tests/EscaleTests/UndoCloseTests.swift"),
               foreground=True),
         Check("closed-tabs", ("python3", "Tests/Bench/tab_close_views.py"),
               BENCH + ("Tests/Bench/tab_close_views.py",),

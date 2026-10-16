@@ -720,21 +720,90 @@ final class Browser: NSObject, ObservableObject {
         static func == (a: Ghost, b: Ghost) -> Bool { a.id == b.id }
     }
 
-    /// The tab just closed, offered back for `Motion.undoClose` by the line
-    /// at the bottom of the window (UndoClose.swift).
-    @Published private(set) var undoing: Ghost?
-    private var undoExpiry: DispatchWorkItem?
+    /// What the line at the bottom of the window offers back for
+    /// `Motion.undoClose` (UndoClose.swift): the tab just closed, or every tab
+    /// Clear or Close Other Tabs just closed, however many. The line's going
+    /// lets them go; ⌘⇧T keeps the newest of them, one at a time.
+    struct Closing: Equatable {
+        let id = UUID()
+        /// In the order they were closed.
+        let ghosts: [Ghost]
+        let label: String
+        let space: UUID
+        /// The tab looked at before: one of `ghosts`, or a tab that stayed.
+        let back: UUID?
+        /// The blank tab Clear left when nothing stayed, gone again on Undo.
+        var standIn: UUID? = nil
 
-    /// The line's Undo: the tab back where it was, as ⌘⇧T would.
-    func undoClose() {
-        guard let ghost = undoing, closedTabs.contains(ghost) else { return }
-        reopen(ghost)
+        /// `row` with `ghosts` put back where they were before the first of
+        /// them closed. Each left from an index in the row as it was then, so
+        /// closing is replayed backwards for those places; they go back first
+        /// to last, so a row that has shrunk since still gets them in order.
+        static func reopening<Row>(_ ghosts: [Ghost], into row: [Row], making: (Ghost) -> Row) -> [Row] {
+            var places: [(ghost: Ghost, at: Int)] = []
+            for ghost in ghosts.reversed() {
+                places = places.map { ($0.ghost, $0.at >= ghost.index ? $0.at + 1 : $0.at) }
+                places.append((ghost, ghost.index))
+            }
+            var row = row
+            for place in places.sorted(by: { $0.at < $1.at }) {
+                row.insert(making(place.ghost), at: min(place.at, row.count))
+            }
+            return row
+        }
+
+        static func == (a: Closing, b: Closing) -> Bool { a.id == b.id }
     }
 
-    private func offerUndo(_ ghost: Ghost?) {
+    @Published private(set) var undoing: Closing?
+    private var undoExpiry: DispatchWorkItem?
+    /// While Clear or Close Other Tabs is closing: each ghost with the tab it
+    /// was, offered back together rather than one by one.
+    private var gathering: [(tab: UUID, ghost: Ghost)]?
+
+    /// The line's Undo, and ⌘⇧T while the line shows: every tab back in its
+    /// place, the one looked at before selected. Only that one loads; the
+    /// others wait until shown, as after a relaunch.
+    func undoClose() {
+        guard let undo = undoing, undo.space == spaceID else { return }
+        offerUndo(nil)
+        let gone = Set(undo.ghosts.map(\.id))
+        closedTabs.removeAll { gone.contains($0.id) }
+        var back = tabs.first { $0.id == undo.back }
+        tabs = Closing.reopening(undo.ghosts, into: tabs) { ghost in
+            let tab = revive(ghost)
+            if ghost.id == undo.back { back = tab }
+            return tab
+        }
+        if let back { select(back) }
+        if let blank = tabs.first(where: { $0.id == undo.standIn }), blank.isBlank, blank.id != activeID {
+            close(blank)
+        }
+        rememberSession()
+    }
+
+    /// `doomed` closed as ⌘W closes each, then offered back as one.
+    private func closeTogether(_ doomed: [Tab], back: UUID?, standIn: UUID? = nil) {
+        gathering = []
+        for tab in doomed { close(tab) }
+        let closed = gathering ?? []
+        gathering = nil
+        // Pins are put down, not closed.
+        let count = doomed.filter { $0.pin == nil }.count
+        let label = count == 1 ? "Closed 1 tab" : "Closed \(count) tabs"
+        guard !closed.isEmpty else {
+            offerUndo(nil)
+            if count > 0 { announce(label) }
+            return
+        }
+        offerUndo(Closing(ghosts: closed.map(\.ghost), label: label, space: spaceID,
+                          back: closed.first { $0.tab == back }?.ghost.id ?? back, standIn: standIn))
+    }
+
+    private func offerUndo(_ closing: Closing?) {
         undoExpiry?.cancel()
-        undoing = ghost
-        guard ghost != nil else { return }
+        undoing = closing
+        guard closing != nil else { return }
         let work = DispatchWorkItem { [weak self] in self?.undoing = nil }
         undoExpiry = work
         DispatchQueue.main.asyncAfter(deadline: .now() + Motion.undoClose, execute: work)
@@ -1305,13 +1374,11 @@ final class Browser: NSObject, ObservableObject {
     /// Everything but this one. Pinned tabs are put down rather than removed —
     /// they are not open pages so much as places kept.
     func closeOthers(but keep: Tab) {
+        let was = activeID
         select(keep)
         let kept = Set(panels.group(keep.id)?.members ?? [keep.id])
         // The list is read once: closing walks the row and can add to it.
-        for tab in tabs.filter({ !kept.contains($0.id) }) {
-            close(tab)
-        }
-        offerUndo(nil)
+        closeTogether(tabs.filter { !kept.contains($0.id) }, back: was)
         select(keep)
     }
 
@@ -1326,14 +1393,17 @@ final class Browser: NSObject, ObservableObject {
     }
 
     /// Clear, at the Tabs heading. Every ordinary tab is closed as ⌘W closes
-    /// it (each can be reopened with ⌘⇧T; history and site data are not
-    /// touched). Landing first, on the tab looked at last among those that
-    /// stay, keeps the walk from waking pages that are about to go; with none
-    /// awake, a blank tab stands in so the window is never left without one.
+    /// it (the line then offers them all back at once, and ⌘⇧T one at a
+    /// time; history and site data are not touched). Landing first, on the
+    /// tab looked at last among those that stay, keeps the walk from waking
+    /// pages that are about to go; with none awake, a blank tab stands in so
+    /// the window is never left without one.
     func clearTabs() {
         let doomed = clearableTabs()
         guard !doomed.isEmpty else { return }
         let gone = Set(doomed.map(\.id))
+        let was = activeID
+        var standIn: UUID?
         if let activeID, gone.contains(activeID) {
             if let back = tabs.filter({ !gone.contains($0.id) && !$0.asleep }).max(by: { $0.touched < $1.touched }) {
                 select(back)
@@ -1341,11 +1411,10 @@ final class Browser: NSObject, ObservableObject {
                 let fresh = Tab()
                 adopt(fresh)
                 select(fresh)
+                standIn = fresh.id
             }
         }
-        for tab in doomed { close(tab) }
-        offerUndo(nil)
-        announce(doomed.count == 1 ? "Closed 1 tab" : "Closed \(doomed.count) tabs")
+        closeTogether(doomed, back: was, standIn: standIn)
     }
 
     /// A link let go of over the tabs becomes a tab among them.
@@ -1369,8 +1438,13 @@ final class Browser: NSObject, ObservableObject {
         return took
     }
 
-    /// ⌘⇧T. Back into the row at the place it left.
+    /// ⌘⇧T. Back into the row at the place it left; while the line offers
+    /// Clear's tabs back, all of them, as its Undo does.
     func reopen() {
+        if undoing?.space == spaceID {
+            undoClose()
+            return
+        }
         guard let ghost = ghosts.last else { return }
         reopen(ghost)
     }
@@ -1379,12 +1453,18 @@ final class Browser: NSObject, ObservableObject {
     func reopen(_ ghost: Ghost) {
         guard ghost.space == spaceID else { return }
         closedTabs.removeAll { $0.id == ghost.id }
-        if undoing == ghost { offerUndo(nil) }
+        if undoing?.ghosts.contains(ghost) == true { offerUndo(nil) }
+        let tab = revive(ghost)
+        tabs.insert(tab, at: min(ghost.index, tabs.count))
+        select(tab)
+    }
+
+    /// A closed tab back, asleep until it is looked at.
+    private func revive(_ ghost: Ghost) -> Tab {
         let tab = Tab()
         prepare(tab)
         tab.restore(url: ghost.url, title: ghost.title, name: ghost.name, memory: ghost.memory)
-        tabs.insert(tab, at: min(ghost.index, tabs.count))
-        select(tab)
+        return tab
     }
 
     private func remember(_ tab: Tab, at index: Int) {
@@ -1397,7 +1477,11 @@ final class Browser: NSObject, ObservableObject {
         let ghost = Ghost(url: url, title: tab.title, index: index, space: tab.space,
                           name: tab.name, memory: light ? kept : nil)
         closedTabs = Ghost.adding(ghost, to: closedTabs)
-        offerUndo(ghost)
+        if gathering != nil {
+            gathering?.append((tab.id, ghost))
+        } else {
+            offerUndo(Closing(ghosts: [ghost], label: ghost.label, space: ghost.space, back: ghost.id))
+        }
     }
 
     /// Dragged from one place in the row to another.
