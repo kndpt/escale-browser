@@ -52,7 +52,8 @@ extension Browser {
 }
 
 /// One answer: its picture, its name and what it means, on the arrival's
-/// card, chosen as `ArrivalChoice` is.
+/// card, chosen as `ArrivalChoice` is; Settings › Extensions shows the same
+/// two.
 struct ExtensionModeChoice: View {
     let shared: Bool
     let chosen: Bool

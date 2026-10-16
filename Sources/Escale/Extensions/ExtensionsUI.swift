@@ -27,14 +27,24 @@ struct ExtensionsPage: View {
         var body: some View {
             VStack(alignment: .leading, spacing: metrics.length(Metrics.settingsGap)) {
                 if let whose = extensions.whose {
-                    // Whoever arrived before Welcome asked can still choose
+                    // Welcome's two cards, the mode in use chosen: whoever
+                    // arrived before Welcome asked can still pick the other
                     // (ExtensionSwitch.swift).
-                    Card {
-                        Line(extensions.shared ? "Shared by every Space" : "Each Space has its own extensions",
-                             extensions.shared ? "Installed and signed in to once. Sites and sign-ins stay separate in every Space."
-                                 : "These are “\(whose)”’s.") {
-                            Pill(extensions.shared ? "Separate…" : "Share…") { browser.askToSwitchExtensions() }
+                    VStack(alignment: .leading, spacing: metrics.length(8)) {
+                        HStack(alignment: .top, spacing: metrics.length(Metrics.arrivalRowGap)) {
+                            ExtensionModeChoice(shared: true, chosen: extensions.shared) {
+                                if !extensions.shared { browser.askToSwitchExtensions() }
+                            }
+                            ExtensionModeChoice(shared: false, chosen: !extensions.shared) {
+                                if extensions.shared { browser.askToSwitchExtensions() }
+                            }
                         }
+                        .fixedSize(horizontal: false, vertical: true)
+                        Text((extensions.shared ? "" : "The list below is “\(whose)”’s. ")
+                             + "Choosing the other relaunches Escale and deletes nothing. Sites and sign-ins stay separate in every Space either way.")
+                            .font(.system(size: metrics.length(density.detail)))
+                            .foregroundStyle(Palette.muted)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Card {
