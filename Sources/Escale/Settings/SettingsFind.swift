@@ -35,6 +35,8 @@ enum Setting: String, CaseIterable, Identifiable {
         switch self {
         case .sideFolded, .addressBar, .sideBookmarks: return .sidebar
         case .sleepAfter: return .sleep
+        // Listed only once a site was told to stop offering.
+        case .neverAsked: return .savePasswords
         case .agents, .builds, .pullRequests, .workflows: return .alerts
         default: return nil
         }

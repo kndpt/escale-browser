@@ -73,6 +73,7 @@ import Testing
 
     @Test func aHiddenRowLandsOnTheOneThatShowsIt() {
         #expect(Setting.agents.under == .alerts)
+        #expect(Setting.neverAsked.under == .savePasswords)
         #expect(Setting.agents.page == .developer && Setting.alerts.page == .developer)
         #expect(Setting.allCases.allSatisfy { row in row.under.map { $0.page == row.page && $0.under == nil } ?? true })
     }
