@@ -52,6 +52,38 @@ import Testing
         #expect(CardDensity.panel.title == 13 && CardDensity.panel.inset == 14 && CardDensity.panel.pad == 11)
     }
 
+    /// Find a setting reads each row's own title and description.
+    @Test(arguments: [
+        ("translate", Setting.selection),
+        ("agent sessions", .agents),
+        ("sessions agent", .agents),
+        ("middle scroll", .autoScroll),
+        ("keychain", .vault),
+        ("TRACKERS", .shield),
+    ])
+    func findsASettingByItsWords(query: String, setting: Setting) {
+        #expect(Setting.found(query).contains(setting))
+    }
+
+    @Test func pagesMatchWordsInAnyOrder() {
+        #expect(SettingsPanel.Page.pages.matches("scroll middle"))
+        #expect(SettingsPanel.Page.pages.matches("middle scroll"))
+        #expect(!SettingsPanel.Page.pages.matches("middle sidebar"))
+    }
+
+    @Test func aHiddenRowLandsOnTheOneThatShowsIt() {
+        #expect(Setting.agents.under == .alerts)
+        #expect(Setting.agents.page == .developer && Setting.alerts.page == .developer)
+        #expect(Setting.allCases.allSatisfy { row in row.under.map { $0.page == row.page && $0.under == nil } ?? true })
+    }
+
+    @Test func theCatalogueIsWellFormed() {
+        #expect(Set(Setting.allCases.map(\.title)).count == Setting.allCases.count)
+        #expect(Setting.allCases.allSatisfy { !$0.title.isEmpty })
+        #expect(Setting.found("").isEmpty && Setting.found("   ").isEmpty)
+        #expect(Setting.found("nothing like this").isEmpty)
+    }
+
     @Test func everyPageHasAnAvailableSymbol() {
         for page in SettingsPanel.Page.allCases {
             #expect(NSImage(systemSymbolName: page.icon, accessibilityDescription: nil) != nil)
