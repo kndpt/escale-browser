@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Drive the Escale you already have open, from the shell.
 
-    ./bench tabs                       every tab, yours and the bench's; JSON includes covered/returning/unpainted
+    ./bench tabs                       every tab, yours and the bench's; JSON includes covered/returning/unpainted,
+                                       and closed: what History › Recently Closed lists for this Space
     ./bench panels [add ID TARGET left|right|top|bottom | separate|remove|turn|reverse|close|tools ID | menu TITLE]
                                        test world: groups, preview, entry/page frames and existing page identity;
                                        menu: a Tabs menu item's state and key, chosen when it is enabled
@@ -129,7 +130,8 @@
                                        sidebar on|off, spaces on|off, hides on|off,
                                        bar on|off, shelf on|off, folded on|off, peek on|off,
                                        autoscroll on|off, links on|off, reading on|off, saving on|off, filling on|off,
-                                       clearHistory on (test-world history reset)
+                                       clearHistory on (test-world history reset),
+                                       renametab NAME (test run: the tab on screen named NAME)
 
 Needs Settings › Developer › "Let a script drive Escale" switched on in the
 running app. IDs are the first characters of a tab's id, as `tabs` prints
@@ -243,7 +245,7 @@ def main(argv, out=None, err=None, timeout=None, cwd=None):
     elif verb == "ui":
         if len(args) != 2: sys.exit("usage: bench ui KEY VALUE")
         key, value = args
-        request[key] = value if key in ("look", "tone", "size", "depth", "edittab") else value in ("on", "true", "1", "yes")
+        request[key] = value if key in ("look", "tone", "size", "depth", "edittab", "renametab") else value in ("on", "true", "1", "yes")
     elif verb in ("ext-add", "ext-press", "ext-remove", "ext-reload"):
         if len(args) != 1: sys.exit(f"usage: bench {verb} ID")
         request["id"] = args[0]

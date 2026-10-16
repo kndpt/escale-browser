@@ -254,7 +254,8 @@ final class Bench {
             guard Store.testing else { answer(["error": "github-data needs a test world"]); return }
             GitHubDataBench.run(request, browser: browser, tab: find(request, in: browser), answer: answer)
         case "tabs":
-            answer(["tabs": browser.tabs.map(describe)])
+            // "closed": what History › Recently Closed lists for this Space, oldest first.
+            answer(["tabs": browser.tabs.map(describe), "closed": browser.ghosts.map(\.label)])
 
         case "media":
             guard Store.testing else { answer(["error": "only in a test run"]); return }
@@ -617,7 +618,11 @@ final class Bench {
                                 if type == down { view.mouseDown(with: event) } else { view.mouseUp(with: event) }
                             }
                         }
-                        answer(["ok": true, "at": point.map { Int($0) }])
+                        // WebKit sends the release only once the page has taken the
+                        // press. A script evaluated in between, such as the caller's
+                        // next `eval`, leaves the release and the click without the
+                        // press's user activation, so the click cannot start sound.
+                        Bench.afterMouse(view) { answer(["ok": true, "at": point.map { Int($0) }]) }
                     }
                 }
             }
@@ -1783,6 +1788,12 @@ final class Bench {
                 browser.tabDraft = text
             }
             if request["finishedit"] as? Bool == true { browser.finishTabEdit() }
+            // The tab on screen named this, as Rename and Return name it.
+            if Store.testing, let text = request["renametab"] as? String, let tab = browser.active {
+                browser.beginTabRename(tab)
+                browser.tabDraft = text
+                browser.commitTabEdit()
+            }
             if #available(macOS 15.4, *), let on = request["extensions"] as? Bool { Extensions.shared.menuOpen = on }
             answer(["ok": true])
 
@@ -2009,6 +2020,15 @@ final class Bench {
         if let field = view as? NSTextField, field.delegate is AddressField.Coordinator { return field }
         for sub in view.subviews { if let found = addressField(in: sub) { return found } }
         return nil
+    }
+
+    /// Runs `then` once the page has handled every mouse event sent to it, or
+    /// at once where WebKit lacks the hook (see COMPATIBILITY.md).
+    static func afterMouse(_ view: WKWebView, _ then: @escaping @MainActor () -> Void) {
+        let wait = NSSelectorFromString("_doAfterProcessingAllPendingMouseEvents:")
+        guard view.responds(to: wait) else { then(); return }
+        typealias Call = @convention(c) (AnyObject, Selector, @escaping @convention(block) () -> Void) -> Void
+        unsafeBitCast(view.method(for: wait), to: Call.self)(view, wait) { MainActor.assumeIsolated { then() } }
     }
 
     /// When `condition` holds, checked at each rest of the run loop, and

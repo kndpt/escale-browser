@@ -925,14 +925,20 @@ final class Tab: ObservableObject, Identifiable {
 
     /// Brought back from the last session: everything the row needs to draw it,
     /// and nothing fetched.
-    func restore(url: URL, title: String, name: String? = nil) {
+    /// `memory`, for a closed tab brought back: the history `kept` gave.
+    func restore(url: URL, title: String, name: String? = nil, memory: Any? = nil) {
         address = url
         self.title = title
         self.name = name
+        self.memory = memory
         pending = url
         sleeping = false
         adoptIcon()
     }
+
+    /// The page's own history — back list, page, scroll — as `sleep` keeps
+    /// it, for a closed tab to come back the way it was left.
+    var kept: Any? { built?.interactionState ?? memory }
 
     /// True for a tab that has a place and an address but is holding no page —
     /// brought back from the last session, or put down with ⌘W while pinned.

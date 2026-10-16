@@ -234,6 +234,12 @@ struct ContentView: View {
     private var bars: some View {
         VStack(spacing: 8) {
             announcement
+            if let ghost = browser.undoing, ghost.space == browser.spaceID {
+                UndoClose(ghost: ghost) { browser.undoClose() }
+                    // A second close starts the ring again.
+                    .id(ghost.id)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
             if let ask = browser.asking {
                 captureAsking(ask)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -249,6 +255,7 @@ struct ContentView: View {
         // Above Developer mode's dock while it is up.
         .padding(.bottom, 30 + (browser.showsWorkbench ? Workbench.height(metrics) : 0))
         .animation(Motion.settle, value: browser.veiling)
+        .animation(Motion.settle, value: browser.undoing)
         .animation(Motion.settle, value: browser.asking)
     }
 

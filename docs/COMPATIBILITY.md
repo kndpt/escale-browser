@@ -51,6 +51,9 @@ is a gap, not a failure.
   frontend's process for measurements.
 - `_developerExtrasEnabled` and `_isPlayingAudio` reads: `bench probe`.
 - `_setWindowOcclusionDetectionEnabled:`: `bench picture`.
+- `_doAfterProcessingAllPendingMouseEvents:`: `bench tap` answers once the
+  page has the release too. Without it, the answer comes first and a script
+  evaluated before the release can leave the click without its activation.
 - `_setMockCaptureDevicesEnabled:` (`Web.mockCapture`, test runs but the beta): WebKit's
   synthetic camera and microphone for `space_media.py` and `call_float.py`.
   Without it those scenarios fail rather than skip.
