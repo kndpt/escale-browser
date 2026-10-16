@@ -142,7 +142,10 @@ passphrase and an altered file give the same answer. A newer format or schema
 is refused before decoding; the file is read once, 64 MiB at most.
 
 **What travels.** Each Space becomes a new Space with its own identity, WebKit
-store and keychain partition, never merged by name. With it: bookmarks,
+store and keychain partition, never merged by name. An Escale with nothing of
+its own yet takes the file's first Space in its first Space instead, which
+can't be deleted and would otherwise stay empty; the identity it stands for is
+kept (`transfer.first`), so the same file opened again finds it. With it: bookmarks,
 folders, environments and Domain rules (http and https only), tabs as
 addresses, pins, split groups, history, what Bearings learned, hidden elements,
 per-site zoom, blocker pauses, "never save" sites and link rules (at most

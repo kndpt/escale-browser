@@ -209,10 +209,9 @@ private struct PanelTools: View {
     }
 
     private var capsule: some View {
-        let last = group.members.last == tab.id
-        return HStack(spacing: 0) {
+        HStack(spacing: 0) {
             tool(group.horizontal ? "arrow.left.arrow.right" : "arrow.up.arrow.down", "Swap with the next panel") {
-                browser.changePanels(tab) { $0.move(tab.id, by: last ? -1 : 1) }
+                browser.changePanels(tab) { $0.swap(tab.id) }
             }
             tool(group.horizontal ? "rectangle.split.1x2" : "rectangle.split.2x1", "Change orientation") {
                 browser.changePanels(tab) { $0.turn(tab.id) }
@@ -541,7 +540,7 @@ struct PanelMenu: View {
             if let group = panels.group(tab.id) {
                 Divider()
                 Button { change { $0.turn(tab.id) } } label: { Label("Change Orientation", systemImage: group.horizontal ? "rectangle.split.1x2" : "rectangle.split.2x1") }
-                Button { change { $0.move(tab.id, by: group.members.last == tab.id ? -1 : 1) } } label: { Label("Swap with Next Panel", systemImage: "arrow.left.arrow.right") }
+                Button { change { $0.swap(tab.id) } } label: { Label("Swap with Next Panel", systemImage: "arrow.left.arrow.right") }
                 Button { change { $0.remove(tab.id) } } label: { Label("Move Out of Split", systemImage: "rectangle.portrait.and.arrow.right") }
                 Button { change { $0.separate(tab.id) } } label: { Label("Separate All Pages", systemImage: "rectangle.on.rectangle") }
             }

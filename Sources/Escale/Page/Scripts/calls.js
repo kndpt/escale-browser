@@ -45,6 +45,13 @@ when the search is emptied, on clearing and on stopping. A newer search stops an
     // `limit`, as the list itself would.
     let pending = new Map();
     let scheduled = false;
+    // Hidden, WebKit suspends this page's process soon after Escale last
+    // spoke to it, and the backend's messages wait with it: a call's last
+    // events stayed unheard until something else woke the page. WebKit keeps
+    // a process running while Escale awaits a script in it, so Escale awaits
+    // this for as long as it collects; stopping settles it.
+    let release;
+    const awake = new Promise(resolve => { release = resolve; });
     const text = (value, max) => typeof value === "string" ? value.slice(0, max) : null;
     const number = value => typeof value === "number" && isFinite(value) ? value : null;
     const kind = type => typeof type === "string" ? type.replace(/^resource-type-/, "") : null;
@@ -215,8 +222,10 @@ when the search is emptied, on clearing and on stopping. A newer search stops an
             for (const [owner, event, handler] of listeners) owner.removeEventListener(event, handler);
             listeners.length = 0; live.clear(); pending = new Map(); bodies.clear(); held = 0; asked++;
             delete window.__escaleCalls;
+            release(true);
             return true;
         },
+        awake: () => awake,
         // Paused, exchanges not known yet are let go for good.
         record(on) { paused = !on; return paused; },
         // The search is over: what it read goes, the rows stay.
