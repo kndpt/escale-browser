@@ -1,0 +1,1 @@
+Find a setting now looks through every setting's name and description, with words in any order, and lists each one with its page: choosing it opens the page, scrolls to the setting and marks it for a moment (#13).
