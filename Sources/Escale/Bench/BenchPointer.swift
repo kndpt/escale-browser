@@ -74,6 +74,13 @@ enum BenchPointer {
                 timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
                 context: nil, eventNumber: 0, clickCount: 1,
                 pressure: type == .leftMouseUp ? 0 : 1) else { return }
+            // A made right press says button 0, and SwiftUI opens a context
+            // menu only for the secondary button: give it the one a hand's has.
+            if type == .rightMouseDown || type == .rightMouseUp, let cg = event.cgEvent {
+                cg.setIntegerValueField(.mouseEventButtonNumber, value: 1)
+                NSApp.postEvent(NSEvent(cgEvent: cg) ?? event, atStart: false)
+                return
+            }
             NSApp.postEvent(event, atStart: false)
         }
         post(.mouseMoved)

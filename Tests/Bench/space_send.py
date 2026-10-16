@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A tab moves to another Space from its menu or a key, as a drag does.
 
-In an owned world with Move Tab to Previous/Next Space bound to ⌃⌥⌘P and ⌃⌥⌘N
+In an owned world with Move Tab to Previous/Next Space bound to ⌥⌘P and ⌥⌘O
 (they have no default), in the sidebar and then the top tab bar: a regular, a
 pinned and a private tab each go from Personal to Two through the right-click
 menu's Move to Space, then to Three by the Next key and back to Two by the
@@ -18,10 +18,10 @@ from threading import Thread
 import json
 import suite as h
 
-# ⌃⌥⌘, as NSEvent.ModifierFlags: control, option and command.
-CHORD = 262144 + 524288 + 1048576
-NEXT = (45, "n", "ctrl", "opt", "cmd")
-PREVIOUS = (35, "p", "ctrl", "opt", "cmd")
+# ⌥⌘, as NSEvent.ModifierFlags: option and command (Control–Option is VoiceOver's).
+CHORD = 524288 + 1048576
+NEXT = (31, "o", "opt", "cmd")
+PREVIOUS = (35, "p", "opt", "cmd")
 
 
 def bench(*args):
@@ -36,39 +36,31 @@ def active():
     return next(t for t in h.tabs() if t["active"])
 
 
-def window():
-    return next(w["frame"] for w in bench("probe")["windows"] if w["title"] == "Escale" and w["visible"])
+def place(ident):
+    """The tab's row or square as drawn, once it holds still: the frames the
+    test build publishes for every tab in the column or the strip."""
+    seen = []
+
+    def still():
+        frame = next((e["frame"] for e in bench("panels")["entries"]
+                      if e["id"].lower().startswith(ident)), None)
+        seen.append(frame)
+        return frame is not None and seen[-3:] == [frame] * 3
+
+    h.until(f"tab {ident} drawn and still", still)
+    x, y, w, height = seen[-1]
+    return x + min(w / 2, 40), y + height / 2
 
 
-def candidates(sidebar):
-    """Points where the space's only tab may be drawn: down the column, or
-    along the strip after the lights and the page buttons."""
-    width, height = window()[2:]
-    if sidebar:
-        return [(120, y) for y in range(60, min(480, height - 40), 12)]
-    return [(x, y) for y in (18, 30) for x in range(150, min(720, width - 40), 12)]
-
-
-def tab_menu(sidebar):
-    """The right-click menu of the Space's only tab, found by trying the
-    places it can be: a tab's menu is the one with Close Other Tabs."""
-    for x, y in candidates(sidebar):
-        state = bench("pointer", "menu", x, y)
-        if any(item["title"] == "Close Other Tabs" for item in state["items"]):
-            return state["items"]
-        if state["tracking"]:
-            bench("pointer", "cancel")
-    raise AssertionError("no tab's menu under the column or strip")
-
-
-def alone(ident):
-    """Close every other tab in this Space, so a tab's menu can only be its."""
-    for tab in h.tabs():
-        if tab["id"] != ident and not tab["bench"]:
-            bench("select", tab["id"])
-            bench("press", 13, "w", "cmd")
-    h.until("only the tab left", lambda: [t["id"] for t in h.tabs() if not t["bench"]] == [ident])
-    bench("select", ident)
+def tab_menu(ident):
+    """The tab's right-click menu. The hand arrives first, as one does: a
+    press with no move before it can land on the window's host instead."""
+    x, y = place(ident)
+    bench("pointer", "move", x, y)
+    state = bench("pointer", "menu", x, y)
+    titles = [item["title"] for item in state["items"]]
+    assert "Close Other Tabs" in titles, state
+    return state["items"]
 
 
 def make(kind, url):
@@ -93,9 +85,9 @@ def lands(what, space, url, kind):
                {"space": space, "tab": {"pinned": kind == "pinned", "private": kind == "private"}})
 
 
-def nowhere(url, what):
+def nowhere(ident, url, what):
     """No Move to Space in the tab's menu, and the keys leave it alone."""
-    items = tab_menu(True)
+    items = tab_menu(ident)
     bench("pointer", "cancel")
     h.require(what + ": no Move to Space", "Move to Space" in [i["title"] for i in items], False)
     before = current()
@@ -111,7 +103,7 @@ def main():
     with h.world(server):
         # Store uses Data, as Preferences does. Never touch a production suite.
         data = json.dumps({"overrides": {
-            "moveTabToNextSpace": [{"key": "n", "modifiers": CHORD}],
+            "moveTabToNextSpace": [{"key": "o", "modifiers": CHORD}],
             "moveTabToPreviousSpace": [{"key": "p", "modifiers": CHORD}],
         }}).encode().hex()
         h.command("defaults", "write", h.SUITE, "keyboard.bindings", "-data", data)
@@ -121,13 +113,12 @@ def main():
         home = current()
 
         lonely = make("regular", f"{base}/lonely")
-        alone(lonely)
-        nowhere(f"{base}/lonely", "one Space")
+        nowhere(lonely, f"{base}/lonely", "one Space")
         bench("space", "new", "Two")
         bench("space", "new", "Three")
         bench("space", "go", 1)
         bench("ui", "spaces", "off")
-        nowhere(f"{base}/lonely", "Spaces off")
+        nowhere(lonely, f"{base}/lonely", "Spaces off")
         bench("ui", "spaces", "on")
 
         for sidebar in (True, False):
@@ -136,8 +127,7 @@ def main():
                 layout = "sidebar" if sidebar else "top"
                 url = f"{base}/{layout}-{kind}"
                 bench("space", "go", 1)
-                alone(make(kind, url))
-                items = tab_menu(sidebar)
+                items = tab_menu(make(kind, url))
                 titles = [i["title"] for i in items]
                 where = titles.index("Move to Space")
                 h.require(f"{layout} {kind}: the other Spaces", items[where].get("submenu"), ["Two", "Three"])
