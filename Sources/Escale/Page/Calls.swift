@@ -146,6 +146,10 @@ final class Calls: NSObject, ObservableObject, WKScriptMessageHandler {
                 } else {
                     self.phase = .collecting
                     self.found.typed()
+                    // Settled by calls.js on stopping; until then the hidden
+                    // frontend's process is not suspended (see calls.js).
+                    frontend.callAsyncJavaScript("return window.__escaleCalls ? await window.__escaleCalls.awake() : null",
+                                                 in: nil, in: .page)
                 }
             }
         }
