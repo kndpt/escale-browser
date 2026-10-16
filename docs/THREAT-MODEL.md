@@ -64,7 +64,9 @@ bugs, which are Apple's.
    downloads of the Space on screen, and, with `cookies` and host access,
    any Space's cookies through that Space's `storeId`. Sites and passwords
    are still kept per Space, and its own pages keep their data in a store
-   that is no Space's.
+   that is no Space's. A tab moved to another Space takes its Back/Forward
+   list, with each page's scroll, form values and `history.state`, but
+   nothing of its store; a private tab's stays behind (`Tab.carried`).
 
 ## What a review should flag
 

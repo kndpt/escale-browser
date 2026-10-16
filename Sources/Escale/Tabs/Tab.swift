@@ -926,8 +926,16 @@ final class Tab: ObservableObject, Identifiable {
     }
 
     /// The page's own history — back list, page, scroll — as `sleep` keeps
-    /// it, for a closed tab to come back the way it was left.
-    var kept: Any? { built?.interactionState ?? memory }
+    /// it, for a new tab made from this one to take along: ⌘D, a move to
+    /// another Space, a reopen. It holds what each page left in it — scroll,
+    /// form values, `history.state` — and none of the store, so a move to
+    /// another Space's store keeps Back without carrying a cookie. A private
+    /// tab's and an extension page's stay behind (#60). A tab still waking
+    /// holds it in `memory`: its view has nothing in it yet.
+    var carried: Any? {
+        guard !shy, address.flatMap(Browser.extensionHost) == nil else { return nil }
+        return memory ?? built?.interactionState
+    }
 
     /// True for a tab that has a place and an address but is holding no page —
     /// brought back from the last session, or put down with ⌘W while pinned.
@@ -1119,6 +1127,7 @@ final class Tab: ObservableObject, Identifiable {
             return
         }
         holding = nil
+        memory = nil
         // A tab that slept has its own history to go back to — the page, its
         // back list and its scroll position, in one. Anything else starts
         // from the address.
@@ -1194,8 +1203,9 @@ final class Tab: ObservableObject, Identifiable {
         reader = false
         typing = false
         immersed = false
+        // `memory` stays until the page takes it (`load`), so a tab copied,
+        // moved or closed in that moment still has its history.
         let state = memory
-        memory = nil
         if let picture, let image = NSImage(data: picture) {
             cover = image
         }

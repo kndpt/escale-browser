@@ -697,7 +697,7 @@ final class Browser: NSObject, ObservableObject {
         let space: UUID
         /// The name you gave the tab, which it gets back.
         var name: String? = nil
-        /// The page's history (Tab.kept), so it comes back with Back still
+        /// The page's history (Tab.carried), so it comes back with Back still
         /// going back and scrolled where it was.
         var memory: Any? = nil
 
@@ -718,6 +718,19 @@ final class Browser: NSObject, ObservableObject {
         }
 
         static func == (a: Ghost, b: Ghost) -> Bool { a.id == b.id }
+
+        /// The heaviest history a closed tab keeps. A page's weighs one to
+        /// three kilobytes; one that keeps its own state in it can weigh
+        /// megabytes, and `kept` of those per Space outlive the Undo. Past
+        /// this, the tab comes back from its address alone: 2.5 MB at most
+        /// per Space.
+        static let heaviest = 256 << 10
+
+        /// `Tab.carried`, if it is light enough to keep.
+        static func weighed(_ history: Any?) -> Any? {
+            guard let data = history as? Data, data.count <= heaviest else { return nil }
+            return data
+        }
     }
 
     /// What the line at the bottom of the window offers back for
@@ -1469,13 +1482,8 @@ final class Browser: NSObject, ObservableObject {
 
     private func remember(_ tab: Tab, at index: Int) {
         guard !tab.shy, let url = tab.address else { return }
-        // A page's history weighs one to three kilobytes; one that keeps its
-        // own state in it can weigh megabytes, and ten of those per Space
-        // outlive the Undo. Past 256 KB, the tab comes back from its address alone.
-        let kept = tab.kept
-        let light = (kept as? Data).map { $0.count <= 256 << 10 } ?? false
         let ghost = Ghost(url: url, title: tab.title, index: index, space: tab.space,
-                          name: tab.name, memory: light ? kept : nil)
+                          name: tab.name, memory: Ghost.weighed(tab.carried))
         closedTabs = Ghost.adding(ghost, to: closedTabs)
         if gathering != nil {
             gathering?.append((tab.id, ghost))
@@ -1518,6 +1526,8 @@ final class Browser: NSObject, ObservableObject {
         if url?.scheme == "chrome-extension", extensionPage == nil { return nil }
         let configuration = extensionPage ?? (tab.shy
             ? Web.configuration(shy: true, space: destination, store: tab.store.isPersistent ? nil : tab.store) : nil)
+        // Read before the tab closes; asleep, it is all the tab still has.
+        let history = tab.carried
         if tab.space == spaceID {
             guard let at = tabs.firstIndex(where: { $0.id == tab.id }) else { return nil }
             panels.remove(tab.id)
@@ -1548,7 +1558,12 @@ final class Browser: NSObject, ObservableObject {
         activeID = moved.id
         if let url {
             editing = false
-            moved.go(to: url)
+            if let history {
+                moved.restore(url: url, title: tab.title, name: tab.name, memory: history)
+                moved.wake()
+            } else {
+                moved.go(to: url)
+            }
         } else {
             editing = true
             field.typed = draft ?? ""
@@ -1742,10 +1757,17 @@ final class Browser: NSObject, ObservableObject {
         announce("Private search")
     }
 
-    /// ⌘D. The same page, beside itself.
+    /// ⌘D. The same page, beside itself, with the same Back and Forward.
     func duplicate() {
-        guard let url = active?.address else { return }
-        open(url, foreground: true, from: active)
+        guard let source = active, let url = source.address else { return }
+        guard let history = source.carried else {
+            open(url, foreground: true, from: source)
+            return
+        }
+        let (copy, page) = made(for: url, from: source, shy: false)
+        copy.restore(url: page, title: source.title, memory: history)
+        tabs.insert(copy, at: tabs.firstIndex { $0.id == source.id }.map { $0 + 1 } ?? tabs.count)
+        select(copy)
     }
 
     /// ⌘⇧V, when nothing is being typed. What is in the clipboard, if it is a
