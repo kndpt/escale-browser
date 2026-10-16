@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
-"""Put tabs to sleep by hand: Sleep Tab from a tab's menu, Sleep Other Tabs.
+"""Put tabs to sleep by hand: Sleep Tab and Sleep Other Tabs.
 
-A regular tab off screen is slept from its context menu (a native right
-press) and shows as sleeping with a picture kept; the tab on screen offers no
-Sleep Tab; a pinned tab and a tab holding typed text are refused, and the
-refusal is announced with its reason. Sleep Other Tabs and Sleep Tab run from
-keys bound in the test world's settings, as the shortcut settings save them.
-The hand-slept tab wakes at its scroll position with its history. Whether the
-picture covers the wake is wake_transition.py's. Run after ./build.sh debug,
-in front: the menus need the pointer. The world is owned by the shared runner
-and pages are served from loopback.
+Both run from keys bound in the test world's settings, as the shortcut
+settings save them. Sleep Tab leaves a regular tab, which then shows as
+sleeping with a picture kept; on a tab holding typed text it is refused and
+the reason is announced. Sleep Other Tabs sleeps the tab that can sleep and
+names what kept the pinned and the typed ones awake. The hand-slept tab wakes
+at its scroll position with its history.
+
+Not covered: the context menu's items, which call the same functions. The
+bench's posted right press opens no SwiftUI context menu on a tab row (it does
+on the page and the Space title), so they are checked by hand. Whether the
+picture covers the wake is wake_transition.py's. Run after ./build.sh debug;
+the world is owned by the shared runner and pages are served from loopback.
 """
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
@@ -50,20 +53,9 @@ def said(text):
     h.until(f'announced "{text}"', lambda: bench('probe')['announcement'] == text, 10)
 
 
-def menu(ident):
-    """The tab's own context menu, opened by a right press on its row."""
-    entry = h.until(f'row of {ident}', lambda: next(
-        (e for e in bench('panels')['entries'] if e['id'].lower().startswith(ident.lower())), None), 10)
-    x, y, w, height = entry['frame']
-    state = bench('pointer', 'menu', x + min(w / 3, 45), y + height / 2)
-    assert state['tracking'], state
-    return [item['title'] for item in state['items']]
-
-
-def choose(ident, title):
-    titles = menu(ident)
-    assert title in titles, titles
-    bench('pointer', 'choose', titles.index(title))
+def sleep_tab(ident):
+    bench('select', ident)
+    bench('press', 7, 'x', 'cmd', 'opt')
 
 
 def main():
@@ -93,46 +85,36 @@ def main():
         spare = h.open_ordinary(origin + '/spare')
         current = h.open_ordinary(origin + '/current')
 
-        titles = menu(current)
-        bench('pointer', 'cancel')
-        h.require('the tab on screen offers no Sleep Tab', 'Sleep Tab' in titles, False)
-        h.require('but offers Sleep Other Tabs', 'Sleep Other Tabs' in titles, True)
-
-        choose(heavy, 'Sleep Tab')
-        said('Tab asleep')
-        h.require('hand-slept tab shows as sleeping', row(heavy)['sleeping'], True)
-        h.require('hand-slept tab let its page go', row(heavy)['view'], '')
-        h.require('hand-slept tab keeps a picture', row(heavy)['picture'] > 0, True)
-        print('ok: Sleep Tab from the context menu', flush=True)
-
-        choose(pinned, 'Sleep Tab')
-        said('Kept awake: pinned')
-        h.require('pinned tab stays awake', row(pinned)['sleeping'], False)
-        choose(draft, 'Sleep Tab')
+        sleep_tab(draft)
         said('Kept awake: holding something typed')
+        h.require('Sleep Tab left the typed tab', row(draft)['active'], False)
         h.require('typed tab stays awake', row(draft)['sleeping'], False)
         h.require('typed text kept', h.ask('eval', id=draft, js="document.querySelector('#draft').value")
                   .get('value'), 'unsent words')
-        print('ok: pinned and typed tabs refused with their reason', flush=True)
+        print('ok: a typed tab is refused with its reason', flush=True)
 
+        sleep_tab(heavy)
+        said('Tab asleep')
+        h.require('Sleep Tab left the tab', row(heavy)['active'], False)
+        h.require('hand-slept tab shows as sleeping', row(heavy)['sleeping'], True)
+        h.require('hand-slept tab let its page go', row(heavy)['view'], '')
+        h.require('hand-slept tab keeps a picture', row(heavy)['picture'] > 0, True)
+        print('ok: Sleep Tab', flush=True)
+
+        bench('select', current)
         bench('press', 6, 'z', 'cmd', 'opt')
         said('1 tab asleep, 2 kept awake: pinned, holding something typed')
         h.require('Sleep Other Tabs slept the spare tab', row(spare)['sleeping'], True)
+        h.require('the pinned tab stays awake', row(pinned)['sleeping'], False)
         h.require('the tab on screen stays awake', row(current)['sleeping'], False)
-        print('ok: Sleep Other Tabs from its key', flush=True)
+        print('ok: Sleep Other Tabs, refusals named', flush=True)
 
         bench('select', heavy)
         h.require('wake clears the marker', row(heavy)['sleeping'], False)
         h.loaded_page(heavy, 'heavy', 15, 'woken tab')
         h.until('scroll position restored', lambda: abs(h.ask('eval', id=heavy, js='scrollY')['value'] - 600) < 5, 10)
         h.require('history kept across sleep', bench('history', heavy, 'back')['items'], prior)
-        print('ok: a hand-slept tab wakes where it was', flush=True)
-
-        bench('press', 7, 'x', 'cmd', 'opt')
-        said('Tab asleep')
-        h.require('Sleep Tab key left the tab', row(heavy)['active'], False)
-        h.require('and slept it', row(heavy)['sleeping'], True)
-        print('PASS: Sleep Tab and Sleep Other Tabs by hand, refusals, wake')
+        print('PASS: Sleep Tab and Sleep Other Tabs by key, refusals with reasons, wake where it was')
 
 
 if __name__ == '__main__':
