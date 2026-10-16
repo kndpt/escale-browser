@@ -234,10 +234,10 @@ struct ContentView: View {
     private var bars: some View {
         VStack(spacing: 8) {
             announcement
-            if let ghost = browser.undoing, ghost.space == browser.spaceID {
-                UndoClose(ghost: ghost) { browser.undoClose() }
+            if let closing = browser.undoing, closing.space == browser.spaceID {
+                UndoClose(closing: closing) { browser.undoClose() }
                     // A second close starts the ring again.
-                    .id(ghost.id)
+                    .id(closing.id)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             if let ask = browser.asking {

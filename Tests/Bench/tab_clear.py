@@ -7,6 +7,12 @@ the Space on screen, lands on an awake tab that stays, and the second Space
 keeps its tab. A Space with only loose tabs is left with one blank tab, which
 Clear then has nothing to close in. That last Clear is a real click on the
 heading's button, at its place in a column with an empty shelf.
+
+Then Undo, in a third Space of fifteen tabs: after Clear, the line's button,
+pressed as VoiceOver presses it, and after Close Other Tabs, ⇧⌘T, each bring
+every tab back in its order with the one looked at selected and the only one
+loaded. Once the line has gone, so has Undo: ⇧⌘T reopens one tab. It does
+not cover the line's look, nor panels, which come back as separate tabs.
 """
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
@@ -33,6 +39,19 @@ def bench(*args):
 
 def urls():
     return sorted(t['url'].rsplit('/', 1)[-1] for t in h.tabs() if t['url'])
+
+
+def addresses():
+    return [t['url'] for t in h.tabs() if t['url']]
+
+
+def undone(what, order, looked):
+    h.until(f'{what} undone', lambda: addresses() == order, 10)
+    rows = h.tabs()
+    h.require(f'{what}: those tabs only', len(rows), len(order))
+    h.require(f'{what}: the tab looked at', next(t for t in rows if t['active'])['url'], looked)
+    h.require(f'{what}: only it loaded', [t['url'] for t in rows if t['view'] or not t['asleep']], [looked])
+    h.require(f'{what}: the line has gone', bench('undo')['label'], '')
 
 
 def main():
@@ -104,7 +123,33 @@ def main():
         h.require('nothing left to clear there', answer['clearable'], 0)
         bench('space', 'go', 1)
         h.require('first Space untouched by that', urls(), ['kept', 'pinned'])
-        print('PASS: Clear closes the loose tabs of the Space on screen only, keeps pins and bookmarks, lands on a tab or a blank one')
+
+        bench('space', 'new', 'Many')
+        bench('space', 'go', 3)
+        many = [h.open_ordinary(f'{origin}/many-{n}') for n in range(15)]
+        bench('select', many[4])
+        order = addresses()
+        bench('shelf', 'clear')
+        h.require('the line offers all fifteen', bench('undo')['count'], 15)
+        # Once SwiftUI has drawn the line.
+        h.until('VoiceOver finds its Undo', lambda: bench('undo')['button'] == bench('undo')['label'], 5)
+        h.require('pressed as VoiceOver does', bench('undo', 'press')['pressed'], True)
+        undone('Clear', order, f'{origin}/many-4')
+
+        rows = h.tabs()
+        bench('select', rows[7]['id'])
+        bench('ui', 'closeothers', 'on')
+        h.require('only the one kept', addresses(), [order[7]])
+        h.require('the line offers the others', bench('undo')['count'], 14)
+        bench('press', 17, 't', 'cmd', 'shift')
+        undone('Close Other Tabs', order, order[7])
+
+        bench('ui', 'closeothers', 'on')
+        h.until('the line goes, and Undo with it', lambda: [bench('undo')[k] for k in ('label', 'button')] == ['', None], 10)
+        bench('press', 17, 't', 'cmd', 'shift')
+        h.until('⇧⌘T then reopens one', lambda: len(addresses()) == 2, 10)
+        print('PASS: Clear closes the loose tabs of the Space on screen only, keeps pins and bookmarks, lands on a tab or a blank one; '
+              'Undo brings back Clear or Close Other Tabs whole, one page loaded, until the line goes')
 
 
 if __name__ == '__main__':

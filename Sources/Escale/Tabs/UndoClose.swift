@@ -4,12 +4,14 @@ import SwiftUI
 // message just sent. The ring empties over that time, so how long is left is
 // seen, not counted; with Reduce Motion it steps down once a second instead
 // of sliding. The tab itself is gone at once — its page stops, its memory
-// goes — and what comes back is its history (Tab.kept): Back still goes back
-// and the page opens where it was scrolled. ⌘⇧T does the same later.
+// goes — and what comes back is its history (Tab.carried): Back still goes
+// back and the page opens where it was scrolled. ⌘⇧T does the same later.
+// Clear and Close Other Tabs are offered back the same way, all at once: only
+// the tab that was looked at loads, the others wait until shown.
 
 /// The line at the bottom of the window just after a tab is closed.
 struct UndoClose: View {
-    let ghost: Browser.Ghost
+    let closing: Browser.Closing
     let undo: () -> Void
     @State private var left = 1.0
     @State private var shown = Date()
@@ -26,7 +28,7 @@ struct UndoClose: View {
                 } else {
                     ring(left)
                 }
-                Text(ghost.label)
+                Text(closing.label)
                     .font(.system(size: metrics.length(10.5)))
                     .foregroundStyle(Palette.muted)
                     .lineLimit(1)
@@ -43,8 +45,11 @@ struct UndoClose: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        // Read as "Undo", then what it brings back: the ring is only time.
+        .accessibilityLabel("Undo")
+        .accessibilityValue(closing.label)
         .glass(.chip, in: Capsule())
-        .help("Reopen the closed tab")
+        .help(closing.ghosts.count == 1 ? "Reopen the closed tab (⇧⌘T)" : "Reopen the closed tabs (⇧⌘T)")
         .onAppear {
             guard !reduceMotion else { return }
             withAnimation(.linear(duration: Motion.undoClose)) { left = 0 }
