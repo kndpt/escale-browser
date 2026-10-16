@@ -43,6 +43,10 @@ def run():
         h.require('AZERTY physical 1 selects first tab', active(), ids[0])
         press(19, 'é', 'cmd')
         h.require('AZERTY physical 2 selects second tab', active(), ids[1])
+        press(11, 'b', 'opt', 'cmd')
+        h.require('default Show Bookmarks key opens them', ask('probe')['bookmarks'], True)
+        press(11, 'b', 'opt', 'cmd')
+        h.require('default Show Bookmarks key closes them', ask('probe')['bookmarks'], False)
         first = ask('space')['current']
         ask('space', 'new', 'Second')
         ask('space', 'new', 'Third')
