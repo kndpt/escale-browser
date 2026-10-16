@@ -316,6 +316,13 @@ CHECKS = {
                      "Tests/Bench/calls.py",
                      "Tests/Bench/media_player.py", "Tests/Bench/fixtures/call/**"),
               foreground=True),
+        Check("transfer", ("python3", "Tests/Bench/transfer.py"),
+              BENCH + ("Tests/Bench/transfer.py",),
+              "one sealed file between isolated worlds: an empty Escale's first Space takes the file's first, a used one adds "
+              "every Space, the same file again adds nothing, refusals and failed writes change nothing",
+              "app", ("bundle",),
+              paths=("Sources/Escale/Transfer/**", "Sources/Escale/Spaces/Session.swift", "Sources/Escale/Bookmarks/Bookmarks.swift",
+                     "Sources/Escale/Passwords/Vault.swift")),
         Check("tab-source", ("python3", "Tests/Bench/tab_source.py"),
               BENCH + ("Tests/Bench/tab_source.py",),
               "closing a link-opened tab returns to its source; neighbour fallback otherwise",
@@ -394,7 +401,7 @@ def plan(paths, risks=(), checks=(), quick=False, acknowledge=None):
     # Dependencies are small and explicit; no scoring or model-specific workflow.
     order = ["icons", "harness", "portable", "links", "whitespace", "changelog", "build", "swift",
              "bundle", "app", "wake", "sleeping", "tabs", "closed-tabs", "shortcut-motion", "sidebar-rows", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus",
-             "routes", "tab-source", "environments", "bookmarked-page", "inspector", "calls", "calls-browse", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "welcome-extensions", "space-media", "space-reorder", "call-float", "warnings"]
+             "routes", "tab-source", "environments", "bookmarked-page", "inspector", "calls", "calls-browse", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "welcome-extensions", "space-media", "space-reorder", "call-float", "transfer", "warnings"]
     return {"checks": [n for n in order if n in chosen], "reasons": chosen,
             "risks": list(risks), "requested": list(checks),
             "unknown": unknown, "acknowledge": acknowledge, "quick": quick,
