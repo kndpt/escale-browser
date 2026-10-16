@@ -38,6 +38,32 @@ import WebKit
         #expect(try tab(address, history: history).carried == nil)
     }
 
+    private let c = URL(string: "http://127.0.0.1:8080/c")
+    private let d = URL(string: "http://127.0.0.1:8080/d")
+    private let fresh = Data(repeating: 9, count: 1024)
+
+    @Test(arguments: [true, false])
+    func aRestingTabCarriesWhatItKept(hasView: Bool) {
+        // Asleep (no view), or waking before its view has a page.
+        let kept = Tab.history(resting: true, memory: history, current: hasView ? nil : c, address: c) { fresh }
+        #expect(kept as? Data == history)
+    }
+
+    @Test func anAwakeTabCarriesItsViewNotAStaleWake() {
+        // A wake cancelled before the page took `memory` leaves it set.
+        let kept = Tab.history(resting: false, memory: history, current: c, address: c) { fresh }
+        #expect(kept as? Data == fresh)
+    }
+
+    @Test func aTabSentElsewhereCarriesNothingUntilThePageCommits() {
+        // Still loading D, or failed to: the list is still on C.
+        var asked = false
+        let kept = Tab.history(resting: false, memory: nil, current: c, address: d) { asked = true; return fresh }
+        #expect(kept == nil)
+        #expect(!asked)
+        #expect(Tab.history(resting: false, memory: nil, current: nil, address: d) { fresh } == nil)
+    }
+
     @Test func aClosedTabKeepsALightHistory() {
         let edge = Data(count: Browser.Ghost.heaviest)
         #expect(Browser.Ghost.weighed(edge) as? Data == edge)

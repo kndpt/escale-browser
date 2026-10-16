@@ -930,11 +930,23 @@ final class Tab: ObservableObject, Identifiable {
     /// another Space, a reopen. It holds what each page left in it — scroll,
     /// form values, `history.state` — and none of the store, so a move to
     /// another Space's store keeps Back without carrying a cookie. A private
-    /// tab's and an extension page's stay behind (#60). A tab still waking
-    /// holds it in `memory`: its view has nothing in it yet.
+    /// tab's and an extension page's stay behind (#60).
     var carried: Any? {
         guard !shy, address.flatMap(Browser.extensionHost) == nil else { return nil }
-        return memory ?? built?.interactionState
+        return Tab.history(resting: built == nil || waking, memory: memory,
+                           current: built?.backForwardList.currentItem?.url, address: address) { built?.interactionState }
+    }
+
+    /// `carried` as a rule. Asleep, or waking before its view has anything
+    /// in it, a tab has only `memory`; once the view has its page, `memory`
+    /// is stale even when a cancelled wake left it set. The view's history
+    /// counts only while its current page is `address`: a load still on its
+    /// way, or failed, leaves the list on the page before, and a copy of it
+    /// would go back there instead of where the tab was sent.
+    static func history(resting: Bool, memory: Any?, current: URL?, address: URL?, state: () -> Any?) -> Any? {
+        if resting { return memory }
+        guard let current, current == address else { return nil }
+        return state()
     }
 
     /// True for a tab that has a place and an address but is holding no page —
@@ -1204,7 +1216,7 @@ final class Tab: ObservableObject, Identifiable {
         typing = false
         immersed = false
         // `memory` stays until the page takes it (`load`), so a tab copied,
-        // moved or closed in that moment still has its history.
+        // moved or closed while `waking` still has its history.
         let state = memory
         if let picture, let image = NSImage(data: picture) {
             cover = image

@@ -3,9 +3,10 @@
 
 A → B → C in a tab, then ⌘D, ⌘W with ⌘⇧T, a move to another Space (awake,
 then asleep), Clear with ⌘⇧T while its Undo shows: each new tab's back list
-is B, A and ⌘[ lands on B. The Spaces
-have their own WebKit stores, so the move also restores the history into
-another store. A private tab's copy starts with no history, as before.
+is B, A and ⌘[ lands on B. The Spaces have their own WebKit stores, so the
+move also restores the history into another store. A copy of a tab whose
+last load failed goes to that address, not back to C; a private tab's copy
+starts with no history, as before.
 
 Run after ./build.sh debug. Keys go through the app's own dispatch, not the
 Mac's keyboard. Not covered: a copy made while its source is still waking.
@@ -13,6 +14,7 @@ Mac's keyboard. Not covered: a copy made while its source is still waking.
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 import json
+import socket
 import suite as h
 
 
@@ -84,6 +86,22 @@ def main():
         h.require('original keeps its history', back(source), urls[1::-1])
         h.require('original stays at C', next(t for t in h.tabs() if t['id'] == source)['url'], urls[2])
         print('ok: ⌘D', flush=True)
+
+        # Sent somewhere that fails, the tab names that address while its
+        # list is still on C: the copy goes to the address, without a list.
+        source, urls = visit('failed')
+        # A port just let go of refuses; a low one would be blocked by WebKit
+        # as restricted rather than fail.
+        with socket.socket() as spare:
+            spare.bind(('127.0.0.1', 0))
+            refused = f'http://127.0.0.1:{spare.getsockname()[1]}/refused'
+        bench('field', refused, 'go')
+        h.until('load failed', lambda: active().get('failure') and active()['url'] == refused)
+        bench('press', '2', 'd', 'cmd')
+        copy = h.wait_for('copy of a failed load', lambda: other(source), {'new': True, 'url': refused})
+        h.require('copy goes where the tab was sent, not back to C', copy['url'], refused)
+        h.require('copy of a failed load carries no list', back(copy['id']), [])
+        print('ok: ⌘D after a failed load', flush=True)
 
         source, urls = visit('reopen')
         bench('press', '13', 'w', 'cmd')
