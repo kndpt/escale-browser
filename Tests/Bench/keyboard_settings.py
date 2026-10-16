@@ -43,6 +43,10 @@ def run():
         h.require('AZERTY physical 1 selects first tab', active(), ids[0])
         press(19, 'é', 'cmd')
         h.require('AZERTY physical 2 selects second tab', active(), ids[1])
+        press(44, '/', 'cmd')
+        h.require('⌘/ opens the shortcut chart', ask('probe')['keyChart'], True)
+        press(53, '\x1b')
+        h.require('Escape closes the shortcut chart', ask('probe')['keyChart'], False)
         first = ask('space')['current']
         ask('space', 'new', 'Second')
         ask('space', 'new', 'Third')
@@ -110,6 +114,11 @@ def run():
             h.ask('key', id=restored, text='draft')
             h.ask('key', id=restored, text='kept')
             h.require('ordinary typing intact', h.ask('eval', id=restored, js="document.querySelector('#draft').value")['value'], 'draftkept')
+            # A web code editor keeps ⌘/ for commenting a line.
+            h.ask('eval', id=restored, js="document.querySelector('#draft').onkeydown = e => { if (e.metaKey && e.key === '/') { e.preventDefault(); e.target.dataset.slash = 'yes'; } }; void 0")
+            press(44, '/', 'cmd')
+            h.wait_for('⌘/ reaches a field on the page', lambda: {'slash': h.ask('eval', id=restored, js="document.querySelector('#draft').dataset.slash || ''")['value']}, {'slash': 'yes'}, 5)
+            h.require('⌘/ while typing leaves the chart closed', ask('probe')['keyChart'], False)
             # Web editors own their formatting commands; the app must deliver the keys
             # despite a profile that previously bound them to browser commands.
             for code, key, formatting in [(11, 'b', 'bold'), (34, 'i', 'italic'), (32, 'u', 'underline')]:

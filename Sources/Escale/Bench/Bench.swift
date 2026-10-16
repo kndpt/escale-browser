@@ -697,6 +697,7 @@ final class Bench {
                 "welcome": browser.welcoming,
                 "passwords": browser.managing,
                 "history": browser.recalling,
+                "keyChart": browser.listingKeys,
                 "downloads": browser.hoarding,
                 "keptDownloads": browser.loot.kept.map(\.name),
                 "handedDownloads": Loot.handed,

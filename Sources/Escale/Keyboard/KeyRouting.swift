@@ -27,7 +27,10 @@ import SwiftUI
         }
         if browser.veiling, stroke == KeyStroke("z", .command) { browser.undoHiding(); return true }
         if typing, stroke.flags == .command, ["left", "right"].contains(stroke.key) { return false }
-        guard let action = browser.prefs.keyBindings.action(for: stroke) else {
+        let action = browser.prefs.keyBindings.action(for: stroke)
+        // Web code editors comment a line with ⌘/; the chart waits for the page.
+        if action == .shortcuts, browser.active?.typing == true, !browser.editing, !(event.window?.firstResponder is NSTextView) { return false }
+        guard let action else {
             if #available(macOS 15.4, *), !stroke.flags.intersection([.command, .control, .option]).isEmpty {
                 if Extensions.shared.take(event) { return true }
             }
@@ -175,6 +178,7 @@ extension Browser {
         case .passwords: managing.toggle()
         case .welcome: welcoming = true
         case .feedback: Links.writeFeedback()
+        case .shortcuts: tuning = false; listingKeys.toggle()
         default: break // Numbered destinations were handled above.
         }
     }
