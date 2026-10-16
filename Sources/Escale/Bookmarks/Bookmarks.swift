@@ -296,9 +296,9 @@ final class Bookmarks: ObservableObject {
     }
 
     /// New bookmark identities keep the copy independent of its source even
-    /// when an extension remembers a bookmark ID.
+    /// when an extension remembers a bookmark ID. The first Space's only when
+    /// an import fills it (TransferApply.swift).
     static func copy(_ roots: [Bookmark], to space: UUID, identities: [UUID: UUID] = [:]) -> Bool {
-        guard space != Space.firstID else { return false }
         func fresh(_ nodes: [Bookmark]) -> [Bookmark] {
             nodes.map { node in
                 var made = node

@@ -153,8 +153,9 @@ launch() {
   rm -f "$socket"
   # ESCALE_BACKGROUND=1: opened behind whatever is in front, without taking
   # the keyboard from it — for scenarios run beside others or beside you.
+  # The app is told too: -g alone does not always keep it there (Links.swift).
   local behind=()
-  [ -n "${ESCALE_BACKGROUND:-}" ] && behind=(-g)
+  [ -n "${ESCALE_BACKGROUND:-}" ] && behind=(-g --env ESCALE_BACKGROUND=1)
   open -n ${behind[@]+"${behind[@]}"} "${env[@]}" "$COPY"
   # Up, and still up a second later: a run Escale refuses exits at once.
   # Refusal comes before the bench listens, so its socket says it sooner.

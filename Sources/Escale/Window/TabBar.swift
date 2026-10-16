@@ -275,6 +275,8 @@ struct TabBar: View {
             }
             .frame(height: metrics.strip)
             .allowsHitTesting(false)
+            // Nor for VoiceOver: pressed, it would select a tab of a parked space.
+            .accessibilityHidden(true)
         }
     }
 
@@ -551,8 +553,10 @@ private struct TabPill: View {
         })
         .overlay { MiddleClick(act: close) }
         .onHover { hovering = $0 }
+        .modifier(TabAccess(browser: browser, tab: tab, live: live, pinned: tab.pin != nil,
+                            editing: editing || lettering, closes: closes,
+                            ordinary: pinned || compact ? tab.label : ""))
         .contextMenu { TabMenu(browser: browser, tab: tab) }
-        .modifier(SleepHint(tab: tab, ordinary: pinned || compact ? tab.label : ""))
         .animation(Motion.glide, value: editing)
         .animation(Motion.glide, value: tab.pin)
         .onChange(of: refusals) { _, _ in
