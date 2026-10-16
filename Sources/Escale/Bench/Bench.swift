@@ -48,15 +48,25 @@ final class Bench {
         return codes[Character(character.lowercased())] ?? 49
     }
 
-    /// The button accessibility finds under `label`, as VoiceOver reaches it.
-    /// Pages are not walked: only the window's own controls.
-    static func accessible(button label: String, in element: Any?, depth: Int = 0) -> NSAccessibilityProtocol? {
-        guard let element = element as? NSAccessibilityProtocol, depth < 64, !(element is WKWebView) else { return nil }
-        if element.accessibilityRole() == .button, element.accessibilityLabel() == label { return element }
-        for child in element.accessibilityChildren() ?? [] {
+    /// The button the accessibility API finds under `label`, as VoiceOver
+    /// reaches it. Through the API, not the views: SwiftUI builds its
+    /// accessibility only for a client that asks. Pages are not walked.
+    static func accessible(button label: String, in element: AXUIElement = AXUIElementCreateApplication(getpid()),
+                           depth: Int = 0) -> AXUIElement? {
+        guard depth < 40 else { return nil }
+        if depth == 0 { AXUIElementSetMessagingTimeout(element, 1) }
+        if Bench.ax(element, kAXRoleAttribute) as? String == kAXButtonRole,
+           Bench.ax(element, kAXDescriptionAttribute) as? String == label { return element }
+        guard Bench.ax(element, kAXRoleAttribute) as? String != "AXWebArea" else { return nil }
+        for child in Bench.ax(element, kAXChildrenAttribute) as? [AXUIElement] ?? [] {
             if let found = accessible(button: label, in: child, depth: depth + 1) { return found }
         }
         return nil
+    }
+
+    static func ax(_ element: AXUIElement, _ attribute: String) -> CFTypeRef? {
+        var value: CFTypeRef?
+        return AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success ? value : nil
     }
 
     /// Where the traffic lights are: each one's left edge and its centre's
@@ -271,10 +281,11 @@ final class Bench {
             // The line offering closed tabs back in this Space, and its button
             // as VoiceOver reaches it; "press": pressed the way VoiceOver does.
             let closing = browser.undoing?.space == browser.spaceID ? browser.undoing : nil
-            let button = Bench.accessible(button: "Undo", in: Links.window?.contentView)
-            let pressed = request["press"] as? Bool == true && Store.testing && button?.accessibilityPerformPress() == true
+            let button = Bench.accessible(button: "Undo")
+            let pressed = request["press"] as? Bool == true && Store.testing
+                && button.map { AXUIElementPerformAction($0, kAXPressAction as CFString) == .success } == true
             answer(["label": closing?.label ?? "", "count": closing?.ghosts.count ?? 0, "pressed": pressed,
-                    "button": button.map { $0.accessibilityValue() as? String ?? "" } as Any? ?? NSNull()])
+                    "button": button.map { Bench.ax($0, kAXValueAttribute) as? String ?? "" } as Any? ?? NSNull()])
 
         case "media":
             guard Store.testing else { answer(["error": "only in a test run"]); return }

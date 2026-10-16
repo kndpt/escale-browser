@@ -41,12 +41,12 @@ def urls():
     return sorted(t['url'].rsplit('/', 1)[-1] for t in h.tabs() if t['url'])
 
 
-def row():
+def addresses():
     return [t['url'] for t in h.tabs() if t['url']]
 
 
 def undone(what, order, looked):
-    h.until(f'{what} undone', lambda: row() == order, 10)
+    h.until(f'{what} undone', lambda: addresses() == order, 10)
     rows = h.tabs()
     h.require(f'{what}: those tabs only', len(rows), len(order))
     h.require(f'{what}: the tab looked at', next(t for t in rows if t['active'])['url'], looked)
@@ -128,18 +128,18 @@ def main():
         bench('space', 'go', 3)
         many = [h.open_ordinary(f'{origin}/many-{n}') for n in range(15)]
         bench('select', many[4])
-        order = row()
+        order = addresses()
         bench('shelf', 'clear')
-        line = bench('undo')
-        h.require('the line offers all fifteen', line['count'], 15)
-        h.require('VoiceOver finds its Undo', line['button'], line['label'])
+        h.require('the line offers all fifteen', bench('undo')['count'], 15)
+        # Once SwiftUI has drawn the line.
+        h.until('VoiceOver finds its Undo', lambda: bench('undo')['button'] == bench('undo')['label'], 5)
         h.require('pressed as VoiceOver does', bench('undo', 'press')['pressed'], True)
         undone('Clear', order, f'{origin}/many-4')
 
         rows = h.tabs()
         bench('select', rows[7]['id'])
         bench('ui', 'closeothers', 'on')
-        h.require('only the one kept', row(), [order[7]])
+        h.require('only the one kept', addresses(), [order[7]])
         h.require('the line offers the others', bench('undo')['count'], 14)
         bench('press', 17, 't', 'cmd', 'shift')
         undone('Close Other Tabs', order, order[7])
@@ -147,7 +147,7 @@ def main():
         bench('ui', 'closeothers', 'on')
         h.until('the line goes, and Undo with it', lambda: [bench('undo')[k] for k in ('label', 'button')] == ['', None], 10)
         bench('press', 17, 't', 'cmd', 'shift')
-        h.until('⇧⌘T then reopens one', lambda: len(row()) == 2, 10)
+        h.until('⇧⌘T then reopens one', lambda: len(addresses()) == 2, 10)
         print('PASS: Clear closes the loose tabs of the Space on screen only, keeps pins and bookmarks, lands on a tab or a blank one; '
               'Undo brings back Clear or Close Other Tabs whole, one page loaded, until the line goes')
 
