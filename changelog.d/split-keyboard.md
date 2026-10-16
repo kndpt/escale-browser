@@ -1,0 +1,1 @@
+The Tabs menu has Next Panel, Previous Panel, Swap with Next Panel, Move Out of Split and Separate Split, so a split view can be worked from the keyboard once you give them shortcuts in Settings; they are disabled when no split is on screen (#53).

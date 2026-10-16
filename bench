@@ -2,8 +2,9 @@
 """Drive the Escale you already have open, from the shell.
 
     ./bench tabs                       every tab, yours and the bench's; JSON includes covered/returning/unpainted
-    ./bench panels [add ID TARGET left|right|top|bottom | separate|remove|turn|reverse|close|tools ID]
-                                       test world: groups, preview, entry/page frames and existing page identity
+    ./bench panels [add ID TARGET left|right|top|bottom | separate|remove|turn|reverse|close|tools ID | menu TITLE]
+                                       test world: groups, preview, entry/page frames and existing page identity;
+                                       menu: a Tabs menu item's state and key, chosen when it is enabled
     ./bench transfer [save PATH PASSPHRASE [passwords]|choose PATH|unlock PASSPHRASE|apply [preferences]|open|logins SPACE|cancel|forget|fail STEPS…]
                                        test world: save Escale to one file, or bring one in (files, spaces fail as a full disk would)
     ./bench migration [open|choose PATH [BROWSER folder]|select N|destination N|categories NAMES|preview|confirm|cancel|reset]
@@ -209,7 +210,9 @@ def main(argv, out=None, err=None, timeout=None, cwd=None):
             request.update(action="add", id=args[1], target=args[2], edge=args[3])
         elif len(args) == 2 and args[0] in ("separate", "remove", "turn", "reverse", "close", "tools"):
             request.update(action=args[0], id=args[1])
-        else: sys.exit("usage: bench panels [add ID TARGET left|right|top|bottom | separate|remove|turn|reverse|close|tools ID]")
+        elif len(args) == 2 and args[0] == "menu":
+            request.update(action="menu", title=args[1])
+        else: sys.exit("usage: bench panels [add ID TARGET left|right|top|bottom | separate|remove|turn|reverse|close|tools ID | menu TITLE]")
     elif verb == "idle":
         if len(args) > 1: sys.exit("usage: bench idle [SECONDS|warning|critical]")
         if args and args[0] in ("warning", "critical"): request["level"] = args[0]
