@@ -4,8 +4,8 @@ import SwiftUI
 // message just sent. The ring empties over that time, so how long is left is
 // seen, not counted; with Reduce Motion it steps down once a second instead
 // of sliding. The tab itself is gone at once — its page stops, its memory
-// goes — and what comes back is its history (Tab.kept): Back still goes back
-// and the page opens where it was scrolled. ⌘⇧T does the same later.
+// goes — and what comes back is its history (Tab.carried): Back still goes
+// back and the page opens where it was scrolled. ⌘⇧T does the same later.
 // Clear and Close Other Tabs are offered back the same way, all at once: only
 // the tab that was looked at loads, the others wait until shown.
 
