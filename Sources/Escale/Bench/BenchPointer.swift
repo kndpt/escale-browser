@@ -39,7 +39,15 @@ enum BenchPointer {
             guard let menu, let index = request["index"] as? Int, menu.items.indices.contains(index), menu.items[index].isEnabled else {
                 answer(["error": "no enabled native menu item at that index"]); return
             }
-            menu.performActionForItem(at: index)
+            // SUB: an item of that item's submenu, as a hand would take it.
+            if let sub = request["sub"] as? Int {
+                guard let submenu = menu.items[index].submenu, submenu.items.indices.contains(sub), submenu.items[sub].isEnabled else {
+                    answer(["error": "no enabled item at that place in the submenu"]); return
+                }
+                submenu.performActionForItem(at: sub)
+            } else {
+                menu.performActionForItem(at: index)
+            }
             menu.cancelTracking()
             closed(answer)
             return
@@ -127,6 +135,7 @@ enum BenchPointer {
          "tracking": menu != nil, "items": menu?.items.map {
             var row: [String: Any] = ["title": $0.title, "enabled": $0.isEnabled]
             if #available(macOS 14.4, *) { row["subtitle"] = $0.subtitle ?? "" }
+            if let submenu = $0.submenu { row["submenu"] = submenu.items.map { $0.isSeparatorItem ? "—" : $0.title } }
             return row
         } ?? []]
     }

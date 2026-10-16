@@ -55,6 +55,8 @@ extension Browser {
             let at = spaces.firstIndex { $0.id == spaceID } ?? 0
             return prefs.usesSpaces && spaces.indices.contains(at + (action == .moveSpaceUp ? -1 : 1))
         case .deleteSpace: return prefs.usesSpaces && !space.isFirst
+        case .moveTabToPreviousSpace: return neighbourSpace(by: -1) != nil
+        case .moveTabToNextSpace: return neighbourSpace(by: 1) != nil
         case .reopenTab: return !ghosts.isEmpty
         case .back: return active?.canGoBack == true
         case .forward: return active?.canGoForward == true
@@ -97,6 +99,8 @@ extension Browser {
         case .changeLetter: if let tab = active { editLetter(tab) }
         case .closeOthers: if let tab = active { closeOthers(but: tab) }
         case .clearTabs: clearTabs()
+        case .moveTabToPreviousSpace, .moveTabToNextSpace:
+            if let tab = active, let to = neighbourSpace(by: action == .moveTabToNextSpace ? 1 : -1) { send(tab, to: to) }
         case .splitRight: chooseSplit(.right)
         case .splitLeft: chooseSplit(.left)
         case .splitTop: chooseSplit(.top)

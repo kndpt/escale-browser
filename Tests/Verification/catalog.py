@@ -304,6 +304,14 @@ CHECKS = {
               paths=("Sources/Escale/Spaces/Spaces.swift", "Sources/Escale/Spaces/SpaceReorder.swift",
                      "Sources/Escale/App/App.swift", "Tests/EscaleTests/SpaceRailTests.swift"),
               foreground=True),
+        Check("space-send", ("python3", "Tests/Bench/space_send.py"),
+              BENCH + ("Tests/Bench/space_send.py",),
+              "a regular, pinned and private tab moved by its menu and the keys in both layouts; refusal, Spaces off, relaunch",
+              "app", ("bundle",),
+              paths=("Sources/Escale/Spaces/MoveToSpace.swift", "Sources/Escale/Window/TabBar.swift",
+                     "Sources/Escale/Keyboard/KeyRouting.swift", "Sources/Escale/Keyboard/KeyMenus.swift",
+                     "Sources/Escale/Bench/BenchPointer.swift", "Tests/EscaleTests/MoveToSpaceTests.swift"),
+              foreground=True),
         Check("call-float", ("python3", "Tests/Bench/call_float.py"),
               BENCH + ("Tests/Bench/call_float.py", "Tests/Bench/calls.py", "Tests/Bench/media_player.py",
                        "Tests/Bench/fixtures/call/**"),
@@ -394,7 +402,7 @@ def plan(paths, risks=(), checks=(), quick=False, acknowledge=None):
     # Dependencies are small and explicit; no scoring or model-specific workflow.
     order = ["icons", "harness", "portable", "links", "whitespace", "changelog", "build", "swift",
              "bundle", "app", "wake", "sleeping", "tabs", "closed-tabs", "shortcut-motion", "sidebar-rows", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus",
-             "routes", "tab-source", "environments", "bookmarked-page", "inspector", "calls", "calls-browse", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "welcome-extensions", "space-media", "space-reorder", "call-float", "warnings"]
+             "routes", "tab-source", "environments", "bookmarked-page", "inspector", "calls", "calls-browse", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "welcome-extensions", "space-media", "space-reorder", "space-send", "call-float", "warnings"]
     return {"checks": [n for n in order if n in chosen], "reasons": chosen,
             "risks": list(risks), "requested": list(checks),
             "unknown": unknown, "acknowledge": acknowledge, "quick": quick,

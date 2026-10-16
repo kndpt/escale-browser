@@ -849,6 +849,7 @@ struct TabMenu: View {
         } label: { Label("Copy Link", systemImage: "link") }
         .disabled(tab.isBlank)
         LinkRouteMenu(browser: browser, address: tab.address, space: tab.space)
+        MoveToSpaceMenu(browser: browser, tab: tab)
         Divider()
         if tab.pin != nil {
             Button { browser.close(tab) } label: { Label("Close Tab", systemImage: "xmark") }
