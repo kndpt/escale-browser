@@ -67,6 +67,9 @@ extension Browser {
         case .changeLetter: return active?.pin != nil
         case .closeOthers: return tabs.count > 1
         case .clearTabs: return !clearableTabs().isEmpty
+        // A pin stays awake: leaving it only to be told so would be a detour.
+        case .sleepTab: return active.map { $0.pin == nil && !$0.isBlank && landing(leaving: $0) != nil } ?? false
+        case .sleepOthers: return active.map { !sleepers(but: $0).isEmpty } ?? false
         case .resetSite: return ["http", "https"].contains(active?.address?.scheme?.lowercased() ?? "")
         default: return true
         }
@@ -97,6 +100,8 @@ extension Browser {
         case .changeLetter: if let tab = active { editLetter(tab) }
         case .closeOthers: if let tab = active { closeOthers(but: tab) }
         case .clearTabs: clearTabs()
+        case .sleepTab: sleepActive()
+        case .sleepOthers: if let tab = active { sleepOthers(but: tab) }
         case .splitRight: chooseSplit(.right)
         case .splitLeft: chooseSplit(.left)
         case .splitTop: chooseSplit(.top)

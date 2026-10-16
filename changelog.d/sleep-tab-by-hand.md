@@ -1,0 +1,1 @@
+A heavy page can be put to sleep without waiting: Sleep Tab in the menu of a tab that isn't on screen, and Sleep Other Tabs in the Tabs menu and a tab's menu, both in the shortcut settings without a key; pinned tabs, sound, calls, downloads and unsent text stay awake, and Escale says why (#56).
