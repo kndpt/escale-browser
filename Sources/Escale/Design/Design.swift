@@ -935,6 +935,9 @@ enum Motion {
     static let shortcutMultiplier = 3.0
     /// Keep the old page briefly; slow returns then show a neutral status.
     static let returnPreviewLifetime: TimeInterval = 4
+    /// A local page refused by its server looks for it this often, this long.
+    static let serverCheck: TimeInterval = 2
+    static let serverPatience: TimeInterval = 600
     /// Fade the retained preview over an already opaque page, then release it.
     static let returnReveal = Animation.easeOut(duration: 0.22)
     static let pageRevealDuration: TimeInterval = 0.12

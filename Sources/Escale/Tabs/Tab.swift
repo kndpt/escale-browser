@@ -221,10 +221,12 @@ final class Tab: ObservableObject, Identifiable {
     /// Set when the page never arrived — no host, no network, a refused
     /// connection. Shown in place of the page rather than in a dialog.
     @Published var failure: String? {
-        didSet { if failure == nil { failedAddress = nil; failedCode = nil } }
+        didSet { if failure == nil { failedAddress = nil; failedCode = nil; waitsForServer = false } }
     }
     /// WebKit's domain and code for it, for the one who needs to look it up.
     private(set) var failedCode: String?
+    /// Refused by this Mac: the page comes back once its server listens (Failure.swift).
+    private(set) var waitsForServer = false
     /// Where the load that failed was going. WebKit's own `url` goes back to
     /// the page before it, which is still what the view holds; the tab keeps
     /// naming the place it was sent to, and Retry goes there.
@@ -882,9 +884,10 @@ final class Tab: ObservableObject, Identifiable {
 
     /// A load that never arrived. The tab keeps the address it was sent to,
     /// with the reason, instead of falling back to the page before it.
-    func failed(_ message: String, code: String? = nil, at url: URL?) {
+    func failed(_ message: String, code: String? = nil, waits: Bool = false, at url: URL?) {
         formsReady = false
         failedCode = code
+        waitsForServer = waits
         failure = message
         guard let url else { return }
         failedAddress = url
