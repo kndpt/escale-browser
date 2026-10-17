@@ -322,6 +322,8 @@ private struct Trouble: View {
                 try? await Task.sleep(for: .seconds(Motion.serverCheck))
                 guard !Task.isCancelled else { return }
                 let listening = await Task.detached(priority: .utility) { Listening.read() }.value
+                // The tab may have gone while the table was read.
+                guard !Task.isCancelled else { return }
                 if Failure.listened(address, in: listening) { retry(); return }
             }
         }
