@@ -2386,24 +2386,8 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             return
         }
         tab(for: webView)?.uncover()
-        tab(for: webView)?.failed(message(for: code), at: nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL)
-    }
-
-    private func message(for code: Int) -> String {
-        switch code {
-        case NSURLErrorCannotFindHost, NSURLErrorDNSLookupFailed:
-            return "No site at that address."
-        case NSURLErrorNotConnectedToInternet, NSURLErrorNetworkConnectionLost:
-            return "No connection."
-        case NSURLErrorTimedOut:
-            return "The site took too long to answer."
-        case NSURLErrorCannotConnectToHost:
-            return "The site refused the connection."
-        case NSURLErrorSecureConnectionFailed, NSURLErrorServerCertificateUntrusted:
-            return "The connection isn't secure."
-        default:
-            return "The page didn't load."
-        }
+        tab(for: webView)?.failed(Failure.message(code: code), code: "\(nsError.domain) \(code)",
+                                  at: nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL)
     }
 
     /// The tab a page belongs to, in whichever space: a parked space's pages
