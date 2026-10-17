@@ -1273,7 +1273,14 @@ final class Tab: ObservableObject, Identifiable {
     /// Straight through, every time. A page that has to be fetched again is
     /// fetched again — nothing is kept behind to make that look otherwise.
     func back() {
-        if holdsPageBehind { arrived(); return }
+        if holdsPageBehind {
+            // The failed load had already cleared the title and set its own
+            // zoom; the page shown again keeps neither.
+            arrived()
+            title = built?.title ?? ""
+            applyRememberedZoom()
+            return
+        }
         uncover()
         advanceGeneration()
         web.goBack()
