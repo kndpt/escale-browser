@@ -67,6 +67,7 @@ def run():
         s.require('back offered over the page before', tab['backFromFailure'], True)
         bench('press', '33', '[', 'cmd')
         s.until('back to the page before', lambda: active()['url'] == base + '/before' and 'failure' not in active(), 10)
+        s.require('the page before keeps its title', active()['title'], 'Suite before')
         tab = fails('http://nowhere.invalid/')
         s.require('missing host message', tab['failure'], 'No site at that address.')
         s.require('missing host code', tab['failedCode'], 'NSURLErrorDomain -1003')
