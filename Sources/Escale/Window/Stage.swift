@@ -87,7 +87,7 @@ struct Page: View {
             }
 
             if let failure = tab.failure {
-                Trouble(message: failure, address: tab.failedAddress, code: tab.failedCode,
+                Trouble(message: failure, address: tab.failedAddress, code: tab.failedCode, waits: tab.waitsForServer,
                         back: tab.holdsPageBehind || tab.canGoBack ? { tab.back() } : nil) { tab.reload() }
                     .transition(.opacity)
             }
@@ -279,6 +279,7 @@ private struct Trouble: View {
     let message: String
     let address: URL?
     let code: String?
+    let waits: Bool
     let back: (() -> Void)?
     let retry: () -> Void
 
@@ -313,6 +314,17 @@ private struct Trouble: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Palette.ground)
+        // Only while this page is on screen: the task ends with the view.
+        .task(id: waits ? address : nil) {
+            guard waits, let address else { return }
+            let end = Date().addingTimeInterval(Motion.serverPatience)
+            while Date() < end {
+                try? await Task.sleep(for: .seconds(Motion.serverCheck))
+                guard !Task.isCancelled else { return }
+                let listening = await Task.detached(priority: .utility) { Listening.read() }.value
+                if Failure.listened(address, in: listening) { retry(); return }
+            }
+        }
     }
 }
 
