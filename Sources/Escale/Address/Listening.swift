@@ -32,7 +32,9 @@ struct Listening: Equatable {
 
     /// Keeps a listening socket's address as the families it is reachable on.
     mutating func add(port: UInt16, v4Bound: UInt32?, v6Bound: [UInt8]?, dual: Bool) {
-        if let v4Bound, v4Bound == 0 || v4Bound & 0xFF == 127 { v4.insert(port) }
+        // 127.0.0.1 itself, not another 127.x: a server there does not answer
+        // at 127.0.0.1, and a page waiting for it would reload in vain.
+        if let v4Bound, v4Bound == 0 || v4Bound == UInt32(0x7F00_0001).bigEndian { v4.insert(port) }
         guard let v6Bound else { return }
         let any = v6Bound.allSatisfy { $0 == 0 }
         let loopback = v6Bound.dropLast().allSatisfy { $0 == 0 } && v6Bound.last == 1

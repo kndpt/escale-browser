@@ -2386,8 +2386,9 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             return
         }
         tab(for: webView)?.uncover()
-        tab(for: webView)?.failed(Failure.message(code: code), code: "\(nsError.domain) \(code)",
-                                  at: nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL)
+        let url = nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL
+        tab(for: webView)?.failed(Failure.message(code: code, at: url), code: "\(nsError.domain) \(code)",
+                                  waits: Failure.waits(code: code, at: url), at: url)
     }
 
     /// The tab a page belongs to, in whichever space: a parked space's pages
