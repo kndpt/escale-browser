@@ -223,8 +223,10 @@ final class Tab: ObservableObject, Identifiable {
     /// Set when the page never arrived — no host, no network, a refused
     /// connection. Shown in place of the page rather than in a dialog.
     @Published var failure: String? {
-        didSet { if failure == nil { failedAddress = nil } }
+        didSet { if failure == nil { failedAddress = nil; failedCode = nil } }
     }
+    /// WebKit's domain and code for it, for the one who needs to look it up.
+    private(set) var failedCode: String?
     /// Where the load that failed was going. WebKit's own `url` goes back to
     /// the page before it, which is still what the view holds; the tab keeps
     /// naming the place it was sent to, and Retry goes there.
@@ -926,12 +928,20 @@ final class Tab: ObservableObject, Identifiable {
 
     /// A load that never arrived. The tab keeps the address it was sent to,
     /// with the reason, instead of falling back to the page before it.
-    func failed(_ message: String, at url: URL?) {
+    func failed(_ message: String, code: String? = nil, at url: URL?) {
         formsReady = false
+        failedCode = code
         failure = message
         guard let url else { return }
         failedAddress = url
         if address != url { address = url; adoptIcon() }
+    }
+
+    /// A failed load leaves the view on the page before it: Back is that
+    /// page, not the one before it, unless the failure was its own reload.
+    var holdsPageBehind: Bool {
+        guard failure != nil, let shown = built?.url, shown.absoluteString != "about:blank" else { return false }
+        return shown != failedAddress
     }
 
     func go(to url: URL) {
@@ -1337,6 +1347,7 @@ final class Tab: ObservableObject, Identifiable {
     /// Straight through, every time. A page that has to be fetched again is
     /// fetched again — nothing is kept behind to make that look otherwise.
     func back() {
+        if holdsPageBehind { arrived(); return }
         uncover()
         advanceGeneration()
         web.goBack()
