@@ -58,7 +58,7 @@ extension Browser {
         case .moveTabToPreviousSpace: return neighbourSpace(by: -1) != nil
         case .moveTabToNextSpace: return neighbourSpace(by: 1) != nil
         case .reopenTab: return !ghosts.isEmpty
-        case .back: return active?.canGoBack == true
+        case .back: return active?.canGoBack == true || active?.holdsPageBehind == true
         case .forward: return active?.canGoForward == true
         case .stopLoading: return active?.loading == true
         case .findNext, .findPrevious: return finding

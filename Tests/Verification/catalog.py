@@ -185,6 +185,11 @@ CHECKS = {
               "app", ("bundle",),
               paths=("Sources/Escale/Bookmarks/Environments.swift", "Tests/EscaleTests/BookmarkEnvironmentsTests.swift",
                      "Sources/Escale/Address/Field.swift", "Sources/Escale/Address/SearchEnvironments.swift")),
+        Check("error-page", ("python3", "Tests/Bench/error_page.py"),
+              BENCH + ("Tests/Bench/error_page.py",),
+              "a failed load names its address and code; ⌘[ returns to the page the view still holds",
+              "app", ("bundle",),
+              paths=("Sources/Escale/Tabs/Failure.swift", "Sources/Escale/Window/Stage.swift", "Tests/EscaleTests/FailureTests.swift")),
         Check("bookmarked-page", ("python3", "Tests/Bench/bookmarked_page.py"),
               BENCH + ("Tests/Bench/bookmarked_page.py",),
               "the door follows the page away, back and across Spaces; ⇧⌘B adds, then opens rename and remove",
@@ -432,7 +437,7 @@ def plan(paths, risks=(), checks=(), quick=False, acknowledge=None):
     # Dependencies are small and explicit; no scoring or model-specific workflow.
     order = ["icons", "harness", "portable", "links", "whitespace", "changelog", "build", "swift",
              "bundle", "app", "wake", "sleeping", "sleep-by-hand", "tabs", "closed-tabs", "shortcut-motion", "sidebar-rows", "tab-access", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "panel-keys", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus",
-             "routes", "tab-source", "environments", "bookmarked-page", "inspector", "calls", "calls-browse", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "welcome-extensions", "space-media", "space-reorder", "space-send", "call-float", "transfer", "warnings"]
+             "routes", "tab-source", "environments", "error-page", "bookmarked-page", "inspector", "calls", "calls-browse", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "welcome-extensions", "space-media", "space-reorder", "space-send", "call-float", "transfer", "warnings"]
     return {"checks": [n for n in order if n in chosen], "reasons": chosen,
             "risks": list(risks), "requested": list(checks),
             "unknown": unknown, "acknowledge": acknowledge, "quick": quick,
