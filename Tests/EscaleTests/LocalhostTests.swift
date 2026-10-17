@@ -261,6 +261,7 @@ import Testing
         snapshot.add(port: 5, v4Bound: 0, v6Bound: any6, dual: true)
         snapshot.add(port: 6, v4Bound: nil, v6Bound: any6, dual: false)
         snapshot.add(port: 7, v4Bound: nil, v6Bound: lan6, dual: false)
+        snapshot.add(port: 8, v4Bound: 0x0200007F, v6Bound: nil, dual: false)
         #expect(snapshot.v4 == [1, 2, 5])
         #expect(snapshot.v6 == [4, 5, 6])
     }
