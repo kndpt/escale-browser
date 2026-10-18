@@ -228,8 +228,11 @@ extension Browser {
     }
 
     /// A link from a page's right-click menu, in a new tab to the right of
-    /// that page. Room is asked for before the tab is made, so a refusal loads nothing.
+    /// that page. A link routed to another Space goes there instead, as a split
+    /// can't span Spaces. Room is asked for before the tab is made, so a
+    /// refusal loads nothing.
     func openInSplit(_ url: URL, beside page: Tab) {
+        if routeLink(url, from: page) { return }
         guard panelFits(UUID(), beside: page, edge: .right) else { announce(Panels.refused); return }
         let tab = open(url, foreground: false, from: page)
         tab.origin = page.id

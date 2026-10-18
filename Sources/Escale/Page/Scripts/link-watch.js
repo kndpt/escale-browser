@@ -1,9 +1,11 @@
 /*
 The page names the link under each right-click, or none, for Escale's own menu entries.
-It runs in Escale's script world, in every frame, so a page can neither read nor forge it.
+It runs in Escale's script world, in every frame, so a page can neither read nor post to it, and only a real press counts.
 */
 (() => {
   addEventListener('contextmenu', event => {
+    // A page can dispatch its own contextmenu on a link of its choosing; only a real press names one.
+    if (!event.isTrusted) return;
     let link = {};
     // The composed path reaches links inside open shadow trees, where `target` stops at the host.
     for (const node of event.composedPath()) {

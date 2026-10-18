@@ -1,6 +1,3 @@
-import AppKit
-import WebKit
-
 // Escale's own entries in a link's right-click menu: Open Link in Split View
 // and Copy Link as Markdown.
 //
@@ -10,6 +7,8 @@ import WebKit
 // every frame, names the link (or none) on each right-click, and the view
 // keeps it until its menu opens. A page can't read that world or post to it,
 // and nothing is sent but on a right-click.
+import AppKit
+import WebKit
 
 enum LinkChoice: Int { case split = 1, markdown }
 

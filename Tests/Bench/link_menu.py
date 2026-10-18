@@ -4,7 +4,9 @@
 In an owned world, on a loopback page, by real right-clicks: plain text gets
 neither entry; a link gets both, after WebKit's own Copy Link. Copied as
 Markdown, a link's brackets are escaped, a link with no text gives its
-address, and a link in another origin's frame is named too. Each right-click
+address, and a link in another origin's frame is named too. A page that
+dispatches its own contextmenu on another link during a right-click can't
+change the link named. Each right-click
 names its own link, never the one before. Open Link in Split View puts the
 link to the right of the page, up to three pages; a fourth is refused with the
 limit message and no new tab. The clipboard is put back at the end. Run after
@@ -33,6 +35,9 @@ class Page(BaseHTTPRequestHandler):
                     f"<p id='plain' style='{BOX}'>Plain words</p>"
                     f"<a id='named' href='/target?x=1' style='{BOX}'>Docs [v2] page</a>"
                     f"<a id='bare' href='/bare' style='{BOX};background:#39f'><span></span></a>"
+                    f"<a id='forged' href='/forged' style='{BOX}'>Forged</a><a id='evil' href='/evil' hidden>Evil</a>"
+                    "<script>document.getElementById('forged').addEventListener('contextmenu', () =>"
+                    " document.getElementById('evil').dispatchEvent(new MouseEvent('contextmenu', {bubbles: true})))</script>"
                     f"<iframe id='frame' src='{Page.frame}/inner' style='border:0;width:220px;height:60px'></iframe>")
         elif self.path == "/inner":
             body = f"<body style='margin:0'><a id='deep' href='/deep' style='{BOX}'>Deep link</a>"
@@ -129,6 +134,7 @@ def main():
             h.require("the copy is said", bench("probe")["announcement"], "Link copied")
             markdown(page, "bare", f"[{base}/bare]({base}/bare)")
             markdown(page, "deep", f"[Deep link]({Page.frame}/deep)")
+            markdown(page, "forged", f"[Forged]({base}/forged)")
             markdown(page, "named", f"[Docs \\[v2\\] page]({base}/target?x=1)")
 
             before = len(h.tabs())
@@ -145,7 +151,7 @@ def main():
             choose(page, "named", SPLIT)
             h.until("the refusal said", lambda: bench("probe")["announcement"] == REFUSED, 10)
             h.require("no fourth page", (len(group()[0]), len(h.tabs())), (3, before + 2))
-            print("link menu: entries only on links, Markdown escaped and addressed, frames named, split to three and refused")
+            print("link menu: entries only on links, Markdown escaped and addressed, frames named, forged events ignored, split to three and refused")
     finally:
         servers[1].shutdown()
         servers[1].server_close()
