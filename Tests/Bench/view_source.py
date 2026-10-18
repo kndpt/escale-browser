@@ -11,6 +11,7 @@ extension or installed browser participates.
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 import json
+import time
 import suite as s
 
 # The script writes a word the HTML never spells out.
@@ -31,6 +32,8 @@ SHOWN = """(() => {
 
 class Page(BaseHTTPRequestHandler):
     def do_GET(self):
+        if self.path.startswith('/slow'):
+            time.sleep(3)
         body = PAGE.format(path=self.path).encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -93,6 +96,17 @@ def main():
         s.until('⌥⌘I closes it', lambda: not bench('probe').get('inspectorFrames'), 5)
         bench('field', f'view-source:{base}/second', 'go')
         expect_source('view-source: loads the address, then shows its HTML', first, '/second')
+
+        # A source request replaced before its page arrives goes with it.
+        bench('press', '34', 'i', 'cmd', 'opt')
+        s.until('⌥⌘I closes it again', lambda: not bench('probe').get('inspectorFrames'), 5)
+        bench('field', f'view-source:{base}/slow', 'go')
+        bench('field', f'{base}/third', 'go')
+        loaded = bench('wait', first, '10')
+        assert not loaded.get('timeout') and not loaded.get('failure'), loaded
+        time.sleep(4)
+        assert not bench('probe').get('inspectorFrames'), 'a replaced view-source: opened the inspector'
+        print('ok: a view-source: replaced before it loads opens nothing', flush=True)
 
 
 if __name__ == '__main__':

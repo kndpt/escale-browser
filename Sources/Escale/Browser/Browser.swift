@@ -2208,7 +2208,12 @@ final class Browser: NSObject, ObservableObject {
             return
         }
         let tab = navigateFromField(url)
-        if source == url { inspection.sourceTab = tab?.id }
+        if source == url {
+            inspection.dropSource()
+            inspection.sourceTab = tab?.id
+        } else if inspection.sourceTab == tab?.id {
+            inspection.dropSource()
+        }
         if let chosen { learn(chosen, choice) }
         editing = false
         field.typed = ""
@@ -2442,7 +2447,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        fail(webView, error)
+        fail(webView, navigation, error)
     }
 
     func webView(
@@ -2450,7 +2455,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         didFailProvisionalNavigation navigation: WKNavigation!,
         withError error: Error
     ) {
-        fail(webView, error)
+        fail(webView, navigation, error)
     }
 
     /// A page asking to close itself.
@@ -2475,6 +2480,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         guard let tab = tab(for: webView) else { return }
         tab.invalidatePageData()
         logins.dropChoice(in: tab.id)
+        inspection.started(navigation, in: tab.id)
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
@@ -2507,10 +2513,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         (webView as? PageView)?.showFirstFrame("navigation-finished", animated: tab(for: webView)?.returning != true)
         guard let tab = tab(for: webView), let url = tab.address else { return }
         tab.reveal()
-        if inspection.sourceTab == tab.id {
-            inspection.sourceTab = nil
-            if tab.id == activeID { viewSource() }
-        }
+        if inspection.takeSource(navigation), tab.id == activeID { viewSource() }
         tellStore(tab)
         // A page that arrived after a password went out: did the sign-in take?
         tab.settleSignIn()
@@ -2523,12 +2526,13 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         localhost.record(url, title: tab.title, in: tab.space)
     }
 
-    private func fail(_ webView: WKWebView, _ error: Error) {
+    private func fail(_ webView: WKWebView, _ navigation: WKNavigation?, _ error: Error) {
         let nsError = error as NSError
         let code = nsError.code
         // Cancelled is not a failure: it's what a redirect, a stopped load, or
         // a second Return in quick succession looks like from here.
         guard code != NSURLErrorCancelled else {
+            _ = inspection.takeSource(navigation)
             tab(for: webView)?.stayed()
             return
         }
@@ -2547,10 +2551,10 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         // ends the navigation with "plug-in handled load" (204) a moment
         // after it starts playing. The page arrived: it is a finish.
         if nsError.domain == "WebKitErrorDomain" && code == 204 {
-            self.webView(webView, didFinish: nil)
+            self.webView(webView, didFinish: navigation)
             return
         }
-        if inspection.sourceTab == tab(for: webView)?.id { inspection.sourceTab = nil }
+        _ = inspection.takeSource(navigation)
         tab(for: webView)?.uncover()
         tab(for: webView)?.failed(message(for: code), at: nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL)
     }

@@ -108,8 +108,31 @@ final class InspectorSession: NSObject, ObservableObject {
         inspector.perform(show, with: handle)
     }
 
-    /// A tab sent to a `view-source:` address, whose source shows once it loads.
+    /// A tab sent to a `view-source:` address, and the load WebKit started
+    /// for it: the source shows when that load finishes, and a load stopped
+    /// or replaced first takes the request with it.
     var sourceTab: Tab.ID?
+    var sourceLoad: WKNavigation?
+
+    /// The first load to start in the source tab is the one asked for; any
+    /// later one replaced it.
+    func started(_ load: WKNavigation?, in tab: Tab.ID) {
+        guard sourceTab == tab else { return }
+        if sourceLoad == nil { sourceLoad = load } else { dropSource() }
+    }
+
+    /// Whether `load` is the one carrying the source request. It is dropped
+    /// either way when it is: shown now, or never.
+    func takeSource(_ load: WKNavigation?) -> Bool {
+        guard load != nil, load === sourceLoad else { return false }
+        dropSource()
+        return true
+    }
+
+    func dropSource() {
+        sourceTab = nil
+        sourceLoad = nil
+    }
 
     func follow(browser: Browser, from old: Tab.ID?) {
         guard old != browser.activeID else { return }
