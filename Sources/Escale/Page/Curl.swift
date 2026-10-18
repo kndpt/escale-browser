@@ -61,6 +61,9 @@ enum Fetch {
             options.append(#""headers": {"# + "\n" + lines.joined(separator: ",\n") + "\n  }")
         }
         if let body = detail.requestBody { options.append(#""body": "# + string(body)) }
+        // A page script may not set Cookie, so a call that carried cookies
+        // asks for them instead, or it replays signed out across origins.
+        if headers.contains(where: { $0.name.lowercased() == "cookie" }) { options.append(#""credentials": "include""#) }
         let url = string(call.url)
         guard !options.isEmpty else { return "fetch(" + url + ");" }
         return "fetch(" + url + ", {\n  " + options.joined(separator: ",\n  ") + "\n});"

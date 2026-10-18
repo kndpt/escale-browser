@@ -340,6 +340,11 @@ import Testing
                 == #"fetch("https://api.example.test/v1/items?q=1");"#)
     }
 
+    @Test func aCallWithCookiesAsksForCredentials() {
+        #expect(Fetch.command(call("GET"), detail([("Cookie", "id=1")])).contains(#""credentials": "include""#))
+        #expect(!Fetch.command(call("GET"), detail([("Accept", "*/*")])).contains("credentials"))
+    }
+
     @Test func aPostCarriesMethodHeadersAndBody() {
         let text = Fetch.command(call("post"), detail([("Content-Type", "application/json"), ("Content-Length", "9"), ("Authorization", "Bearer t")],
                                                       body: #"{"a":"b"}"#))
