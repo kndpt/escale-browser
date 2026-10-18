@@ -128,13 +128,16 @@ final class Updater: ObservableObject {
         case interrupted
         /// What arrived is not this app, newer, signed by its team.
         case untrusted
+        /// This Mac could not write it: a full disk, a folder it may not use.
+        case local
 
         init(_ error: Error) {
             switch error as? Swap.Refused {
             case .unsignedHere: self = .unsigned
             case .readOnly: self = .place
             case .hash, .archive, .plist, .wrongApp, .notNewer, .unsigned, .wrongTeam: self = .untrusted
-            case .download, .move, nil: self = .interrupted
+            case .download, .move: self = .interrupted
+            case nil: self = error is URLError ? .interrupted : .local
             }
         }
 
@@ -144,6 +147,7 @@ final class Updater: ObservableObject {
             case .place: return "This copy can't be replaced where it is — move it to Applications, or download the disk image"
             case .interrupted: return "The download broke off — try again"
             case .untrusted: return "The download didn't pass its checks — download the disk image"
+            case .local: return "The update couldn't be written on this Mac — download the disk image"
             }
         }
     }

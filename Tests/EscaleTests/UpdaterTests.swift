@@ -93,10 +93,13 @@ import Testing
     @Test func aRefusalSaysWhatToDo() {
         // A download that broke off on the network is tried again.
         #expect(Updater.Refusal(URLError(.notConnectedToInternet)) == .interrupted)
+        // A full disk is not fixed by trying again.
+        #expect(Updater.Refusal(CocoaError(.fileWriteOutOfSpace)) == .local)
         #expect(Updater.Refusal.unsigned.said == "This copy can't update itself — download the disk image")
         #expect(Updater.Refusal.place.said
             == "This copy can't be replaced where it is — move it to Applications, or download the disk image")
         #expect(Updater.Refusal.interrupted.said == "The download broke off — try again")
         #expect(Updater.Refusal.untrusted.said == "The download didn't pass its checks — download the disk image")
+        #expect(Updater.Refusal.local.said == "The update couldn't be written on this Mac — download the disk image")
     }
 }
