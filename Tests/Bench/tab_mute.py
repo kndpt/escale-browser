@@ -3,7 +3,7 @@
 
 Real WebKit audio from the synthetic WAV in media_player.py. Muting must cut
 the output without pausing the media, take the Space's sound mark away, and
-outlive a sleep and wake; unmuting must restore both. One probe world owns all
+outlive a sleep and wake and a move to another Space; unmuting must restore both. One probe world owns all
 input and data.
 """
 from http.server import ThreadingHTTPServer
@@ -65,7 +65,17 @@ def run():
         s.require('the click leaves the tab behind', tab(song)['active'], False)
         b('hit', '81', '188', 'click', 'live')
         s.until('second click unmutes', lambda: tab(song)['pageMuted'] is False)
-        print('ok: speaker mutes without pausing, drops the Space mark, survives sleep and wake, unmutes, answers a real click', flush=True)
+
+        # Moved to another Space, the tab is rebuilt and must stay muted.
+        m.action(song, 'speaker')
+        s.until('muted before the move', lambda: tab(song)['pageMuted'] is True)
+        b('space', 'new', 'Destination')
+        b('space', 'transfer', song, '2')
+        moved = next(t for t in s.tabs() if t['active'])['id']
+        b('wait', moved, '10')
+        s.require('moved tab says muted', tab(moved)['muted'], True)
+        s.until('moved page muted', lambda: tab(moved)['pageMuted'] is True)
+        print('ok: speaker mutes without pausing, drops the Space mark, survives sleep and wake, unmutes, answers a real click, stays muted across Spaces', flush=True)
     finally:
         s.command(str(s.ROOT / 'fresh.sh'), 'wipe')
         server.shutdown()

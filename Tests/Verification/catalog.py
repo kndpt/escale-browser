@@ -337,7 +337,7 @@ CHECKS = {
               BENCH + ("Tests/Bench/tab_mute.py", "Tests/Bench/media_player.py"),
               "a tab's speaker mutes the page without pausing it, drops the Space mark, survives sleep and unmutes",
               "app", ("bundle",),
-              paths=("Sources/Escale/Tabs/Mute.swift", "Sources/Escale/Spaces/Presence.swift",
+              paths=("Sources/Escale/Tabs/Mute.swift", "Sources/Escale/Spaces/Presence.swift", "Sources/Escale/Browser/Browser.swift",
                      "Sources/Escale/Window/TabAccess.swift"),
               foreground=True),
         Check("space-reorder", ("python3", "Tests/Bench/space_reorder.py"),
