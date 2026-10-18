@@ -160,6 +160,7 @@ extension Browser {
         case .inspector: toggleInspector()
         case .console: showConsole()
         case .inspectElement: inspectElement()
+        case .viewSource: viewSource()
         case .visual: pickVisual()
         case .capture: capturePage(.visible)
         case .captureArea: pickArea()

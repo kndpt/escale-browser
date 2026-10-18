@@ -2193,20 +2193,22 @@ final class Browser: NSObject, ObservableObject {
 
         let target: URL?
         var chosen: Suggestion?
+        let source = Address.source(from: field.typed)
         if let picked = field.picked, offers.indices.contains(picked) {
             chosen = offers[picked]
             target = offers[picked].url
         } else if field.ending != nil {
             target = Address.url(from: field.completed)
         } else {
-            target = destination(for: field.typed)
+            target = source ?? destination(for: field.typed)
         }
 
         guard let url = target else {
             field.refuse()
             return
         }
-        navigateFromField(url)
+        let tab = navigateFromField(url)
+        if source == url { inspection.sourceTab = tab?.id }
         if let chosen { learn(chosen, choice) }
         editing = false
         field.typed = ""
@@ -2505,6 +2507,10 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         (webView as? PageView)?.showFirstFrame("navigation-finished", animated: tab(for: webView)?.returning != true)
         guard let tab = tab(for: webView), let url = tab.address else { return }
         tab.reveal()
+        if inspection.sourceTab == tab.id {
+            inspection.sourceTab = nil
+            if tab.id == activeID { viewSource() }
+        }
         tellStore(tab)
         // A page that arrived after a password went out: did the sign-in take?
         tab.settleSignIn()
@@ -2544,6 +2550,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             self.webView(webView, didFinish: nil)
             return
         }
+        if inspection.sourceTab == tab(for: webView)?.id { inspection.sourceTab = nil }
         tab(for: webView)?.uncover()
         tab(for: webView)?.failed(message(for: code), at: nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL)
     }

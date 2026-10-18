@@ -42,6 +42,14 @@ enum Address {
         return URL(string: (local ? "http://" : "https://") + text)
     }
 
+    /// `view-source:` before an address asks for that page's source, which
+    /// Web Inspector shows once the page has loaded (Inspector.swift).
+    static func source(from typed: String) -> URL? {
+        let text = typed.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.lowercased().hasPrefix("view-source:") else { return nil }
+        return url(from: String(text.dropFirst("view-source:".count)))
+    }
+
     private static func looksLikeHost(_ host: String) -> Bool {
         if host == "localhost" { return true }
 
