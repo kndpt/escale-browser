@@ -490,6 +490,8 @@ enum Metrics {
     static let mediaInset: CGFloat = 8
     static let mediaRadius: CGFloat = 9
     static let mediaIcon: CGFloat = 16
+    /// An app's icon in a menu (Elsewhere.swift).
+    static let menuIcon: CGFloat = 16
     static let mediaCaption: CGFloat = 11
     static let mediaControl: CGFloat = 22
     static let mediaGlyph: CGFloat = 10

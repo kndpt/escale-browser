@@ -53,6 +53,7 @@ struct KeyMenus: Commands {
             KeyMenuItem(action: .pinTab, browser: browser, prefs: prefs, title: browser.active?.pin == nil ? "Pin Tab" : "Unpin Tab")
             if browser.active?.pin != nil { items([.changeLetter]) }
             items([.renameTab, .duplicateTab, .copyAddress, .copyMarkdown, .pasteGo])
+            ElsewhereMenu(address: browser.active?.address)
             if let tab = browser.active {
                 MoveToSpaceMenu(browser: browser, tab: tab) {
                     Divider()

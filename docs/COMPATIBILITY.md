@@ -42,6 +42,7 @@ is a gap, not a failure.
 | Shared `WKProcessPool` (public, deprecated) | `Tab.swift` (`Web.pool`) | A new tab's web process is ready in advance | Ignored: each view gets its own pool, slower, same behaviour | — |
 | Safari's version in the user agent, read from `Safari.app` | `Tab.swift` (`Web.userAgentName`) | Pages send code this WebKit can run | Unreadable: the Safari this macOS shipped with | `compatibility.py` |
 | Back/Forward menu identity follows the current `WKBackForwardListItem` (public API) | `HistoryDoor.swift` | A reopened Back menu kept stale rows after a jump | Ordinary Back/Forward still work | `navigation_controls.py` |
+| Menu items `WKMenuItemIdentifierOpenLinkInNewWindow`, `WKMenuItemIdentifierReload`; the window that Open Link in New Window asks for, taken as an address | `Elsewhere.swift`, `Tab.swift` (`PageView`), `Browser.swift` (`createWebViewWith`) | Open Page In and Open Link In hand the address to another browser | An unknown item: no entry. A window not asked for within 1 s is not taken | `open_elsewhere.py` (lists only) |
 | `WKWebExtension` (public, macOS 15.4+) | `Extensions*.swift` | Chrome extensions | `@available(macOS 15.4, *)`; below it, no extensions | `compatibility.py` |
 
 ### Used only by the bench
