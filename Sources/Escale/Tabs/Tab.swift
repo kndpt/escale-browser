@@ -865,6 +865,7 @@ final class Tab: ObservableObject, Identifiable {
         failure = nil
         formsReady = true
         committedHost = built?.url?.host()?.lowercased()
+        built?.asking.navigated()
         if let fresh = built?.url, fresh.absoluteString != "about:blank" { adopt(fresh) }
     }
 
@@ -1355,6 +1356,7 @@ final class Tab: ObservableObject, Identifiable {
         ears.stop()
         guard let web = built else { return }
         built = nil
+        Dialogs.refuseHeld(web)
         let controller = web.configuration.userContentController
         controller.removeScriptMessageHandler(forName: ScrollRelay.name)
         controller.removeScriptMessageHandler(forName: VeilRelay.name)
@@ -1527,6 +1529,18 @@ final class PageView: WKWebView {
     @objc private func inspectElement(_ item: NSMenuItem) {
         onInspect?()
         if let action = inspectNode.action { NSApp.sendAction(action, to: inspectNode.target, from: item) }
+    }
+
+    /// What this page has asked since it last navigated, and what it asked
+    /// while out of the window (Dialogs.swift).
+    var asking = Dialogs.Asking()
+    var held: [Dialogs.Held] = []
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard window != nil, !held.isEmpty else { return }
+        // Once the stage has finished putting it there.
+        DispatchQueue.main.async { [weak self] in self.map(Dialogs.showHeld) }
     }
 
     /// Told where a sideways swipe has got to, and nil when there is none.

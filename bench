@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Drive the Escale you already have open, from the shell.
 
-    ./bench tabs                       every tab, yours and the bench's; JSON includes covered/returning/unpainted,
+    ./bench tabs                       every tab, yours and the bench's; JSON includes covered/returning/unpainted/held,
                                        and closed: what History › Recently Closed lists for this Space
     ./bench panels [add ID TARGET left|right|top|bottom | separate|remove|turn|reverse|close|tools ID | menu TITLE]
                                        test world: groups, preview, entry/page frames and existing page identity;
@@ -54,6 +54,8 @@
     ./bench undo [press]               the line offering closed tabs back here: label, count, and its button as
                                        VoiceOver finds it; press: test run, that button pressed as VoiceOver does
     ./bench media [ID [JSON]]          test run: sources/listeners; action pause/play/previous/next/volume/dismiss/return, value 0...1
+    ./bench sheet [press TITLE [stop]]  test world: the sheet on the window (its texts, buttons, and whether it
+                                       offers to stop a page asking), or its button TITLE pressed, that box ticked first
     ./bench popover [X Y]              test world: the open popover's size, or a click X Y points from its top left,
                                        through the app's event dispatch (the pointer stays where it is)
     ./bench probe                      the window's own state: panels, pageFrame beside its stageFrame and inspectorFrames,
@@ -480,6 +482,10 @@ def main(argv, out=None, err=None, timeout=None, cwd=None):
         request["id"] = args[0]
         request["clear"] = args[1:] == ["clear"]
         request["closed"] = args[1:] == ["closed"]
+    elif verb == "sheet":
+        if not (args == [] or (args[:1] == ["press"] and len(args) in (2, 3) and args[2:] in ([], ["stop"]))):
+            sys.exit("usage: bench sheet [press TITLE [stop]]")
+        if args: request["press"], request["stop"] = args[1], args[2:] == ["stop"]
     elif verb == "popover":
         if len(args) not in (0, 2): sys.exit("usage: bench popover [X Y]")
         if args: request["x"], request["y"] = float(args[0]), float(args[1])

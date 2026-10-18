@@ -263,6 +263,9 @@ final class Bench {
         case "popover":
             // The open popover, and a click in it (PopoverBench.swift).
             PopoverBench.run(request, answer: answer)
+        case "sheet":
+            // The sheet on the window, and a press on it (SheetBench.swift).
+            SheetBench.run(request, answer: answer)
         case "update":
             // The update's door and panels (UpdateBench.swift).
             answer(UpdateBench.run(request, browser: browser))
@@ -1840,7 +1843,7 @@ final class Bench {
 
         default:
             answer(["error": "unknown command “\(verb)”", "commands": [
-                "calls", "update", "tabs", "alerts", "transfer", "open", "go", "close", "wait", "sleep", "idle", "pin", "caches", "select", "crash", "text", "eval", "click", "type", "submit", "shot", "probe", "key", "resize", "hit", "pointer", "drag", "film", "window", "pages", "picture", "place", "field", "recall", "bookmark", "menu", "space", "routes", "shelf", "environments", "strip", "column", "bar", "ui",
+                "calls", "update", "tabs", "alerts", "sheet", "transfer", "open", "go", "close", "wait", "sleep", "idle", "pin", "caches", "select", "crash", "text", "eval", "click", "type", "submit", "shot", "probe", "key", "resize", "hit", "pointer", "drag", "film", "window", "pages", "picture", "place", "field", "recall", "bookmark", "menu", "space", "routes", "shelf", "environments", "strip", "column", "bar", "ui",
             ]])
         }
     }
@@ -2015,6 +2018,8 @@ final class Bench {
             "covered": tab.cover != nil,
             "returning": tab.returning,
             "unpainted": tab.built?.unpainted ?? false,
+            // Questions the page asked while out of the window (Dialogs.swift).
+            "held": tab.built?.held.count ?? 0,
             "shy": tab.shy,
             "space": tab.space.uuidString,
             "store": tab.store.identifier?.uuidString ?? "default",
