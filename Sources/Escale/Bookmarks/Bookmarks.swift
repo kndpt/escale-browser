@@ -910,6 +910,8 @@ struct BookmarksDropdown: View {
 struct BookmarksPanel: View {
     @ObservedObject var browser: Browser
     @ObservedObject var bookmarks: Bookmarks
+    /// What the last export did, shown in place of the count.
+    @State private var exported: (words: String, failed: Bool)?
 
     var body: some View {
         Plate("Bookmarks", width: 600, close: { browser.bookmarking = false }) {
@@ -933,10 +935,25 @@ struct BookmarksPanel: View {
         } foot: {
             HStack(spacing: 8) {
                 Pill("Import bookmarks…") { browser.showMigration() }
+                if !bookmarks.isEmpty { Pill("Export bookmarks…") { export() } }
                 Spacer()
-                Text(bookmarks.count == 1 ? "1 bookmark" : "\(bookmarks.count) bookmarks")
+                Text(exported?.words ?? (bookmarks.count == 1 ? "1 bookmark" : "\(bookmarks.count) bookmarks"))
                     .font(.system(size: 12))
-                    .foregroundStyle(Palette.muted)
+                    .foregroundStyle(exported?.failed == true ? Palette.danger : Palette.muted)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+        }
+    }
+
+    private func export() {
+        BookmarkExport.choose(bookmarks.roots) { name, result in
+            switch result {
+            case .success(0): exported = ("Saved \(name)", false)
+            case .success(let carried):
+                let what = carried == 1 ? "1 environment" : "\(carried) environments"
+                exported = ("Saved \(name), \(what) in its \(BookmarkExport.environmentsFolder) folder", false)
+            case .failure(let error): exported = ("Couldn't save: \(error.localizedDescription)", true)
             }
         }
     }
