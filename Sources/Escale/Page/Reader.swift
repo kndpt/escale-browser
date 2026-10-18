@@ -95,9 +95,26 @@ struct ReaderBar: View {
     }
 
     var body: some View {
+        // A narrow split panel keeps only the size, rather than spill the
+        // bar over its neighbours.
+        ViewThatFits(in: .horizontal) {
+            bar(full: true)
+            bar(full: false)
+        }
+        .padding(.bottom, metrics.length(14))
+        .onAppear { tab.dressReader(dress) }
+        .onChange(of: dress) { _, dress in tab.dressReader(dress) }
+        // The Mac's Increase Contrast changes no input above, only how the
+        // roles resolve.
+        .onChange(of: contrast) { _, _ in tab.dressReader(dress) }
+    }
+
+    private func bar(full: Bool) -> some View {
         HStack(spacing: metrics.length(8)) {
-            Segmented(options: Look.allCases.map { ($0, $0.title) }, selection: $prefs.readerLook)
-            Segmented(options: ReaderWidth.allCases.map { ($0, $0.title) }, selection: $prefs.readerWidth)
+            if full {
+                Segmented(options: Look.allCases.map { ($0, $0.title) }, selection: $prefs.readerLook)
+                Segmented(options: ReaderWidth.allCases.map { ($0, $0.title) }, selection: $prefs.readerWidth)
+            }
             HStack(spacing: 0) {
                 step("textformat.size.smaller", "Smaller text", by: -1)
                 step("textformat.size.larger", "Larger text", by: 1)
@@ -105,12 +122,6 @@ struct ReaderBar: View {
         }
         .padding(metrics.length(5))
         .glass(.chip, in: Capsule())
-        .padding(.bottom, metrics.length(14))
-        .onAppear { tab.dressReader(dress) }
-        .onChange(of: dress) { _, dress in tab.dressReader(dress) }
-        // The Mac's Increase Contrast changes no input above, only how the
-        // roles resolve.
-        .onChange(of: contrast) { _, _ in tab.dressReader(dress) }
     }
 
     private func step(_ symbol: String, _ label: String, by offset: Int) -> some View {

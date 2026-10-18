@@ -56,7 +56,7 @@ SUITE = f"com.kndpt.escale.test.{WORLD}"
 PROSE = " ".join(["Plenty of words make an article worth reading, and none of them are links."] * 12)
 ARTICLE = f"""<!doctype html><title>Article</title>
 <nav><a href="/a">One</a> <a href="/b">Two</a></nav>
-<article><h1>A story</h1><p>{PROSE}</p><p>{PROSE}</p><p>{PROSE}</p></article>"""
+<article><h1>A story</h1><p>{PROSE}</p><p>{PROSE}</p><p>{PROSE} <span style="color:#000">Inked.</span></p></article>"""
 
 # What each script leaves in the page, read in one go.
 LOOK = """JSON.stringify({
@@ -211,6 +211,8 @@ def exercise(base):
         bench("ui", "look", "dark")
         dark = "rgb(28, 28, 28)|rgb(237, 237, 237)|1012px|22px"
         until("reading mode dark with the window", lambda: value(id, DRESSED) == dark)
+        inked = "getComputedStyle(document.querySelector('#escale-reader span[style]')).color"
+        until("an inline colour takes the reader's ink", lambda: value(id, inked) == "rgb(237, 237, 237)")
     except AssertionError as failure:
         failures.append(f"{failure}: found {value(id, DRESSED)!r}")
 

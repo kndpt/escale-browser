@@ -74,27 +74,28 @@ Its colours, width and scale are variables Escale sets on the root (its
     '#escale-reader{max-width:var(--escale-width);margin:0 auto;padding:72px 24px 160px;',
     'font:400 calc(18px * var(--escale-scale))/1.72 ui-serif,Georgia,"Times New Roman",serif;',
     'color:var(--escale-ink)}',
-    // The site's own colours were chosen for its ground, not this one.
-    '#escale-reader *{color:inherit;background-color:transparent}',
+    // The site's own colours were chosen for its ground, not this one,
+    // inline ones too: hence !important, here and on each role below.
+    '#escale-reader *{color:inherit !important;background-color:transparent !important}',
     '#escale-reader h1{font:600 calc(30px * var(--escale-scale))/1.24 -apple-system,BlinkMacSystemFont,sans-serif;',
     'margin:0 0 8px;letter-spacing:-0.01em}',
     '#escale-reader .escale-from{font:400 calc(12px * var(--escale-scale))/1 -apple-system,sans-serif;',
-    'color:var(--escale-caption);margin:0 0 40px;text-transform:uppercase;letter-spacing:.06em}',
+    'color:var(--escale-caption) !important;margin:0 0 40px;text-transform:uppercase;letter-spacing:.06em}',
     '#escale-reader p{margin:0 0 1.35em}',
     '#escale-reader img,#escale-reader video,#escale-reader iframe{max-width:100%;',
     'height:auto;border-radius:6px;margin:1.6em 0;display:block}',
     '#escale-reader iframe{width:100%;aspect-ratio:16/9;height:auto;border:0}',
     '#escale-reader figure{margin:1.8em 0}',
     '#escale-reader figcaption{font:400 calc(13px * var(--escale-scale))/1.5 -apple-system,sans-serif;',
-    'color:var(--escale-caption);margin-top:.6em}',
-    '#escale-reader a{color:var(--escale-ink);text-underline-offset:3px}',
+    'color:var(--escale-caption) !important;margin-top:.6em}',
+    '#escale-reader a{color:var(--escale-ink) !important;text-underline-offset:3px}',
     '#escale-reader h2,#escale-reader h3{font:600 calc(20px * var(--escale-scale))/1.3 -apple-system,sans-serif;',
     'margin:2em 0 .6em}',
     '#escale-reader pre,#escale-reader code{font-family:ui-monospace,monospace;',
     'font-size:calc(14px * var(--escale-scale))}',
-    '#escale-reader pre{background:var(--escale-code);padding:14px;border-radius:8px;overflow:auto}',
+    '#escale-reader pre{background:var(--escale-code) !important;padding:14px;border-radius:8px;overflow:auto}',
     '#escale-reader blockquote{margin:1.6em 0;padding-left:1.2em;',
-    'border-left:2px solid var(--escale-rule);color:var(--escale-quote)}'
+    'border-left:2px solid var(--escale-rule);color:var(--escale-quote) !important}'
   ].join('');
 
   var wrap = document.createElement('div');
