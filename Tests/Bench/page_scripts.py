@@ -17,13 +17,18 @@ is there and does its part, from what it leaves in the page:
 2. Middle-button scrolling turned off leaves the page already up; that choice
    survives restart and turning it back on restores the script. Link hover
    reports its destination and disabling the option clears it.
-3. Reading mode (⌘⇧R) turns the page into its article.
+3. Reading mode (⌘⇧R) turns the page into its article, in the column width
+   and text size saved before the restart, on the white ground and ink it
+   always had in a light window, and on the dark ones as soon as the window
+   turns dark.
 4. On a page that requires Trusted Types, as Meet does, where WebKit refuses
    any string of HTML, the middle button still shows its badge and starts
    scrolling, and reading mode still turns the page into its article.
 
-Not covered here, each for its own reason: the floating video (needs a video
-playing), the selection read by the right-click menu, the Chrome Web Store's button
+Not covered here, each for its own reason: reading mode's bar (needs the
+pointer; its rules are ReaderTests' and GlassTests'), the floating video
+(needs a video playing), the selection read by the right-click menu, the
+Chrome Web Store's button
 (its site only), the popup's size (compatibility.py with the local fixture)
 and the site icon probe (icon_cache.py).
 
@@ -64,6 +69,11 @@ LOOK = """JSON.stringify({
   scroll: typeof window.__escaleAutoScroll,
   reader: !!document.getElementById('escale-reader'),
 })"""
+
+# How reading mode is drawn: ground, ink, column width and text size.
+DRESSED = """(() => { const r = document.getElementById('escale-reader'); if (!r) return '';
+  const s = getComputedStyle(r);
+  return [getComputedStyle(document.body).backgroundColor, s.color, s.maxWidth, s.fontSize].join('|'); })()"""
 
 # A page that requires Trusted Types refuses this; one that does not, allows it.
 STRING_OF_HTML = "(() => { try { document.createElement('div').innerHTML = '<b>x</b>'; return 'allowed'; } catch (e) { return 'refused'; } })()"
@@ -174,6 +184,9 @@ def exercise(base):
     # 2. Saved explicit choices survive a restart, then can be enabled again.
     bench("ui", "autoscroll", "off")
     settle("middle-button scrolling turned off", id, scroll="undefined")
+    # Reading mode's bar saves these; read again at launch.
+    run(["defaults", "write", SUITE, "reader.width", "wide"])
+    run(["defaults", "write", SUITE, "reader.size", "-int", "22"])
     bench("press", "12", "q", "cmd")
     until("app quit", lambda: not running(), 20)
     run([REPO / "fresh.sh", "again"], deadline=60)
@@ -188,9 +201,18 @@ def exercise(base):
     bench("ui", "autoscroll", "on")
     settle("middle-button scrolling turned back on", id, scroll="function")
 
-    # 3. Reading mode.
+    # 3. Reading mode, wide and at 22 px (46em of 22 px), light then dark.
+    bench("ui", "look", "light")
     bench("press", "15", "r", "cmd", "shift", deadline=10)
     settle("⌘⇧R", id, reader=True)
+    light = "rgb(255, 255, 255)|rgb(23, 23, 23)|1012px|22px"
+    try:
+        until("reading mode light, wide and at 22 px", lambda: value(id, DRESSED) == light)
+        bench("ui", "look", "dark")
+        dark = "rgb(28, 28, 28)|rgb(237, 237, 237)|1012px|22px"
+        until("reading mode dark with the window", lambda: value(id, DRESSED) == dark)
+    except AssertionError as failure:
+        failures.append(f"{failure}: found {value(id, DRESSED)!r}")
 
     # 4. The same page, requiring Trusted Types.
     strict = f"{base}/strict"

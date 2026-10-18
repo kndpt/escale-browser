@@ -181,6 +181,61 @@ import Testing
         #expect(rgb(swatch, in: appearance) == before)
     }
 
+    /// Unconfigured and light, reading mode draws the greys it always drew.
+    @Test func readerKeepsItsLightGreys() {
+        guard !NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast else { return }
+        let dress = Reader.dress(look: .system, dark: false, width: .normal, size: 18)
+        let old = ["ground": 255, "ink": 0x17, "quote": 0x55, "caption": 0xA3, "code": 0xF5, "rule": 0xE8]
+        for (role, grey) in old {
+            #expect(laid(dress[role], on: 255) == [grey, grey, grey], "\(role)")
+        }
+    }
+
+    /// The bar's look wins over the window's; System follows it.
+    @Test func readerFollowsTheChosenLook() {
+        let colours = { (dress: [String: String]) in dress.filter { $0.key != "width" && $0.key != "scale" } }
+        let light = colours(Reader.dress(look: .system, dark: false, width: .normal, size: 18))
+        let dark = colours(Reader.dress(look: .system, dark: true, width: .normal, size: 18))
+        #expect(light != dark)
+        #expect(colours(Reader.dress(look: .light, dark: true, width: .normal, size: 18)) == light)
+        #expect(colours(Reader.dress(look: .dark, dark: false, width: .normal, size: 18)) == dark)
+    }
+
+    /// Text, quotes and captions read on their ground in dark, and in both
+    /// looks once contrast is increased.
+    @Test(arguments: [(true, false), (true, true), (false, true)])
+    func readerInksRead(dark: Bool, strong: Bool) {
+        Palette.contrast = strong
+        defer { Palette.contrast = false }
+        let dress = Reader.dress(look: .system, dark: dark, width: .normal, size: 18)
+        let ground = laid(dress["ground"], on: 0)
+        for role in ["ink", "quote", "caption"] {
+            let ink = laid(dress[role], on: ground.first ?? 0)
+            #expect(contrast(ink, ground) >= (role == "ink" ? 7 : 4.5), "\(role)")
+        }
+    }
+
+    /// A page colour (`rgba(r,g,b,a)`) laid on a grey, as the page draws it.
+    private func laid(_ css: String?, on grey: Int) -> [Int] {
+        let parts = (css ?? "").dropFirst(5).dropLast().split(separator: ",").compactMap { Double($0) }
+        guard parts.count == 4 else { return [] }
+        return parts.prefix(3).map { Int(($0 * parts[3] + Double(grey) * (1 - parts[3])).rounded()) }
+    }
+
+    /// WCAG's contrast ratio between two sRGB colours.
+    private func contrast(_ a: [Int], _ b: [Int]) -> Double {
+        let luminance = { (rgb: [Int]) -> Double in
+            let linear = rgb.map { (value: Int) -> Double in
+                let c = Double(value) / 255
+                return c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
+            }
+            guard linear.count == 3 else { return 0 }
+            return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+        }
+        let (x, y) = (luminance(a), luminance(b))
+        return (max(x, y) + 0.05) / (min(x, y) + 0.05)
+    }
+
     private func srgb(_ colour: NSColor) -> [Int] {
         guard let c = colour.usingColorSpace(.sRGB) else { return [] }
         return [c.redComponent, c.greenComponent, c.blueComponent].map { Int(($0 * 255).rounded()) }

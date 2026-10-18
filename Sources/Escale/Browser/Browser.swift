@@ -2220,7 +2220,9 @@ final class Browser: NSObject, ObservableObject {
     /// ⌘⇧R. The article, and nothing that was arranged around it.
     func toggleReader() {
         guard let tab = active else { return }
-        tab.toggleReader { [weak self] worked in
+        let dark = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        let dress = Reader.dress(look: prefs.readerLook, dark: dark, width: prefs.readerWidth, size: prefs.readerSize)
+        tab.toggleReader(dress) { [weak self] worked in
             guard !worked else { return }
             self?.announce("Nothing to read on this page")
         }
