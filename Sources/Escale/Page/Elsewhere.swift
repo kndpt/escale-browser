@@ -64,7 +64,7 @@ final class Elsewhere: ObservableObject {
     }
 
     nonisolated static func opens(_ url: URL?) -> Bool {
-        url?.scheme == "http" || url?.scheme == "https"
+        ["http", "https"].contains(url?.scheme?.lowercased() ?? "")
     }
 
     private static func lookup() -> [Choice] {

@@ -31,7 +31,7 @@ import Testing
     }
 
     @Test func onlyWebAddresses() throws {
-        for text in ["https://example.com/a?b#c", "http://localhost:3000"] {
+        for text in ["https://example.com/a?b#c", "http://localhost:3000", "HTTPS://example.com"] {
             #expect(Elsewhere.opens(try #require(URL(string: text))))
         }
         for text in ["file:///tmp/a.html", "about:blank", "data:text/html,x", "javascript:alert(1)", "mailto:a@b.c"] {
