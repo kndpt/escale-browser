@@ -7,9 +7,11 @@ only for the rest. Without them, it offers Retry, which asks for the whole
 file again. Both are pressed through the popover's own buttons, from another
 Space, and must give a file identical to the one served, in the folder the
 cut transfer was writing to, kept in the history of the Space it came from.
+Retry trashes the half file it left, but not a file put at its path since.
 A transfer cancelled by hand leaves no row. Rows stop at eight, the oldest
 let go; Remove takes one away; none survives a relaunch.
-Not covered: a Space deleted while a resumed transfer starts, the save panel.
+Not covered: a Space deleted while a resumed transfer starts, the save panel,
+a private tab's download (its store is matched by DownloadsTests).
 """
 import hashlib
 import json
@@ -94,14 +96,16 @@ def cut(base, name, action):
     return failed()[name + '.bin']
 
 
-def finished(name, row):
+def finished(name, row, saved=None):
     folder = Path(row['folder'])
     s.until(name + ' finished', lambda: state()['announcement'].startswith('Saved ' + name)
             and not state()['transfers'] and name + '.bin' not in failed(), 20)
     files = sorted(f.name for f in folder.iterdir() if f.name.startswith(name))
     print(name, 'leaves', files, flush=True)
-    s.require(name + ': one file, where the cut one was going', files, [name + '.bin'])
-    digest = hashlib.sha256((folder / files[0]).read_bytes()).hexdigest()
+    saved = saved or name + '.bin'
+    s.require(name + ': where the cut one was going', saved in files, True)
+    digest = hashlib.sha256((folder / saved).read_bytes()).hexdigest()
+    return files
     s.require(name + ': identical file', digest, hashlib.sha256(body).hexdigest())
 
 
@@ -123,14 +127,26 @@ def main():
 
         press('Downloads')
         press('Resume resume.bin')
-        finished('resume', resume)
+        s.require('resume: one file', finished('resume', resume), ['resume.bin'])
         s.require('Resume asks only for the rest', served['resume'], [None, f'bytes={len(body) // 2}-'])
         press('Retry retry.bin')
-        finished('retry', retry)
+        s.require('retry: one file, the half one taken away', finished('retry', retry), ['retry.bin'])
         s.require('Retry asks for the whole file', served['retry'], [None, None])
         s.require('nothing kept in the Space on screen', state()['keptDownloads'], [])
         bench('space', 'go', '1')
         s.require('both kept in the Space they came from', sorted(state()['keptDownloads']), ['resume.bin', 'retry.bin'])
+
+        # A file put where the half one was is someone else's: Retry leaves it.
+        swap = cut(base, 'retry-swap', 'Retry')
+        theirs = Path(swap['folder']) / 'retry-swap.bin'
+        mine = theirs.with_name('.swap')
+        mine.write_bytes(b'not the download')
+        mine.replace(theirs)
+        press('Downloads')
+        press('Retry retry-swap.bin')
+        files = finished('retry-swap', swap, 'retry-swap 2.bin')
+        s.require('a replaced file stays', files, ['retry-swap 2.bin', 'retry-swap.bin'])
+        s.require('a replaced file is untouched', theirs.read_bytes(), b'not the download')
 
         start(base, 'cancel')
         s.until('cancel transfer', lambda: state()['activeDownloads'] == 1, 15)
@@ -154,7 +170,7 @@ def main():
         s.launch()
         s.require('no row after a relaunch', state()['failedDownloads'], [])
         print('ok: cut transfer kept as a row; Resume asks the rest, Retry the whole; identical files, same folder and Space')
-        print('ok: cancel leaves no row; eight rows at most; Remove; nothing after relaunch')
+        print('ok: a file put where the half one was is left; cancel leaves no row; eight rows at most; Remove; nothing after relaunch')
 
 
 if __name__ == '__main__':

@@ -14,7 +14,8 @@ import Combine
 // A transfer that fails, not one the person cancels, stays as a row for the
 // session with WebKit's resume data when it offers some, otherwise the address
 // to ask again, and the file it was writing: Resume or Retry lands in the same
-// folder of the same Space. Nothing of it is saved. At most `failureLimit`
+// folder of the same Space, through a page on the same website store, or
+// not at all once a private tab's store has gone. Nothing of it is saved. At most `failureLimit`
 // rows are kept, the oldest let go first, and resume data over `resumeLimit`
 // is dropped for a plain Retry, so half a megabyte at most stays in memory,
 // under memory pressure too.
@@ -25,7 +26,7 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
     private let asksWhere: () -> Bool
     private let folder: (UUID) -> URL?
     private let announce: (String) -> Void
-    private let page: (UUID) -> WKWebView?
+    private let page: (UUID, WKWebsiteDataStore) -> WKWebView?
 
     struct Transfer: Identifiable, Equatable {
         let id: ObjectIdentifier
@@ -40,13 +41,18 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
         let name: String
         /// Where the file was being written; a retry goes to its folder.
         let file: URL?
+        /// That half file's identity, so a retry never trashes another put there since.
+        let partial: NSObject?
         let resume: Data?
         /// Only a GET with a host: a data: address can carry the whole file,
         /// and a blob: one means nothing once its page is gone.
         let source: URL?
+        /// The website store it came through: a private tab's own, or its
+        /// Space's. Once a private one has gone, nothing may stand in for it.
+        weak var store: WKWebsiteDataStore?
 
         /// What taking it up again does, as its button says; none without either.
-        var action: String? { resume != nil ? "Resume" : source != nil ? "Retry" : nil }
+        var action: String? { store == nil ? nil : resume != nil ? "Resume" : source != nil ? "Retry" : nil }
     }
 
     static let failureLimit = 8
@@ -82,6 +88,9 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
     private var names: [URL: String] = [:]
     /// The file each transfer writes, once known; set ahead for a retry.
     private var files: [ObjectIdentifier: URL] = [:]
+    /// Each active transfer's website store, read while its page is there;
+    /// a failure keeps it only weakly.
+    private var stores: [ObjectIdentifier: WKWebsiteDataStore] = [:]
 
     /// On-demand test/resource evidence; reading it starts no work.
     var count: Int { active.count }
@@ -91,7 +100,7 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
         asksWhere: @escaping () -> Bool,
         folder: @escaping (UUID) -> URL?,
         announce: @escaping (String) -> Void,
-        page: @escaping (UUID) -> WKWebView?
+        page: @escaping (UUID, WKWebsiteDataStore) -> WKWebView?
     ) {
         self.loot = loot
         self.asksWhere = asksWhere
@@ -115,6 +124,7 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
         let id = ObjectIdentifier(download)
         spaces[id] = space
         files[id] = failure?.file
+        stores[id] = download.webView?.configuration.websiteDataStore ?? failure?.store
         transfers.append(Transfer(id: id, space: space,
                                   name: failure?.name ?? download.originalRequest?.url?.lastPathComponent ?? "Download",
                                   fraction: nil))
@@ -148,10 +158,11 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
     }
 
     /// Resume with WebKit's data, otherwise ask the address again, through a
-    /// page of the failure's own Space for its cookies and website store.
+    /// page of the failure's own Space and website store, for its cookies.
     func retry(_ id: UUID) {
-        guard let failure = failures.first(where: { $0.id == id }), failure.action != nil else { return }
-        guard let web = page(failure.space) else {
+        guard let failure = failures.first(where: { $0.id == id }), failure.action != nil,
+              let store = failure.store else { return }
+        guard let web = page(failure.space, store) else {
             announce("Open a page in this Space to download \(failure.name) again")
             return
         }
@@ -160,10 +171,12 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
             web.resumeDownload(fromResumeData: data) { [weak self] in self?.keep($0, in: failure.space, again: failure) }
         } else if let source = failure.source {
             // WebKit leaves the half it wrote; the retry takes its place
-            // rather than landing beside it under a second name. The Trash,
-            // not deletion: a file chosen to be replaced in the save panel
-            // stands there too.
-            if let file = failure.file { try? FileManager.default.trashItem(at: file, resultingItemURL: nil) }
+            // rather than landing beside it under a second name. Only that
+            // very file, and to the Trash: a file chosen to be replaced in
+            // the save panel stands there too.
+            if let file = failure.file, Self.same(file, as: failure.partial) {
+                try? FileManager.default.trashItem(at: file, resultingItemURL: nil)
+            }
             web.startDownload(using: URLRequest(url: source)) { [weak self] in self?.keep($0, in: failure.space, again: failure) }
         }
     }
@@ -263,9 +276,9 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
         let source = request?.url.flatMap { url in
             url.host() != nil && (request?.httpMethod ?? "GET") == "GET" ? url : nil
         }
-        let failure = Failure(space: space, name: name, file: files[id],
+        let failure = Failure(space: space, name: name, file: files[id], partial: files[id].flatMap(Self.identity),
                               resume: resumeData.flatMap { $0.count <= Self.resumeLimit ? $0 : nil },
-                              source: source)
+                              source: source, store: stores[id])
         stop(download)
         failures.append(failure)
         failures.removeFirst(max(0, failures.count - Self.failureLimit))
@@ -279,7 +292,26 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
         active.removeAll { $0 === download }
         spaces[id] = nil
         files[id] = nil
+        stores[id] = nil
         if let url = download.originalRequest?.url { names[url] = nil }
+    }
+
+    /// A file's identity on its volume, read afresh: a file put at the same
+    /// path since does not share it.
+    nonisolated static func identity(of file: URL) -> NSObject? {
+        (try? URL(fileURLWithPath: file.path).resourceValues(forKeys: [.fileResourceIdentifierKey]))?
+            .fileResourceIdentifier as? NSObject
+    }
+
+    nonisolated static func same(_ file: URL, as identity: NSObject?) -> Bool {
+        guard let identity, let now = Self.identity(of: file) else { return false }
+        return now.isEqual(identity)
+    }
+
+    /// The tabs a failure may be taken up again through: its Space's, on its
+    /// very store, so a private tab's cookies never reach another store.
+    static func sharing(_ store: WKWebsiteDataStore, in space: UUID, among tabs: [Tab]) -> [Tab] {
+        tabs.filter { $0.space == space && $0.store === store }
     }
 
     /// WebKit refuses to write over a file that is already there, so the name
@@ -306,8 +338,9 @@ extension Browser {
         downloads.keep(download, in: space)
     }
 
-    /// A page already built in that Space, parked or not; none is built for it.
-    func page(in space: UUID) -> WKWebView? {
-        (tabs + parkedTabs).lazy.filter { $0.space == space }.compactMap(\.built).first
+    /// A page already built in that Space on that store, parked or not; none
+    /// is built for it.
+    func page(in space: UUID, store: WKWebsiteDataStore) -> WKWebView? {
+        Downloads.sharing(store, in: space, among: tabs + parkedTabs).lazy.compactMap(\.built).first
     }
 }

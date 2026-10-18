@@ -277,7 +277,7 @@ final class Browser: NSObject, ObservableObject {
             return self.downloadsFolder(for: space)
         },
         announce: { [weak self] line in self?.announce(line) },
-        page: { [weak self] space in self?.page(in: space) }
+        page: { [weak self] space, store in self?.page(in: space, store: store) }
     )
     let floater = Float()
     /// True while the pointer is picking things to hide.
