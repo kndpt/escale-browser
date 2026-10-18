@@ -118,11 +118,12 @@
     ./bench pages on|off               test run: let a hidden probe's pages be painted, off every screen (for picture)
     ./bench picture PATH [sheet]       test run: window or attached sheet drawn to a PNG (start the probe hidden)
     ./bench film peek|unpeek|fold PATH [N] [SECS]  the window drawn N times while it animates → PATH-00.png… — --test runs only
-    ./bench update [ready|offered|fetching|none|open|arrival|close|forget|relaunch] [JSON]
+    ./bench update [ready|offered|fetching|none|open|arrival|close|forget|check|relaunch] [JSON]
                                        test run: the update's door and panels; ready/offered/fetching stand
                                        the stage by hand ({"version": "0.3", "notes": "…", "fraction": 0.4}),
                                        open/arrival show a panel,
                                        forget makes the next launch an arrival (shown with ESCALE_FEED set),
+                                       check reads the feed as Check now does (read, said and line answer),
                                        relaunch goes through the updater's own relaunch
     ./bench ui KEY VALUE               settings/passwords/welcome/history/downloads/bookmarks/hidden on|off,
                                        look light|dark|system, tone neutral|escale,

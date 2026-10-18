@@ -222,7 +222,7 @@ CHECKS = {
                      "Tests/EscaleTests/KeptHistoryTests.swift")),
         Check("update", ("python3", "Tests/Bench/update_gate.py"),
               BENCH + ("Tests/Bench/update_gate.py",),
-              "update door and panels: download to relaunch, Escape, the updater's relaunch keeps tabs, arrival once",
+              "update check fails on an invalid or unreachable feed and keeps its date; door and panels: download to relaunch, Escape, the updater's relaunch keeps tabs, arrival once",
               "app", ("bundle",),
               paths=("Sources/Escale/App/Gate.swift", "Sources/Escale/App/GatePanel.swift",
                      "Sources/Escale/App/Updater.swift", "Sources/Escale/Bench/UpdateBench.swift")),
