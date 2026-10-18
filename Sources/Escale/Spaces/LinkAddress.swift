@@ -2,6 +2,8 @@
 // into the existing rule format keeps routing and stored-rule compatibility
 // unchanged. Invalid input remains invalid, never a previously valid rule;
 // only a new draft infers scope, until an explicit choice takes precedence.
+// A host must be one a link can carry, as no rule matches `*` literally. The
+// check lives here, not in `LinkRule`, so saved rules still load as before.
 import Foundation
 
 enum LinkAddress {
@@ -11,18 +13,35 @@ enum LinkAddress {
             + (rule.scope == .path ? rule.path : "")
     }
 
-    private static func parts(_ input: String) -> URLComponents? {
+    private static func components(_ input: String) -> URLComponents? {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, text.utf8.count <= LinkRule.fieldLimit,
-              let parts = LinkRule.address(text.contains("://") ? text : "https://" + text),
-              let host = parts.host,
+        guard !text.isEmpty, text.utf8.count <= LinkRule.fieldLimit else { return nil }
+        return LinkRule.address(text.contains("://") ? text : "https://" + text)
+    }
+
+    private static func parts(_ input: String) -> URLComponents? {
+        guard let parts = components(input), let host = parts.host, visitable(host),
               LinkRule(host: host, destination: UUID()).error == nil else { return nil }
         return parts
     }
 
+    /// A name of letters, digits, `-`, `_` and `.` (Unicode letters for IDN,
+    /// as `URLComponents` decodes punycode), or a bracketed IPv6 address.
+    private static func visitable(_ host: String) -> Bool {
+        if host.hasPrefix("["), host.hasSuffix("]") {
+            var address = in6_addr()
+            return inet_pton(AF_INET6, String(host.dropFirst().dropLast()), &address) == 1
+        }
+        return host.unicodeScalars.allSatisfy { CharacterSet.alphanumerics.contains($0) || "-_.".unicodeScalars.contains($0) }
+    }
+
     static func error(_ text: String) -> String? {
         if text.utf8.count > LinkRule.fieldLimit { return "Keep the address within 2,048 bytes." }
-        return parts(text) == nil ? "Enter a site or an HTTP(S) address, such as github.com/acme, without a username or password." : nil
+        if parts(text) != nil { return nil }
+        if components(text)?.host?.contains("*") == true {
+            return "Wildcards are not supported. Enter a host such as meet.google.com."
+        }
+        return "Enter a site or an HTTP(S) address, such as github.com/acme, without a username or password."
     }
 
     static func rule(_ text: String, basedOn original: LinkRule, infer: Bool) -> LinkRule {
