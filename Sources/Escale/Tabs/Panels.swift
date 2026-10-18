@@ -314,7 +314,7 @@ extension Browser {
 }
 
 @MainActor
-private enum PanelChoice {
+enum PanelChoice {
     private final class Action: NSObject {
         let run: () -> Void
         init(_ run: @escaping () -> Void) { self.run = run }
@@ -336,9 +336,10 @@ private enum PanelChoice {
     }
 
     /// The list's top left inside the pages, against the side the panel
-    /// takes and centred along it, set in as the panel's tools are.
+    /// takes and centred along it, set in as the panel's tools are. A list
+    /// wider than its side still starts inside the pages, never left of them.
     /// Screen points: y grows upwards.
-    private static func corner(of size: CGSize, on edge: PanelEdge, in pages: CGRect) -> CGPoint {
+    static func corner(of size: CGSize, on edge: PanelEdge, in pages: CGRect) -> CGPoint {
         let inset = Metrics.panelToolsInset
         let x: CGFloat = switch edge {
         case .left: pages.minX + inset
@@ -350,6 +351,6 @@ private enum PanelChoice {
         case .bottom: pages.minY + inset + size.height
         case .left, .right: pages.midY + size.height / 2
         }
-        return CGPoint(x: x, y: y)
+        return CGPoint(x: max(pages.minX + inset, x), y: y)
     }
 }
