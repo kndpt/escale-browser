@@ -44,6 +44,13 @@ struct JSONDocument {
         }
         return components.isEmpty ? "" : "/" + components.reversed().joined(separator: "/")
     }
+    /// The node and every node below it: ids follow the document's order, so
+    /// a subtree is the run of deeper nodes after its root.
+    func subtree(_ id: Int) -> Range<Int> {
+        var end = id + 1
+        while end < nodes.count && nodes[end].depth > nodes[id].depth { end += 1 }
+        return id..<end
+    }
     private struct Parser {
         let bytes: [UInt8]
         var at = 0

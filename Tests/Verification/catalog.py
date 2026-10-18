@@ -283,6 +283,11 @@ CHECKS = {
                      "Sources/Escale/Page/JSONReader.swift", "Sources/Escale/Bench/CallsBench.swift",
                      "Tests/EscaleTests/CallTests.swift"),
               foreground=True),
+        Check("json-reader", ("python3", "Tests/Bench/json_reader.py"),
+              BENCH + ("Tests/Bench/json_reader.py",),
+              "JSON reader in a tab and in API Calls: Expand All, Collapse All, the row cap's footer, paths and layouts",
+              "app", ("bundle",),
+              paths=("Sources/Escale/Page/JSON*.swift", "Tests/EscaleTests/JSONDocumentTests.swift")),
         Check("extension-speech", ("python3", "Tests/Bench/extension_speech.py"),
               BENCH + ("Tests/Bench/extension_speech.py", "Tests/Bench/fixtures/speech-extension/**"),
               "native speech, voices/rate, pause/resume, bounded queue and unload/Space cleanup",
@@ -445,7 +450,7 @@ def plan(paths, risks=(), checks=(), quick=False, acknowledge=None):
     # Dependencies are small and explicit; no scoring or model-specific workflow.
     order = ["icons", "harness", "portable", "links", "whitespace", "changelog", "build", "swift",
              "bundle", "app", "wake", "sleeping", "sleep-by-hand", "tabs", "closed-tabs", "tab-reopen", "shortcut-motion", "sidebar-rows", "tab-access", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "kept-history", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "panel-keys", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus",
-             "routes", "tab-source", "environments", "bookmarked-page", "inspector", "calls", "calls-browse", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "welcome-extensions", "space-media", "space-reorder", "space-send", "call-float", "transfer", "warnings"]
+             "routes", "tab-source", "environments", "bookmarked-page", "inspector", "calls", "calls-browse", "json-reader", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "welcome-extensions", "space-media", "space-reorder", "space-send", "call-float", "transfer", "warnings"]
     return {"checks": [n for n in order if n in chosen], "reasons": chosen,
             "risks": list(risks), "requested": list(checks),
             "unknown": unknown, "acknowledge": acknowledge, "quick": quick,

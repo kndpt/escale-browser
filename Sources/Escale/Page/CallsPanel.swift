@@ -899,6 +899,12 @@ private struct BodyView: View {
                 if reader.shown {
                     Segmented(options: [(false, "Structured"), (true, "Raw")], selection: $raw)
                 }
+                if reader.document != nil && !raw {
+                    Door(icon: "arrow.up.left.and.arrow.down.right", help: "Expand All", box: 22, glyph: 10) { reader.openAll(true) }
+                        .accessibilityLabel("Expand All")
+                    Door(icon: "arrow.down.right.and.arrow.up.left", help: "Collapse All", box: 22, glyph: 10) { reader.openAll(false) }
+                        .accessibilityLabel("Collapse All")
+                }
                 Spacer(minLength: 0)
                 Text([mime, "\(length) characters"].filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(.system(size: metrics.length(Metrics.callsSmall)))
@@ -926,8 +932,9 @@ private struct BodyView: View {
 
 /// The JSON reader's index (JSONReader.swift) drawn as a console draws a
 /// value: one line per member, a preview of what a container holds, keys,
-/// text and numbers lightly tinted. Click or Return opens and closes; the
-/// arrows move and open as in a Finder list; ⌘C copies the chosen value.
+/// text and numbers lightly tinted. Click or Return opens and closes, ⌥-click
+/// a whole branch; the arrows move and open as in a Finder list; ⌘C copies
+/// the chosen value.
 private struct JSONTree: View {
     @ObservedObject var reader: JSONReader
     /// Says whether the tree has the keyboard, and so the plain arrows.
@@ -935,13 +942,12 @@ private struct JSONTree: View {
     @SwiftUI.Environment(\.chromeMetrics) private var metrics
     @State private var chosen: Int?
     @FocusState private var focused: Bool
-    static let shown = 1000
 
     var body: some View {
         if let error = reader.error {
             Unavailable(symbol: "curlybraces", title: "Not readable as JSON", reason: error)
         } else if let document = reader.document {
-            let rows = Array(reader.visible.prefix(Self.shown))
+            let rows = Array(reader.visible.prefix(JSONReader.cap))
             VStack(alignment: .leading, spacing: 0) {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(rows, id: \.self) { id in
@@ -949,13 +955,12 @@ private struct JSONTree: View {
                                  chosen: chosen == id && focused, searching: !reader.query.isEmpty, mark: reader.query) {
                             chosen = id
                             focused = true
-                            if !document.nodes[id].children.isEmpty && reader.query.isEmpty { reader.toggle(id) }
+                            if !document.nodes[id].children.isEmpty && reader.query.isEmpty { reader.toggle(id, all: JSONReader.option) }
                         }
                     }
                 }
-                if reader.visible.count > Self.shown {
-                    Muted("\(reader.visible.count) lines; the first \(Self.shown) are shown. Search narrows them.")
-                        .padding(.top, metrics.length(6))
+                if let hidden = reader.hidden {
+                    Muted(hidden).padding(.top, metrics.length(6))
                 }
             }
             .focusable()
@@ -1047,10 +1052,7 @@ private struct TreeLine: View {
         .onHover { hovering = $0 }
         .animation(Motion.quick, value: hovering)
         .onTapGesture(perform: tap)
-        .contextMenu {
-            Button("Copy Value") { Clipboard.put(document.value(id)) }
-            Button("Copy Path") { Clipboard.put(document.path(id)) }
-        }
+        .contextMenu { JSONCopies(document: document, id: id) }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(leaf ? [] : .isButton)
         .accessibilityValue(leaf ? "" : (open ? "expanded" : "collapsed"))
