@@ -276,7 +276,8 @@ final class Browser: NSObject, ObservableObject {
             guard let self, self.spaces.contains(where: { $0.id == space }) else { return nil }
             return self.downloadsFolder(for: space)
         },
-        announce: { [weak self] line in self?.announce(line) }
+        announce: { [weak self] line in self?.announce(line) },
+        page: { [weak self] space in self?.page(in: space) }
     )
     let floater = Float()
     /// True while the pointer is picking things to hide.

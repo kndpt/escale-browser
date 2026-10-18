@@ -53,6 +53,7 @@
     ./bench close ID | all             only tabs the bench opened
     ./bench undo [press]               the line offering closed tabs back here: label, count, and its button as
                                        VoiceOver finds it; press: test run, that button pressed as VoiceOver does
+    ./bench button LABEL               test run: the app's own button VoiceOver calls LABEL, pressed as VoiceOver does
     ./bench media [ID [JSON]]          test run: sources/listeners; action pause/play/previous/next/volume/dismiss/return, value 0...1
     ./bench popover [X Y]              test world: the open popover's size, or a click X Y points from its top left,
                                        through the app's event dispatch (the pointer stays where it is)
@@ -439,6 +440,9 @@ def main(argv, out=None, err=None, timeout=None, cwd=None):
     elif verb == "undo":
         if args not in ([], ["press"]): sys.exit("usage: bench undo [press]")
         request["press"] = args == ["press"]
+    elif verb == "button":
+        if not args: sys.exit("usage: bench button LABEL")
+        request["label"] = " ".join(args)
     elif verb == "row":
         if len(args) != 1: sys.exit("usage: bench row INDEX")
         request["index"] = int(args[0])

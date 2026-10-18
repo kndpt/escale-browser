@@ -10,6 +10,14 @@ import Combine
 // every active download with its original space until WebKit reports success
 // or failure. There is no polling or background queue; one entry exists only
 // for each transfer WebKit is already doing.
+//
+// A transfer that fails, not one the person cancels, stays as a row for the
+// session with WebKit's resume data when it offers some, otherwise the address
+// to ask again, and the file it was writing: Resume or Retry lands in the same
+// folder of the same Space. Nothing of it is saved. At most `failureLimit`
+// rows are kept, the oldest let go first, and resume data over `resumeLimit`
+// is dropped for a plain Retry, so half a megabyte at most stays in memory,
+// under memory pressure too.
 
 @MainActor
 final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
@@ -17,6 +25,7 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
     private let asksWhere: () -> Bool
     private let folder: (UUID) -> URL?
     private let announce: (String) -> Void
+    private let page: (UUID) -> WKWebView?
 
     struct Transfer: Identifiable, Equatable {
         let id: ObjectIdentifier
@@ -25,9 +34,28 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
         var fraction: Double?
     }
 
+    struct Failure: Identifiable {
+        let id = UUID()
+        let space: UUID
+        let name: String
+        /// Where the file was being written; a retry goes to its folder.
+        let file: URL?
+        let resume: Data?
+        /// Only a GET with a host: a data: address can carry the whole file,
+        /// and a blob: one means nothing once its page is gone.
+        let source: URL?
+
+        /// What taking it up again does, as its button says; none without either.
+        var action: String? { resume != nil ? "Resume" : source != nil ? "Retry" : nil }
+    }
+
+    static let failureLimit = 8
+    static let resumeLimit = 64 * 1024
+
     // Session-only visibility survives completion, cancellation and Space changes.
     @Published private(set) var hasStarted = false
     @Published private(set) var transfers: [Transfer] = []
+    @Published private(set) var failures: [Failure] = []
     private var progress: [ObjectIdentifier: AnyCancellable] = [:]
     private var active: [WKDownload] = []
 
@@ -52,6 +80,8 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
     var observationCount: Int { progress.count }
     private var spaces: [ObjectIdentifier: UUID] = [:]
     private var names: [URL: String] = [:]
+    /// The file each transfer writes, once known; set ahead for a retry.
+    private var files: [ObjectIdentifier: URL] = [:]
 
     /// On-demand test/resource evidence; reading it starts no work.
     var count: Int { active.count }
@@ -60,12 +90,14 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
         loot: @escaping (UUID) -> Loot?,
         asksWhere: @escaping () -> Bool,
         folder: @escaping (UUID) -> URL?,
-        announce: @escaping (String) -> Void
+        announce: @escaping (String) -> Void,
+        page: @escaping (UUID) -> WKWebView?
     ) {
         self.loot = loot
         self.asksWhere = asksWhere
         self.folder = folder
         self.announce = announce
+        self.page = page
     }
 
     /// An extension may choose the filename, but never the folders it carries.
@@ -74,16 +106,17 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
     }
 
     /// Retained until WebKit reports success or failure, independently of the
-    /// initiating page's lifetime.
-    func keep(_ download: WKDownload, in space: UUID) {
+    /// initiating page's lifetime. A failure taken up again keeps its name and file.
+    func keep(_ download: WKDownload, in space: UUID, again failure: Failure? = nil) {
         guard !active.contains(where: { $0 === download }) else { return }
         download.delegate = self
         active.append(download)
         hasStarted = true
         let id = ObjectIdentifier(download)
         spaces[id] = space
+        files[id] = failure?.file
         transfers.append(Transfer(id: id, space: space,
-                                  name: download.originalRequest?.url?.lastPathComponent ?? "Download",
+                                  name: failure?.name ?? download.originalRequest?.url?.lastPathComponent ?? "Download",
                                   fraction: nil))
         // Two KVO inputs, one bounded publication per 100 ms per active file.
         // No idle timer. Cancelling the subscription drops pending updates;
@@ -104,6 +137,7 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
         for download in active where spaces[ObjectIdentifier(download)] == space {
             cancel(ObjectIdentifier(download))
         }
+        failures.removeAll { $0.space == space }
     }
 
     func cancel(_ id: ObjectIdentifier) {
@@ -111,6 +145,31 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
         // WebKit does not promise a failure delegate call for explicit cancel.
         download.cancel { _ in }
         stop(download)
+    }
+
+    /// Resume with WebKit's data, otherwise ask the address again, through a
+    /// page of the failure's own Space for its cookies and website store.
+    func retry(_ id: UUID) {
+        guard let failure = failures.first(where: { $0.id == id }), failure.action != nil else { return }
+        guard let web = page(failure.space) else {
+            announce("Open a page in this Space to download \(failure.name) again")
+            return
+        }
+        failures.removeAll { $0.id == id }
+        if let data = failure.resume {
+            web.resumeDownload(fromResumeData: data) { [weak self] in self?.keep($0, in: failure.space, again: failure) }
+        } else if let source = failure.source {
+            // WebKit leaves the half it wrote; the retry takes its place
+            // rather than landing beside it under a second name. The Trash,
+            // not deletion: a file chosen to be replaced in the save panel
+            // stands there too.
+            if let file = failure.file { try? FileManager.default.trashItem(at: file, resultingItemURL: nil) }
+            web.startDownload(using: URLRequest(url: source)) { [weak self] in self?.keep($0, in: failure.space, again: failure) }
+        }
+    }
+
+    func remove(_ id: UUID) {
+        failures.removeAll { $0.id == id }
     }
 
     /// A page sending a file cannot sleep until WebKit has finished with it.
@@ -124,14 +183,24 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
         suggestedFilename: String,
         completionHandler: @escaping (URL?) -> Void
     ) {
+        let id = ObjectIdentifier(download)
         let asked = response.url.flatMap { names.removeValue(forKey: $0) }
         let name = asked ?? (suggestedFilename.isEmpty ? "download" : suggestedFilename)
-        if let index = transfers.firstIndex(where: { $0.id == ObjectIdentifier(download) }) {
+        if let index = transfers.firstIndex(where: { $0.id == id }) {
             transfers[index].name = name
         }
-        guard let space = spaces[ObjectIdentifier(download)], let folder = folder(space) else {
+        guard let space = spaces[id], let folder = folder(space) else {
             stop(download)
             completionHandler(nil)
+            return
+        }
+
+        // A retry goes where the failed transfer was going, without asking again.
+        if let earlier = files[id] {
+            let file = Self.free(name, in: earlier.deletingLastPathComponent())
+            files[id] = file
+            completionHandler(file)
+            announce("Downloading \(file.lastPathComponent)")
             return
         }
 
@@ -141,24 +210,28 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
             panel.directoryURL = folder
             panel.canCreateDirectories = true
             guard panel.runModal() == .OK, let url = panel.url,
-                  spaces[ObjectIdentifier(download)] != nil else {
+                  spaces[id] != nil else {
                 stop(download)
                 completionHandler(nil)
                 return
             }
+            files[id] = url
             completionHandler(url)
             announce("Downloading \(url.lastPathComponent)")
             return
         }
 
-        completionHandler(Self.free(name, in: folder))
+        let file = Self.free(name, in: folder)
+        files[id] = file
+        completionHandler(file)
         announce("Downloading \(name)")
     }
 
     func downloadDidFinish(_ download: WKDownload) {
         guard let space = spaces[ObjectIdentifier(download)] else { return }
+        let written = files[ObjectIdentifier(download)]
         stop(download)
-        guard let file = download.progress.fileURL else {
+        guard let file = download.progress.fileURL ?? written else {
             announce("Download finished")
             return
         }
@@ -183,9 +256,20 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
         didFailWithError error: Error,
         resumeData: Data?
     ) {
-        guard spaces[ObjectIdentifier(download)] != nil else { return }
+        let id = ObjectIdentifier(download)
+        guard let space = spaces[id] else { return }
+        let name = transfers.first(where: { $0.id == id })?.name ?? "Download"
+        let request = download.originalRequest
+        let source = request?.url.flatMap { url in
+            url.host() != nil && (request?.httpMethod ?? "GET") == "GET" ? url : nil
+        }
+        let failure = Failure(space: space, name: name, file: files[id],
+                              resume: resumeData.flatMap { $0.count <= Self.resumeLimit ? $0 : nil },
+                              source: source)
         stop(download)
-        announce("Download failed")
+        failures.append(failure)
+        failures.removeFirst(max(0, failures.count - Self.failureLimit))
+        announce("Couldn’t download \(name)")
     }
 
     private func stop(_ download: WKDownload) {
@@ -193,7 +277,8 @@ final class Downloads: NSObject, ObservableObject, WKDownloadDelegate {
         progress.removeValue(forKey: id)?.cancel()
         transfers.removeAll { $0.id == id }
         active.removeAll { $0 === download }
-        spaces[ObjectIdentifier(download)] = nil
+        spaces[id] = nil
+        files[id] = nil
         if let url = download.originalRequest?.url { names[url] = nil }
     }
 
@@ -219,5 +304,10 @@ extension Browser {
     func keep(_ download: WKDownload) {
         let space = download.webView.flatMap { tab(for: $0) }?.space ?? spaceID
         downloads.keep(download, in: space)
+    }
+
+    /// A page already built in that Space, parked or not; none is built for it.
+    func page(in space: UUID) -> WKWebView? {
+        (tabs + parkedTabs).lazy.filter { $0.space == space }.compactMap(\.built).first
     }
 }
