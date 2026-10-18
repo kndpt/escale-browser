@@ -62,7 +62,7 @@ enum BookmarkExport {
     /// Replaces `url` whole or not at all; returns the environments carried.
     static func write(_ roots: [Bookmark], to url: URL) throws -> Int {
         let file = html(roots)
-        try Data(file.text.utf8).write(to: url, options: .atomic)
+        try Store.export(Data(file.text.utf8), to: url)
         return file.environments
     }
 
