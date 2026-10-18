@@ -29,6 +29,7 @@ PAGE = f"""<!doctype html><meta charset=utf-8><title>Passages</title>
 <p id=unique>The quick brown fox jumps over the lazy dog.</p>{FILLER}
 <p id=first>Alpha said: restart the server now, please.</p>{FILLER}
 <p id=second>Beta said: restart the server now, quickly.</p>{FILLER}
+<p>Same words.</p>{FILLER}<p id=twin>Same words.</p>{FILLER}
 <textarea id=field>Words inside a text field</textarea>
 <iframe id=frame srcdoc="<p id=inner>Words inside a frame</p>"></iframe>{FILLER}</body>""".encode()
 
@@ -131,6 +132,12 @@ def exercise(base):
     s.require("and says so", bench("probe")["announcement"], "Link with highlight copied")
     opens_on(link, "second", "first")
     print("ok: the selection menu links a repeated passage to the one selected")
+
+    script = (s.ROOT / "Sources/Escale/Page/Scripts/text-fragment.js").read_text()
+    bench("eval", tab, """(() => { const t = document.getElementById('twin').firstChild, r = document.createRange();
+        r.setStart(t, 0); r.setEnd(t, 10); getSelection().removeAllRanges(); getSelection().addRange(r); return 1; })()""")
+    s.require("a passage nothing around tells apart gets no fragment", bench("eval", tab, script).get("value"), None)
+    print("ok: a passage no nearby words tell apart is not linked to")
 
     x, y = window_point(tab, """() => { getSelection().removeAllRanges(); const f = document.getElementById('field');
         f.scrollIntoView({block: 'center'}); f.focus(); f.setSelectionRange(0, 5);

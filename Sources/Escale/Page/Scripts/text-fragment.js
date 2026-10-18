@@ -1,6 +1,6 @@
 /*
 The page names its selected text for a text fragment: the passage, or its first and last words when long or across blocks, plus words around it while it recurs.
-Run once per click in the main frame; null where no fragment would find the text again (a field, a frame, text missing from the page's text).
+Run once per click in the main frame; null where no fragment would find the text again (a field, a frame, text missing from the page's text, a passage no nearby words tell apart).
 */
 (() => {
     const selection = getSelection();
@@ -69,5 +69,7 @@ Run once per click in the main frame; null where no fragment would find the text
         prefix = p;
         suffix = s;
     }
+    // Still found twice, the link would highlight the first one instead.
+    if (count(seen()) > 1) return null;
     return { start, end, prefix, suffix };
 })()
