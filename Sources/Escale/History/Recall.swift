@@ -56,6 +56,8 @@ struct HistoryPanel: View {
     @State private var days: [Day] = []
     @State private var count = 0
     @State private var clearing = false
+    /// What Clear removes; the shortest span until another is chosen.
+    @State private var span: History.Span = .hour
     /// The line Return opens: the top one until the arrows move it.
     @State private var chosen: History.Trace.ID?
     /// The arrows have moved it since the last keystroke in the field: until
@@ -91,7 +93,8 @@ struct HistoryPanel: View {
                                                 trace: trace,
                                                 chosen: trace.id == chosen,
                                                 go: { go(trace, apart: false) },
-                                                forget: { forget(trace) }
+                                                forget: { forget(trace) },
+                                                forgetSite: { forgetSite(trace) }
                                             )
                                         }
                                     }
@@ -161,18 +164,30 @@ struct HistoryPanel: View {
         chosen = next
     }
 
+    /// Its whole host off the list, the selection back on the top line.
+    private func forgetSite(_ trace: History.Trace) {
+        browser.forgetSite(trace)
+        top()
+    }
+
     /// Three separate things, worded so nobody has to guess which one signs
     /// them out of their bank.
     private var sweeps: some View {
         VStack(alignment: .leading, spacing: 10) {
             Card {
-                Line("History", "Everywhere you have been") {
+                // Only a page's last visit is known, so the words say a page
+                // goes whole rather than promise to keep its older visits.
+                Line("History", span == .all ? "Everywhere you have been"
+                     : "Each page last opened then goes, with its older visits") {
                     Pill("Clear") {
-                        browser.clearHistory()
+                        browser.clearHistory(span)
                         refresh()
                         withAnimation(Motion.settle) { clearing = false }
                     }
                 }
+                Segmented(options: [(History.Span.hour, "Last hour"), (.today, "Today"), (.week, "Last 7 days"), (.all, "Everything")],
+                          selection: $span, wide: true)
+                    .padding([.horizontal, .bottom], 10)
                 Rule()
                 Line("Cookies and sign-ins", "Signs you out of every site") {
                     Pill("Sign out of everything") { browser.clearSites() }
@@ -225,6 +240,7 @@ struct HistoryPanel: View {
         let chosen: Bool
         let go: () -> Void
         let forget: () -> Void
+        let forgetSite: () -> Void
 
         @State private var hovering = false
 
@@ -260,6 +276,7 @@ struct HistoryPanel: View {
             .onTapGesture(perform: go)
             .onHover { hovering = $0 }
             .animation(Motion.quick, value: hovering)
+            .contextMenu { Button("Forget This Site", action: forgetSite) }
         }
     }
 }

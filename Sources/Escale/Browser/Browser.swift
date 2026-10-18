@@ -404,15 +404,28 @@ final class Browser: NSObject, ObservableObject {
         announce("Cache cleared")
     }
 
-    func clearHistory() {
-        history.forget()
-        localhost.forget(space: spaceID)
+    func clearHistory(_ span: History.Span = .all) {
+        if let start = span.start() {
+            history.forget(since: start)
+            localhost.forget(from: start, in: spaceID)
+        } else {
+            history.forget()
+            localhost.forget(space: spaceID)
+        }
         announce("History cleared")
     }
 
     func forgetHistory(_ trace: History.Trace) {
         history.forget(trace.key)
         localhost.forget(url: trace.url, in: spaceID)
+    }
+
+    /// Every page of the trace's host; cookies and cache stay, as with Clear.
+    func forgetSite(_ trace: History.Trace) {
+        guard let host = trace.url.host() else { return }
+        history.forget(host: host)
+        localhost.forget(host: host, in: spaceID)
+        announce("\(host) forgotten")
     }
 
     /// The last few places, for the History menu.

@@ -107,9 +107,11 @@
                                        each timed until the window has caught up; go: then Return, timed
                                        until the page is loading
     ./bench row INDEX                  test run: take that row of Bearings as a click does (its action, not a pointer)
-    ./bench recall [open|close|hunt TEXT|scroll X Y TURNS]  test run: the History panel opened, closed or
-                                       searched, timed until the window rests three times (the last: settled);
-                                       scroll: its list under X Y turned down by the wheel, 40 points TURNS times
+    ./bench recall [open|close|hunt TEXT|scroll X Y TURNS|clear SPAN|forget KEY]  test run: the History panel opened,
+                                       closed or searched, timed until the window rests three times (the last: settled),
+                                       with the lines its search lists; scroll: its list under X Y turned down by the
+                                       wheel, 40 points TURNS times; clear: Clear for hour|today|week|all;
+                                       forget: Forget This Site on the line with that key
     ./bench menu [open]                test run: the Bookmarks menu as it is about to open, and its first
                                        folder (open: its first bookmark picked)
     ./bench bookmark URL [new]         test run: a bookmark picked from the list, timed until it loads
@@ -447,7 +449,8 @@ def main(argv, out=None, err=None, timeout=None, cwd=None):
         elif args[:1] == ["scroll"] and len(args) == 4:
             request["x"], request["y"], request["scroll"] = float(args[1]), float(args[2]), int(args[3])
         elif args in ([], ["open"], ["close"]): request["open"] = args != ["close"]
-        else: sys.exit("usage: bench recall [open|close|hunt TEXT|scroll X Y TURNS]")
+        elif args[:1] in (["clear"], ["forget"]) and len(args) == 2: request[args[0]] = args[1]
+        else: sys.exit("usage: bench recall [open|close|hunt TEXT|scroll X Y TURNS|clear hour|today|week|all|forget KEY]")
     elif verb == "bookmark":
         if len(args) not in (1, 2) or (len(args) == 2 and args[1] != "new"): sys.exit("usage: bench bookmark URL [new]")
         request["url"] = args[0]
