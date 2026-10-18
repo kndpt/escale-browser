@@ -104,7 +104,7 @@ struct JSONCopies: View {
 
     var body: some View {
         Button("Copy Value") { Clipboard.put(document.value(id)) }
-        if !document.nodes[id].children.isEmpty {
+        if ["object", "array"].contains(document.nodes[id].kind) {
             Button("Copy Minified") { Clipboard.put(document.formatted(id, indent: false)) }
             Button("Copy Indented") { Clipboard.put(document.formatted(id, indent: true)) }
         }
