@@ -124,7 +124,7 @@ struct PasswordsPanel: View {
     }
 
     /// One account: the name, the password as dots, and the three things to
-    /// do with it. Show asks the Mac who you are first.
+    /// do with it. Show and Copy ask the Mac who you are first.
     private struct Account: View {
         let login: Login
         let copy: () -> Void

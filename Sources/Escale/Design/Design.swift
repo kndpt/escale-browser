@@ -957,6 +957,9 @@ enum Motion {
     static let quick = Animation.easeOut(duration: 0.14)
     /// How long a closed tab is offered back (UndoClose.swift).
     static let undoClose: TimeInterval = 5
+    /// A copied password stays on the clipboard this long, enough to paste
+    /// it after Touch ID, then is cleared (Logins.lift).
+    static let copiedPassword: TimeInterval = 30
     /// The page tools' dock rising from the window's foot: a spring with a
     /// little give.
     static let dock = Animation.spring(response: 0.42, dampingFraction: 0.76)
