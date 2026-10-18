@@ -136,6 +136,14 @@ CHECKS = {
                      "Sources/Escale/Page/CaptureBounds.swift", "Sources/Escale/Page/Scripts/capture-bounds.js",
                      "Sources/Escale/Window/PanelStage.swift"),
               foreground=True),
+        Check("text-fragment", ("python3", "Tests/Bench/text_fragment.py"),
+              BENCH + ("Tests/Bench/text_fragment.py",),
+              "Copy Link with Highlight: one right-click entry, the selection menu's link with context, "
+              "links scrolling to the passage in a new tab, no entry in a field, a frame's plain address",
+              "app", ("bundle",),
+              paths=("Sources/Escale/Page/TextFragment.swift", "Sources/Escale/Page/Scripts/text-fragment.js",
+                     "Sources/Escale/Page/SelectionMenu.swift", "Tests/Bench/text_fragment.py"),
+              foreground=True),
         Check("favicon", ("python3", "Tests/Bench/icon_alignment.py"),
               BENCH + ("Tests/Bench/icon_alignment.py",), "fetch, legacy cache and restart", "app", ("icons", "bundle"),
               paths=("Sources/Escale/Tabs/Icons.swift", "Tests/EscaleTests/IconsTests.swift")),
@@ -444,7 +452,7 @@ def plan(paths, risks=(), checks=(), quick=False, acknowledge=None):
         include_dependencies(name)
     # Dependencies are small and explicit; no scoring or model-specific workflow.
     order = ["icons", "harness", "portable", "links", "whitespace", "changelog", "build", "swift",
-             "bundle", "app", "wake", "sleeping", "sleep-by-hand", "tabs", "closed-tabs", "tab-reopen", "shortcut-motion", "sidebar-rows", "tab-access", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "kept-history", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "panel-keys", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus",
+             "bundle", "app", "wake", "sleeping", "sleep-by-hand", "tabs", "closed-tabs", "tab-reopen", "shortcut-motion", "sidebar-rows", "tab-access", "tab-search-button", "capture-area", "text-fragment", "navigation", "navigation-command-click", "history-menus", "kept-history", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "panel-keys", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus",
              "routes", "tab-source", "environments", "bookmarked-page", "inspector", "calls", "calls-browse", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "welcome-extensions", "space-media", "space-reorder", "space-send", "call-float", "transfer", "warnings"]
     return {"checks": [n for n in order if n in chosen], "reasons": chosen,
             "risks": list(risks), "requested": list(checks),
