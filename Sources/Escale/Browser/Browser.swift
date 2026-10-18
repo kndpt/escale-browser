@@ -654,15 +654,22 @@ final class Browser: NSObject, ObservableObject {
     /// links, not a bare address to explain in your own words.
     func copyMarkdownLink() {
         guard let tab = active, let url = tab.address else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(Browser.markdownLink(tab.label, to: url), forType: .string)
+        announce("Link copied")
+    }
+
+    /// `[text](address)`, on one line; the address is the text when there is
+    /// none, as for a link that is only a picture.
+    nonisolated static func markdownLink(_ text: String, to url: URL) -> String {
+        let words = text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
         // A backslash first, so the ones added next aren't doubled; then both
         // brackets, either of which would end or break the link's text.
-        let title = tab.label
+        let title = (words.isEmpty ? url.absoluteString : words)
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "[", with: "\\[")
             .replacingOccurrences(of: "]", with: "\\]")
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString("[\(title)](\(url.absoluteString))", forType: .string)
-        announce("Link copied")
+        return "[\(title)](\(url.absoluteString))"
     }
 
     func announce(_ text: String, symbol: String? = nil) {
@@ -2018,6 +2025,7 @@ final class Browser: NSObject, ObservableObject {
         // From a private tab, the new one is private too, as for ⌘-click.
         tab.onMiddleClick = { [weak self] tab, url in self?.openPageLink(url, from: tab, foreground: false) }
         tab.onCross = { [weak self] tab, url in self?.replace(tab, going: url) }
+        tab.onLinkChoice = { [weak self] tab, choice, link in self?.chose(choice, link, on: tab) }
 
         // The caret in a sign-in box: the accounts kept for this site hang
         // from the box, and go when the caret does. Nothing is filled on

@@ -348,6 +348,13 @@ CHECKS = {
                      "Sources/Escale/Keyboard/KeyRouting.swift", "Sources/Escale/Keyboard/KeyMenus.swift",
                      "Sources/Escale/Bench/BenchPointer.swift", "Tests/EscaleTests/MoveToSpaceTests.swift"),
               foreground=True),
+        Check("link-menu", ("python3", "Tests/Bench/link_menu.py"),
+              BENCH + ("Tests/Bench/link_menu.py",),
+              "a link's right-click entries: Markdown escaped, empty text and frames; split to three, then refused",
+              "app", ("bundle",),
+              paths=("Sources/Escale/Page/LinkMenu.swift", "Sources/Escale/Page/Scripts/link-watch.js",
+                     "Sources/Escale/Tabs/Panels.swift", "Tests/EscaleTests/MarkdownLinkTests.swift"),
+              foreground=True),
         Check("call-float", ("python3", "Tests/Bench/call_float.py"),
               BENCH + ("Tests/Bench/call_float.py", "Tests/Bench/calls.py", "Tests/Bench/media_player.py",
                        "Tests/Bench/fixtures/call/**"),
@@ -445,7 +452,7 @@ def plan(paths, risks=(), checks=(), quick=False, acknowledge=None):
     # Dependencies are small and explicit; no scoring or model-specific workflow.
     order = ["icons", "harness", "portable", "links", "whitespace", "changelog", "build", "swift",
              "bundle", "app", "wake", "sleeping", "sleep-by-hand", "tabs", "closed-tabs", "tab-reopen", "shortcut-motion", "sidebar-rows", "tab-access", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "kept-history", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "panel-keys", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus",
-             "routes", "tab-source", "environments", "bookmarked-page", "inspector", "calls", "calls-browse", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "welcome-extensions", "space-media", "space-reorder", "space-send", "call-float", "transfer", "warnings"]
+             "routes", "tab-source", "environments", "bookmarked-page", "inspector", "calls", "calls-browse", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "welcome-extensions", "space-media", "space-reorder", "space-send", "link-menu", "call-float", "transfer", "warnings"]
     return {"checks": [n for n in order if n in chosen], "reasons": chosen,
             "risks": list(risks), "requested": list(checks),
             "unknown": unknown, "acknowledge": acknowledge, "quick": quick,
