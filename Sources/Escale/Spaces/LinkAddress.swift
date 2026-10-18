@@ -25,14 +25,16 @@ enum LinkAddress {
         return parts
     }
 
-    /// A name of letters, digits, `-`, `_` and `.` (Unicode letters for IDN,
-    /// as `URLComponents` decodes punycode), or a bracketed IPv6 address.
+    /// ASCII letters, digits, `-`, `_` and `.`, or a bracketed IPv6 address
+    /// with its optional zone. Other scalars are IDN, which `URLComponents`
+    /// already checked when it decoded the punycode.
     private static func visitable(_ host: String) -> Bool {
         if host.hasPrefix("["), host.hasSuffix("]") {
             var address = in6_addr()
-            return inet_pton(AF_INET6, String(host.dropFirst().dropLast()), &address) == 1
+            let literal = host.dropFirst().dropLast().split(separator: "%", maxSplits: 1, omittingEmptySubsequences: false)
+            return inet_pton(AF_INET6, String(literal[0]), &address) == 1
         }
-        return host.unicodeScalars.allSatisfy { CharacterSet.alphanumerics.contains($0) || "-_.".unicodeScalars.contains($0) }
+        return host.unicodeScalars.allSatisfy { !$0.isASCII || CharacterSet.alphanumerics.contains($0) || "-_.".unicodeScalars.contains($0) }
     }
 
     static func error(_ text: String) -> String? {
