@@ -237,6 +237,7 @@ CHECKS = {
               "history, sign-out and cache ask first from Settings and History; history stays per Space",
               "app", ("bundle",),
               paths=("Sources/Escale/History/Recall.swift", "Sources/Escale/Settings/Settings.swift",
+                     "Sources/Escale/Browser/Browser.swift", "Sources/Escale/Keyboard/KeyRouting.swift",
                      "Tests/Bench/clearing.py")),
         Check("address", ("python3", "Tests/Bench/address_field.py"),
               BENCH + ("Tests/Bench/address_field.py",),
