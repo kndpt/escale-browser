@@ -603,14 +603,8 @@ private struct TabPill: View {
                 if prefs.glyph == .icons, !tab.isBlank {
                     Mark(icon: tab.icon, letter: tab.monogram, size: metrics.length(Metrics.navigationIcon))
                 }
-                // Which tab the sound comes from, at the start of the row where
-                // the eye begins to read it. ⌘⇧M stops it.
-                if tab.noisy {
-                    Image(systemName: "speaker.wave.2.fill")
-                        .font(.system(size: metrics.length(8)))
-                        .foregroundStyle(Palette.muted)
-                        .transition(.opacity)
-                }
+                // At the start of the row, where the eye begins to read it.
+                Speaker(tab: tab)
                 if tab.bench {
                     // A script's tab, not yours.
                     Image(systemName: "flask")

@@ -299,6 +299,7 @@ final class Bench {
                     tab.web.loadHTMLString(html, baseURL: base)
                 }
                 else if action == "dismiss" { tab.media.dismiss() }
+                else if action == "speaker" { tab.toggleMute() }
                 else if action == "return" { browser.returnToMedia(tab.id) }
                 else if action == "float" { browser.floatMedia(tab.id) }
                 else if action == "minimize" { browser.floater.onMinimize?() }
@@ -2002,6 +2003,8 @@ final class Bench {
             "pageZoom": Double(tab.built?.pageZoom ?? 1),
             "zoom": Double(tab.zoom),
             "noisy": tab.noisy,
+            "muted": tab.muted,
+            "pageMuted": tab.built.flatMap { Mute.available ? ($0.value(forKey: "_mediaMutedState") as? UInt).map { $0 & 1 == 1 } : nil } as Any? ?? NSNull(),
             "audioAvailable": tab.built?.responds(to: NSSelectorFromString("_isPlayingAudio")) ?? false,
             "audioValue": tab.built.flatMap { $0.responds(to: NSSelectorFromString("_isPlayingAudio")) ? $0.value(forKey: "_isPlayingAudio") as? Bool : nil } as Any? ?? NSNull(),
             "camera": Bench.name(of: tab.built?.cameraCaptureState),

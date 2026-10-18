@@ -326,6 +326,10 @@ final class Tab: ObservableObject, Identifiable {
     @Published var noisy = false {
         didSet { if noisy != oldValue { onPresence?() } }
     }
+    /// Silenced from its speaker (see Mute.swift); kept across sleep and pages.
+    @Published var muted = false {
+        didSet { if muted != oldValue { onPresence?() } }
+    }
     /// Sound or capture started or stopped: the rail's mark for its Space may
     /// have changed (see Presence.swift).
     var onPresence: (() -> Void)?
@@ -584,6 +588,7 @@ final class Tab: ObservableObject, Identifiable {
         images.tab = self
         shop.tab = self
         middles.tab = self
+        if muted { Mute.apply(true, to: web) }
         ears.watch(web) { [weak self, weak web] on in
             guard let self, let web, self.built === web else { return }
             self.noisy = on
