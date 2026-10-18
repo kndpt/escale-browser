@@ -57,6 +57,17 @@ enum BenchPointer {
             closed(answer)
             return
         }
+        if action == "away" {
+            // Off the window, where a hand on the keyboard leaves it: halfway
+            // across the wider gap beside the window, level with its middle.
+            guard let main = NSScreen.screens.first else { answer(["error": "no screen"]); return }
+            let screen = (window.screen ?? main).frame, frame = window.frame
+            let left = frame.minX - screen.minX, right = screen.maxX - frame.maxX
+            CGWarpMouseCursorPosition(CGPoint(x: left > right ? screen.minX + left / 2 : frame.maxX + right / 2,
+                                              y: main.frame.maxY - frame.midY))
+            answer(state())
+            return
+        }
         guard ["click", "hold", "move", "menu"].contains(action),
               let x = request["x"] as? Double, let y = request["y"] as? Double,
               x.isFinite, y.isFinite, x >= 0, y >= 0,
@@ -137,9 +148,25 @@ enum BenchPointer {
     }
 
     private static func state() -> [String: Any] {
-        ["active": NSApp.isActive, "pressed": pressed,
-         "windowNumber": Links.window?.windowNumber ?? 0,
-         "tracking": menu != nil, "items": menu?.items.map {
+        // The pointer and the tracking menu's window, in points from the
+        // window's top left, as `click` takes them.
+        var at: [Double] = [], shown: [Double] = []
+        if let window = Links.window, let main = NSScreen.screens.first {
+            let top = main.frame.maxY - window.frame.maxY
+            let mouse = NSEvent.mouseLocation
+            at = [mouse.x - window.frame.minX, window.frame.maxY - mouse.y]
+            let level = Int(CGWindowLevelForKey(.popUpMenuWindow))
+            let windows = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
+            if menu != nil, let info = windows.first(where: {
+                   $0[kCGWindowOwnerPID as String] as? pid_t == getpid() && $0[kCGWindowLayer as String] as? Int == level }),
+               let bounds = info[kCGWindowBounds as String] as? NSDictionary,
+               let rect = CGRect(dictionaryRepresentation: bounds) {
+                shown = [rect.minX - window.frame.minX, rect.minY - top, rect.width, rect.height]
+            }
+        }
+        return ["active": NSApp.isActive, "pressed": pressed, "at": at, "frame": shown,
+                "windowNumber": Links.window?.windowNumber ?? 0,
+                "tracking": menu != nil, "items": menu?.items.map {
             var row: [String: Any] = ["title": $0.title, "enabled": $0.isEnabled]
             if #available(macOS 14.4, *) { row["subtitle"] = $0.subtitle ?? "" }
             if let submenu = $0.submenu { row["submenu"] = submenu.items.map { $0.isSeparatorItem ? "—" : $0.title } }

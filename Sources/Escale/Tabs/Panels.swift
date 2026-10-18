@@ -297,7 +297,16 @@ extension Browser {
         let candidates = tabs.filter { source in
             panelsMix(source, target) && !(panels.group(target.id)?.members.contains(source.id) ?? false)
         }
-        PanelChoice.show(candidates, edge: edge) { [weak self, weak target] source in
+        // A click in the window keeps the list under the pointer. A key or
+        // the menu bar leaves the pointer anywhere, so the list opens over
+        // the pages, on the side the panel will take.
+        let window = Links.window, event = NSApp.currentEvent
+        let clicked = event.map { $0.window === window && [.leftMouseDown, .leftMouseUp].contains($0.type) } ?? false
+        let pages = clicked || panels.frame.isEmpty ? nil : window.map { window in
+            window.convertToScreen(CGRect(x: panels.frame.minX, y: window.frame.height - panels.frame.maxY,
+                                          width: panels.frame.width, height: panels.frame.height))
+        }
+        PanelChoice.show(candidates, edge: edge, over: pages) { [weak self, weak target] source in
             guard let self, let target else { return }
             if !split(source, with: target, edge: edge) { announce("Up to 3 panels in one Space and website store — enlarge the window if needed") }
         }
@@ -311,7 +320,7 @@ private enum PanelChoice {
         init(_ run: @escaping () -> Void) { self.run = run }
         @objc func fire() { run() }
     }
-    static func show(_ tabs: [Tab], edge: PanelEdge, take: @escaping (Tab) -> Void) {
+    static func show(_ tabs: [Tab], edge: PanelEdge, over pages: CGRect?, take: @escaping (Tab) -> Void) {
         let menu = NSMenu(title: "Add \(edge.title) Split")
         var actions: [Action] = []
         for tab in tabs {
@@ -322,6 +331,25 @@ private enum PanelChoice {
             menu.addItem(item)
         }
         if tabs.isEmpty { menu.addItem(withTitle: "Open another page in this Space first", action: nil, keyEquivalent: "") }
-        _ = withExtendedLifetime(actions) { menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil) }
+        let at = pages.map { corner(of: menu.size, on: edge, in: $0) } ?? NSEvent.mouseLocation
+        _ = withExtendedLifetime(actions) { menu.popUp(positioning: nil, at: at, in: nil) }
+    }
+
+    /// The list's top left inside the pages, against the side the panel
+    /// takes and centred along it, set in as the panel's tools are.
+    /// Screen points: y grows upwards.
+    private static func corner(of size: CGSize, on edge: PanelEdge, in pages: CGRect) -> CGPoint {
+        let inset = Metrics.panelToolsInset
+        let x: CGFloat = switch edge {
+        case .left: pages.minX + inset
+        case .right: pages.maxX - inset - size.width
+        case .top, .bottom: pages.midX - size.width / 2
+        }
+        let y: CGFloat = switch edge {
+        case .top: pages.maxY - inset
+        case .bottom: pages.minY + inset + size.height
+        case .left, .right: pages.midY + size.height / 2
+        }
+        return CGPoint(x: x, y: y)
     }
 }

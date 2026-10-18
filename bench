@@ -86,8 +86,9 @@
                                        and whether a drag from there would move the window;
                                        double: test run, a double-click there (start the probe hidden);
                                        click: test run, a single click there; command: click with ⌘ held
-    ./bench pointer state|cancel|choose INDEX [SUB]|move X Y|click X Y|hold X Y|menu X Y  test-only native pointer and tracking-menu
-                                       inspection; menu: a right press, for a context menu; SUB: that item's submenu entry
+    ./bench pointer state|cancel|choose INDEX [SUB]|move X Y|click X Y|hold X Y|menu X Y|away  test-only native pointer and tracking-menu
+                                       inspection; menu: a right press, for a context menu; SUB: that item's submenu entry;
+                                       away: the pointer off the window; at and frame: pointer and menu in window points
     ./bench drag X Y TOX TOY [HOLD_MS [ENDX ENDY [PAUSE_MS]]] [escape] [live]  test run: move in steps, optionally hold, then let go;
                                        escape: press Escape after the hold, before letting go;
                                        live routes every event, press included, through AppKit;
@@ -414,7 +415,7 @@ def main(argv, out=None, err=None, timeout=None, cwd=None):
         elif len(args) in (2, 3) and args[0] == "choose":
             request["index"] = int(args[1])
             if len(args) == 3: request["sub"] = int(args[2])
-        elif args not in (["state"], ["cancel"]): sys.exit("usage: bench pointer state|cancel|choose INDEX [SUB]|move X Y|click X Y|hold X Y|menu X Y")
+        elif args not in (["state"], ["cancel"], ["away"]): sys.exit("usage: bench pointer state|cancel|choose INDEX [SUB]|move X Y|click X Y|hold X Y|menu X Y|away")
     elif verb == "drag":
         while args and args[-1] in ("live", "escape"):
             request[args[-1]] = True
