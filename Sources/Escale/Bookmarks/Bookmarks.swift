@@ -759,6 +759,9 @@ struct BookmarkOutline: View {
             .scaleEffect(pulsing ? 1.035 : 1)
             .onTapGesture { if !naming { open?() ?? toggle?() } }
             .onHover { hovering = $0 }
+            .modifier(BookmarkAccess(node: node, isOpen: isOpen, naming: naming, press: { open?() ?? toggle?() }) {
+                browser.openEnvironment($0, bookmark: node.id, space: bookmarks.space)
+            })
             .contextMenu {
                 if let open {
                     Button(action: open) { Label("Open", systemImage: "arrow.up.forward") }

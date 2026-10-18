@@ -1,7 +1,8 @@
 // Sleeping is a status, not another action beside Close. It uses the space
 // already reserved for a tab's status, or a badge on an icon-only tab. Each
 // open bookmark observes its tab here, so automatic sleep updates its marker
-// and native help without relaying page changes through the whole browser.
+// (and BookmarkAccess its help) without relaying page changes through the
+// whole browser.
 import SwiftUI
 
 enum SleepLabel {
@@ -24,37 +25,6 @@ struct SleepMark: View {
                 // The row announces its state once; its mark is decorative.
                 .accessibilityHidden(true)
         }
-    }
-}
-
-/// A saved bookmark without an open page has no sleeping state to announce.
-struct SleepHint: ViewModifier {
-    let tab: Tab?
-    var ordinary = ""
-    var label: String?
-
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        if let tab {
-            content.modifier(OpenSleepHint(tab: tab, ordinary: ordinary, label: label))
-        } else {
-            content.help(ordinary)
-        }
-    }
-}
-
-private struct OpenSleepHint: ViewModifier {
-    @ObservedObject var tab: Tab
-    let ordinary: String
-    let label: String?
-
-    func body(content: Content) -> some View {
-        content
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel(label ?? tab.label)
-            .help(tab.sleeping ? SleepLabel.help : ordinary)
-            .accessibilityValue(tab.sleeping ? SleepLabel.name : "")
-            .accessibilityHint(tab.sleeping ? SleepLabel.explanation : "")
     }
 }
 

@@ -509,6 +509,12 @@ struct Shelf: View {
                 .contentShape(Rectangle())
                 .onTapGesture(perform: toggle)
                 .onHover { hovering = $0 }
+                // A button to VoiceOver, as a folder is: its chevron shows only under the pointer.
+                .accessibilityElement(children: .ignore)
+                .accessibilityAddTraits(.isButton)
+                .accessibilityLabel("Bookmarks")
+                .accessibilityValue(BookmarkAccess.shown(!folded))
+                .accessibilityAction { toggle() }
                 .animation(Motion.quick, value: hovering)
                 .animation(Motion.quick, value: lit)
         }
@@ -714,10 +720,17 @@ private struct ShelfRow: View {
             FolderSearch(browser: browser, folder: node, held: $searchHeld) { searching = false }
         }
         .onChange(of: searching) { _, open in if !open { searchHeld = false } }
-        // Offered only where it does something.
+        .modifier(BookmarkAccess(node: node, isOpen: isOpen, naming: naming, tab: tab, live: live,
+                                 ordinary: node.destinations.isEmpty ? (node.url ?? node.title) : "Choose an environment",
+                                 press: press) {
+            browser.openEnvironment($0, bookmark: node.id, space: browser.spaceID)
+        })
+        // Offered only where they do something, as the cross and the copy
+        // button are shown only where they do.
         .accessibilityActions {
             if searchable { Button("Search in Folder") { searching = true } }
             if let tab { Button("Close Tab") { browser.close(tab) } }
+            if let tab, tab.address != nil { Button("Copy Link") { browser.copyAddress(of: tab) } }
         }
         .contextMenu {
             if let tab {
@@ -748,7 +761,6 @@ private struct ShelfRow: View {
             Divider()
             Button(role: .destructive) { browser.bookmarks.remove(node.id) } label: { Label("Remove", systemImage: "trash") }
         }
-        .modifier(SleepHint(tab: tab, ordinary: node.destinations.isEmpty ? (node.url ?? node.title) : "Choose an environment", label: node.title))
         .animation(Motion.quick, value: hovering)
         .animation(Motion.quick, value: target)
         .animation(Motion.quick, value: merging)

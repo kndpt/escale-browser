@@ -120,6 +120,12 @@ CHECKS = {
               "app", ("bundle",),
               paths=("Sources/Escale/Window/TabAccess.swift", "Sources/Escale/Window/Side.swift",
                      "Sources/Escale/Window/TabBar.swift", "Tests/Bench/tab_access.py")),
+        Check("bookmark-access", ("python3", "Tests/Bench/bookmark_access.py"),
+              BENCH + ("Tests/Bench/bookmark_access.py", "Tests/Bench/tab_access.py"),
+              "each bookmark, folder and the shelf heading is a button with its state and actions, in the column and the panel",
+              "app", ("bundle",),
+              paths=("Sources/Escale/Bookmarks/BookmarkAccess.swift", "Sources/Escale/Bookmarks/Shelf.swift",
+                     "Sources/Escale/Bookmarks/Bookmarks.swift", "Tests/Bench/bookmark_access.py")),
         Check("tab-search-button", ("python3", "Tests/Bench/tab_search_button.py"),
               BENCH + ("Tests/Bench/tab_search_button.py",),
               "visible tab search: pointer equals Cmd K, focus, typing, selection and cancellation across layouts",
@@ -444,7 +450,7 @@ def plan(paths, risks=(), checks=(), quick=False, acknowledge=None):
         include_dependencies(name)
     # Dependencies are small and explicit; no scoring or model-specific workflow.
     order = ["icons", "harness", "portable", "links", "whitespace", "changelog", "build", "swift",
-             "bundle", "app", "wake", "sleeping", "sleep-by-hand", "tabs", "closed-tabs", "tab-reopen", "shortcut-motion", "sidebar-rows", "tab-access", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "kept-history", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "panel-keys", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus",
+             "bundle", "app", "wake", "sleeping", "sleep-by-hand", "tabs", "closed-tabs", "tab-reopen", "shortcut-motion", "sidebar-rows", "tab-access", "bookmark-access", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "kept-history", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "panel-keys", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus",
              "routes", "tab-source", "environments", "bookmarked-page", "inspector", "calls", "calls-browse", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "welcome-extensions", "space-media", "space-reorder", "space-send", "call-float", "transfer", "warnings"]
     return {"checks": [n for n in order if n in chosen], "reasons": chosen,
             "risks": list(risks), "requested": list(checks),
