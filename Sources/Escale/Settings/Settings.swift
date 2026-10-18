@@ -721,16 +721,16 @@ struct SettingsPanel: View {
                 }
             }
             Card {
-                Line("History", "Every address you have been to") {
-                    Pill("Clear") { browser.clearHistory() }
+                Line("History", "Pages visited in this Space") {
+                    Pill("Clear") { browser.askToClearHistory() }
                 }
                 Rule()
-                Line("Cookies and sign-ins", "Signs you out of every site") {
-                    Pill("Sign out of everything") { browser.clearSites() }
+                Line("Cookies and sign-ins", "Signs you out of every site, in every Space") {
+                    Pill("Sign out of everything") { browser.askToClearSites() }
                 }
                 Rule()
-                Line("Cache", "Only what was fetched to draw pages") {
-                    Pill("Clear") { browser.clearCache() }
+                Line("Cache", "Only what was fetched to draw pages, in every Space") {
+                    Pill("Clear") { browser.askToClearCache() }
                 }
             }
         }

@@ -129,8 +129,7 @@ extension Browser {
         case .copyMarkdown: copyMarkdownLink()
         case .pasteGo: pasteAndGo()
         case .history: recalling.toggle()
-        case .clearHistory:
-            Ask.sure("Clear this Space’s history?", detail: "Visited pages and learned search choices will be removed.", confirm: "Clear History") { self.clearHistory() }
+        case .clearHistory: askToClearHistory()
         case .addBookmark: bookmarkCurrent()
         case .bookmarks: bookmarking.toggle()
         case .previousSpace, .nextSpace:

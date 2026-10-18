@@ -1,0 +1,1 @@
+Clearing history, signing out of everything and clearing the cache now ask first, the same way from the menu, Settings and the History panel, and say how far they reach: history is this Space's, cookies, sign-ins and cache are every Space's (#10).
