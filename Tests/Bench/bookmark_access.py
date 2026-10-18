@@ -106,6 +106,16 @@ def panel(root, origin):
     perform(one(root, 'kept'), 'AXPress')
     h.until('a site opens from the panel', lambda: h.at(f'{origin}/kept') is not None, 15)
     h.wait_for('and the panel closes', panels, {'panel': False, 'menu': False})
+    perform(door, 'AXPress')
+    h.wait_for('the door opens the menu again', panels, {'panel': False, 'menu': True})
+    if one(root, 'Bench')['value'] == 'Collapsed':
+        perform(one(root, 'Bench'), 'AXPress')
+    # The menu reads each bookmark's tab as the column does: the one just
+    # opened is on screen, the one opened earlier is open behind it.
+    h.until('the menu says which bookmark is on screen and which is open',
+            lambda: sorted(f['value'] for f in labelled(root, 'kept') if f['role'] == 'AXButton') == ['Active', 'Open'], 10)
+    perform(door, 'AXPress')
+    h.wait_for('the door shuts it', panels, {'panel': False, 'menu': False})
 
 
 def main():
