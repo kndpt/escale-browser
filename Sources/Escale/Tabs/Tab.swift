@@ -865,7 +865,11 @@ final class Tab: ObservableObject, Identifiable {
         failure = nil
         formsReady = true
         committedHost = built?.url?.host()?.lowercased()
-        built?.asking.navigated()
+        if let built {
+            built.asking.navigated()
+            // What the page before asked has no page left to answer for.
+            Dialogs.refuseHeld(built)
+        }
         if let fresh = built?.url, fresh.absoluteString != "about:blank" { adopt(fresh) }
     }
 
