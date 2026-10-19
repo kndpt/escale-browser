@@ -2508,6 +2508,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         tellStore(tab)
         // A page that arrived after a password went out: did the sign-in take?
         tab.settleSignIn()
+        tab.screen.loaded()
         // The icon is asked for whether or not the tab is showing one: it may
         // be turned on a moment later, and a tab that then has to wait for a
         // fetch looks broken.

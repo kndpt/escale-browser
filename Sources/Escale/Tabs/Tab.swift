@@ -147,6 +147,8 @@ final class Tab: ObservableObject, Identifiable {
     let capture = PageCapture()
     /// The API Calls panel's collection, open by hand (Calls.swift).
     let calls = Calls()
+    /// Screens, open by hand (Screens.swift).
+    let screen = Screen()
     private(set) var dataRevision = 0
     func invalidatePageData(preservingMedia: Bool = false) {
         formsReady = false
@@ -602,7 +604,8 @@ final class Tab: ObservableObject, Identifiable {
         onZoom?(self, zoom)
     }
 
-    func magnify(by factor: CGFloat) { magnify(to: PageZoom.relative(web.pageZoom) * factor) }
+    /// From the tab's zoom, which Screens keeps while the view's is 1.
+    func magnify(by factor: CGFloat) { magnify(to: zoom * factor) }
 
     /// ⌘0 undoes both kinds of zoom at once — whichever one you reached for.
     func resetZoom() {

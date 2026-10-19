@@ -79,7 +79,7 @@ struct KeyMenus: Commands {
             items([.deleteSpace])
         }
         CommandMenu("Bookmarks") { items([.addBookmark, .bookmarks]) }
-        CommandMenu("Page Tools") { items([.visual, .capture, .captureArea, .captureFull, .developer, .network]) }
+        CommandMenu("Page Tools") { items([.visual, .capture, .captureArea, .captureFull, .screens, .developer, .network]) }
         CommandMenu("Localhost") {
             items([.localhost])
             Divider()

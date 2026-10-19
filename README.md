@@ -86,6 +86,10 @@ you act. A label is a reminder you set, not a guard.
   a newsletter overlay. On that site it stays gone, before the page draws.
 - **An ad blocker that runs before the page.** Trackers and ad networks are
   stopped inside WebKit's networking. On by default, off for a site it breaks.
+- **The page at other sizes.** <kbd>⌥⌘R</kbd> narrows the page to a phone or
+  a tablet under a ruler that reads its own CSS breakpoints. Drag its edges,
+  they catch on each side of a breakpoint; see what sticks out past the
+  sides; send the page to the Simulator or, by QR code, to your phone.
 - **The calls beside the page.** <kbd>⌥⌘N</kbd> lists the page's API calls,
   with headers and bodies laid out to read and JSON as a searchable tree. Web
   Inspector stays one shortcut away.
@@ -128,6 +132,7 @@ own:
 | Update download | When a newer version exists | GitHub Releases | A plain GET for the ZIP, installed only if its hash and bundle id match and Apple's Developer ID signed it for the same team. Nothing restarts on its own. |
 | Site icons | After a page loads | The icon the page declares, or `/favicon.ico` | A GET without cookies or cache, private tabs included. |
 | Extensions | When you add one, and its update check at most every 20 hours | Chrome Web Store (`clients2.google.com`) | The extension's id and version, and a fixed Chrome version (`prodversion=140.0.0.0`), the same for everyone. |
+| Phone address check | When you open a local page's QR code in Screens | This Mac's own network address, the page's port | One TCP connection that sends nothing, to say whether the dev server can be reached from a phone. |
 | GitHub | Only in a space you connect | `github.com`, `api.github.com` | Sign-in (device flow), then the state of the pull requests and issues on screen. |
 
 Extensions you install can make their own requests, within their permissions.
