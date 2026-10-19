@@ -61,9 +61,15 @@ final class Screen: ObservableObject {
     @Published private(set) var simulator = false
     /// One line in place of the layout's range, for a moment.
     @Published private(set) var note: String?
+    /// Every layout side by side, while it is shown (ScreenLineup.swift),
+    /// and the page's frame under it while a picture is taken.
+    @Published var lineup: Lineup?
+    @Published var posing: CGSize?
 
-    private weak var tab: Tab?
-    private var fitted = ScreenFit(drawn: 1, free: 0)
+    private(set) weak var tab: Tab?
+    private(set) var fitted = ScreenFit(drawn: 1, free: 0, room: .zero)
+    /// The lineup is being taken: the page is the lineup's until it is.
+    var shooting = false
     private var settle: DispatchWorkItem?
     private var asked = 0
     private var watchers: [NSObjectProtocol] = []
@@ -90,8 +96,8 @@ final class Screen: ObservableObject {
         watchers = []
         settle?.cancel()
         asked += 1
-        on = false; outlined = false; overflow = 0; edges = []; unread = 0; note = nil
-        fitted = ScreenFit(drawn: 1, free: 0)
+        on = false; outlined = false; overflow = 0; edges = []; unread = 0; note = nil; lineup = nil; posing = nil
+        fitted = ScreenFit(drawn: 1, free: 0, room: .zero)
     }
 
     /// A width from the ruler, a key or the field: free of any device, the
@@ -147,8 +153,8 @@ final class Screen: ObservableObject {
         }
     }
 
-    private func apply() {
-        guard on, let web = tab?.built else { return }
+    func apply() {
+        guard on, !shooting, let web = tab?.built else { return }
         // Laid out at the size asked for, exactly, whatever the frame: the
         // viewport and its media queries are that width. That layout leaves
         // the page zoom out and draws it on top, so the zoom moves into the
@@ -167,7 +173,7 @@ final class Screen: ObservableObject {
     /// Reads the page once the width has stopped changing and the page has
     /// been laid out at it: a drag is many widths, and only the last is
     /// worth a look.
-    private func later() {
+    func later() {
         settle?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.measure() }
         settle = work
@@ -228,10 +234,10 @@ final class Screen: ObservableObject {
     }
 
     /// `_WKLayoutMode`: the view's size, or a size of its own.
-    private static let viewSize: UInt = 0
-    private static let fixed: UInt = 1
+    static let viewSize: UInt = 0
+    static let fixed: UInt = 1
 
-    private static func lay(_ web: WKWebView, out mode: UInt, size: CGSize?) {
+    static func lay(_ web: WKWebView, out mode: UInt, size: CGSize?) {
         let layout = NSSelectorFromString("_setLayoutMode:")
         let sized = NSSelectorFromString("_setFixedLayoutSize:")
         guard web.responds(to: layout), web.responds(to: sized) else { return }
@@ -244,7 +250,7 @@ final class Screen: ObservableObject {
     }
 
     /// Outside the public framework, so asked first (COMPATIBILITY.md).
-    private static func set(_ web: WKWebView, _ name: String, _ value: CGFloat) {
+    static func set(_ web: WKWebView, _ name: String, _ value: CGFloat) {
         let set = NSSelectorFromString(name)
         guard web.responds(to: set) else { return }
         typealias Setter = @convention(c) (AnyObject, Selector, CGFloat) -> Void
@@ -253,11 +259,12 @@ final class Screen: ObservableObject {
 }
 
 /// How the stage draws the page: points on screen for a CSS pixel, the
-/// page's zoom and any shrink to the room in one, and the height in CSS
-/// pixels of a page that keeps the room's.
+/// page's zoom and any shrink to the room in one, the height in CSS pixels
+/// of a page that keeps the room's, and the room itself.
 struct ScreenFit: Equatable {
     let drawn: CGFloat
     let free: Int
+    let room: CGSize
 }
 
 extension Browser {

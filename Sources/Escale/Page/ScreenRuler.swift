@@ -39,34 +39,45 @@ struct Screened<Content: View>: View {
             let wide = max(pixel, (CGFloat(screen.width) * zoom * fit(room, zoom: zoom) / pixel).rounded() * pixel)
             let drawn = screen.on ? wide / CGFloat(screen.width) * (1 - 1e-6) : 1
             let free = screen.on ? Int((room.height / drawn).rounded(.down)) : 0
-            let size = screen.on
+            let live = screen.on
                 ? CGSize(width: wide, height: screen.height.map { (CGFloat($0) * drawn / pixel).rounded(.up) * pixel } ?? room.height)
                 : area.size
+            let middle = (((area.size.width - live.width) / 2 / pixel).rounded(.down) * pixel) + live.width / 2
+            // The lineup takes the page's place, the size of the room; the
+            // page beneath it takes each picture's size in turn.
+            let lined = screen.lineup != nil
+            let size = screen.posing ?? live
             let left = ((area.size.width - size.width) / 2 / pixel).rounded(.down) * pixel
             VStack(alignment: .leading, spacing: 0) {
                 if screen.on {
                     VStack(spacing: 0) {
                         ScreenBar(screen: screen, tab: tab, cssHeight: screen.height ?? free)
                             .frame(height: metrics.length(Metrics.screenBar))
-                        ScreenRuler(screen: screen, perPixel: drawn, page: size.width, middle: left + size.width / 2)
+                        ScreenRuler(screen: screen, perPixel: drawn, page: live.width, middle: middle)
                             .frame(height: metrics.length(Metrics.screenRuler))
                     }
                     .padding(.bottom, metrics.pageInset)
                     .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
                 }
-                content
-                    .frame(width: size.width, height: size.height)
-                    .overlay(alignment: .leading) { if screen.on { ScreenGrip(screen: screen, perPixel: drawn, side: -1) } }
-                    .overlay(alignment: .trailing) { if screen.on { ScreenGrip(screen: screen, perPixel: drawn, side: 1) } }
-                    .padding(.leading, left)
-                    // Only the readings arrive: the page takes its size at
-                    // once, so it never sees the ones in between. Its own
-                    // fades are left alone.
-                    .animation(nil, value: size)
+                ZStack(alignment: .topLeading) {
+                    content
+                        .frame(width: size.width, height: size.height)
+                        .overlay(alignment: .leading) { if screen.on, !lined { ScreenGrip(screen: screen, perPixel: drawn, side: -1) } }
+                        .overlay(alignment: .trailing) { if screen.on, !lined { ScreenGrip(screen: screen, perPixel: drawn, side: 1) } }
+                        .padding(.leading, left)
+                        // Only the readings arrive: the page takes its size at
+                        // once, so it never sees the ones in between. Its own
+                        // fades are left alone.
+                        .animation(nil, value: size)
+                    if let lineup = screen.lineup {
+                        LineupSheet(screen: screen, lineup: lineup)
+                            .frame(width: room.width, height: room.height)
+                    }
+                }
                 Spacer(minLength: 0)
             }
             .frame(width: area.size.width, height: area.size.height)
-            .onChange(of: ScreenFit(drawn: drawn, free: free), initial: true) { _, next in screen.fit(next) }
+            .onChange(of: ScreenFit(drawn: drawn, free: free, room: room), initial: true) { _, next in screen.fit(next) }
         }
         .animation(reduceMotion ? nil : Motion.settle, value: screen.on)
     }
@@ -110,6 +121,7 @@ private struct ScreenBar: View {
             if screen.height != nil {
                 Door(icon: "rectangle.portrait.rotate", help: "Rotate") { screen.turn() }
             }
+            Door(icon: "rectangle.split.3x1", on: screen.lineup != nil, help: "Every Layout") { screen.line() }
             if screen.simulator, let url = tab.address {
                 Door(icon: "iphone", help: "Open in Simulator") {
                     ScreenPhone.simulate(url) { opened in

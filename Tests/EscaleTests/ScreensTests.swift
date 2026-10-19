@@ -96,6 +96,25 @@ private func measured(_ html: String) async throws -> [String: Any] {
         #expect(Screen.range(of: 402, in: []) == nil)
     }
 
+    @Test func theLineupTakesEachLayoutOnceFromTheSmallestPhone() {
+        #expect(Lineup.widths([640, 768, 1024]) == [375, 640, 768, 1024])
+        // A breakpoint at or under the smallest phone is already its layout.
+        #expect(Lineup.widths([320, 375, 768]) == [375, 768])
+        #expect(Lineup.widths([]) == [375, 768, 1024, 1440])
+        #expect(Lineup.widths(Array(stride(from: 400, to: 2000, by: 100))).count == Lineup.limit)
+    }
+
+    @Test func theLineupFitsTheRoomUntilItsPicturesWouldBeTooSmall() {
+        let widths = [375, 768, 1440]
+        let room = CGSize(width: 1200, height: 700)
+        let tall = Lineup.pictureHeight(widths: widths, height: 874, room: room, gap: 20, caption: 30, least: 100)
+        let across = widths.reduce(0) { $0 + CGFloat($1) * tall / 874 } + 20 * 4
+        #expect(across <= room.width)
+        #expect(tall <= room.height - 2 * 20 - 30)
+        // A narrow room keeps the least height, and the row scrolls.
+        #expect(Lineup.pictureHeight(widths: widths, height: 874, room: CGSize(width: 300, height: 700), gap: 20, caption: 30, least: 100) == 100)
+    }
+
     @Test func aLocalAddressMovesToThisMacAndAnyOtherStays() throws {
         let site = try #require(URL(string: "https://example.com/a?b=1"))
         #expect(ScreenPhone.reachable(site) == site)

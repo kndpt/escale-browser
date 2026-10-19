@@ -599,6 +599,9 @@ enum Metrics {
     static let screenSmall: CGFloat = 10
     static let screenListWidth: CGFloat = 230
     static let screenCodeWidth: CGFloat = 248
+    static let lineupGap: CGFloat = 20
+    /// The least height of the lineup's pictures, under which it scrolls.
+    static let lineupLeast: CGFloat = 150
     /// The card beside an inspected element (VisualPick.swift), in compact points.
     static let visualCardWidth: CGFloat = 264
     static let visualNameWidth: CGFloat = 72

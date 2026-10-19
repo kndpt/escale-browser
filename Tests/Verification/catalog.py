@@ -134,6 +134,7 @@ CHECKS = {
               "zoom kept; its key and Developer mode give the page back",
               "app", ("bundle",),
               paths=("Sources/Escale/Page/Screens.swift", "Sources/Escale/Page/ScreenRuler.swift",
+                     "Sources/Escale/Page/ScreenLineup.swift",
                      "Sources/Escale/Page/Scripts/screens.js", "Sources/Escale/Page/Workbench.swift",
                      "Sources/Escale/Window/PanelStage.swift", "Sources/Escale/Tabs/PageZoom.swift")),
         Check("capture-area", ("python3", "Tests/Bench/page_capture_area.py"),

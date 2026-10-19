@@ -5,8 +5,9 @@ Run after ./build.sh debug. ⌥⌘R on an ordinary tab of a loopback page: the
 page reads the default device's width, height and density, its media queries
 and layout follow, a script listening for resize is told the final size, and
 the tab's zoom is kept. ⌥⌘R again, and Developer mode turned off, each give
-the page its frame back. The ruler, the edges, the overflow outline and the
-phone's code are not driven here (ScreensTests covers what screens.js reads).
+the page its frame back. The ruler, the edges, the lineup, the overflow
+outline and the phone's code are not driven here (ScreensTests covers what
+screens.js reads and the lineup's widths and size).
 """
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread

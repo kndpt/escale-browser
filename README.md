@@ -88,8 +88,9 @@ you act. A label is a reminder you set, not a guard.
   stopped inside WebKit's networking. On by default, off for a site it breaks.
 - **The page at other sizes.** <kbd>⌥⌘R</kbd> narrows the page to a phone or
   a tablet under a ruler that reads its own CSS breakpoints. Drag its edges,
-  they catch on each side of a breakpoint; see what sticks out past the
-  sides; send the page to the Simulator or, by QR code, to your phone.
+  they catch on each side of a breakpoint; see every layout side by side and
+  what sticks out past the sides; send the page to the Simulator or, by QR
+  code, to your phone.
 - **The calls beside the page.** <kbd>⌥⌘N</kbd> lists the page's API calls,
   with headers and bodies laid out to read and JSON as a searchable tree. Web
   Inspector stays one shortcut away.

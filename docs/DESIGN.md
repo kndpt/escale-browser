@@ -212,6 +212,9 @@ Reuse or extend a component before creating one:
   sides, devices as dots below. The page's edges are the handle, with the
   split grip. Nothing is drawn over the page but the overflow outline the
   developer asks for, in `danger`. The page's size changes without animation.
+  The lineup takes the page's place in its frame, on `ground`: one picture
+  per layout at one scale, fitted to the room down to `Metrics.lineupLeast`,
+  the live layout's caption on `Chosen` (`ScreenLineup.swift`).
 - **Network.** A glass column (`.glass(.panel, lifted: false,
   edgeOutside: true)`) beside the page, `pageInset` apart, with the page's
   radius; the page shrinks, nothing covers it. An unavailable body says why.
