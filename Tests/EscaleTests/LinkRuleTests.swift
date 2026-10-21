@@ -70,6 +70,24 @@ import Testing
         #expect(LinkRule(host: String(repeating: "a", count: 2049), destination: space).error != nil)
     }
 
+    /// The editor takes only hosts a link can carry; a saved rule that does
+    /// not still loads, and the draft names the problem until it is fixed.
+    @Test @MainActor func editorRefusesHostsNoLinkCarries() {
+        let wildcard = "Wildcards are not supported. Enter a host such as meet.google.com."
+        for text in ["*adeo*", "*.google.com", "https://*.google.com/a?x=1", "meet.*:3000"] {
+            #expect(LinkAddress.error(text) == wildcard)
+        }
+        for text in ["a!b.com", "a$b", "a(b)", "a,b", "[]", "[zz]", "[1.2.3.4]", "[%en0]"] {
+            #expect(LinkAddress.error(text) != nil && LinkAddress.error(text) != wildcard)
+        }
+        for text in ["meet.google.com", "MEET.Google.com.", "bücher.de", "xn--bcher-kva.de", "my_service:3000", "127.0.0.1", "http://[::1]:8080/a", "[fe80::1]", "http://[fe80::1%25en0]/", "l·l.cat", "xn--ll-0ea.cat"] {
+            #expect(LinkAddress.error(text) == nil)
+        }
+        let saved = LinkRule(host: "*adeo*", destination: space)
+        #expect(LinkRule.validation([saved]) == nil)
+        #expect(LinkDraft(rules: [saved]).error(spaces: [space]) == "Rule 1: \(wildcard)")
+    }
+
     /// Trying a link reads the draft as it stands: invalid or orphaned rules
     /// never win, and order decides between two that match.
     @Test func trialFollowsTheDraft() {

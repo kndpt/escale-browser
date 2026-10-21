@@ -27,10 +27,25 @@ struct ExtensionsPage: View {
         var body: some View {
             VStack(alignment: .leading, spacing: metrics.length(Metrics.settingsGap)) {
                 if let whose = extensions.whose {
-                    Text(extensions.shared ? "Shared by every Space." : "Each Space has its own extensions. These are “\(whose)”’s.")
-                        .font(.system(size: metrics.length(density.detail)))
-                        .foregroundStyle(Palette.muted)
+                    // Welcome's two cards, the mode in use chosen: whoever
+                    // arrived before Welcome asked can still pick the other
+                    // (ExtensionSwitch.swift).
+                    VStack(alignment: .leading, spacing: metrics.length(8)) {
+                        HStack(alignment: .top, spacing: metrics.length(Metrics.arrivalRowGap)) {
+                            ExtensionModeChoice(shared: true, chosen: extensions.shared) {
+                                if !extensions.shared { browser.askToSwitchExtensions() }
+                            }
+                            ExtensionModeChoice(shared: false, chosen: !extensions.shared) {
+                                if extensions.shared { browser.askToSwitchExtensions() }
+                            }
+                        }
                         .fixedSize(horizontal: false, vertical: true)
+                        Text((extensions.shared ? "" : "The list below is “\(whose)”’s. ")
+                             + "Choosing the other relaunches Escale and deletes nothing. Sites and sign-ins stay separate in every Space either way.")
+                            .font(.system(size: metrics.length(density.detail)))
+                            .foregroundStyle(Palette.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 Card {
                     VStack(alignment: .leading, spacing: metrics.length(8)) {
@@ -101,7 +116,7 @@ struct ExtensionsPage: View {
                             Text("Extensions to reinstall")
                                 .font(.system(size: metrics.length(density.title), weight: .medium))
                                 .foregroundStyle(Palette.ink)
-                            Text("The copy has no extension data, accounts or permissions. Each installation asks again.")
+                            Text("They start with no extension data, accounts or permissions. Each installation asks again.")
                                 .font(.system(size: metrics.length(density.detail)))
                                 .foregroundStyle(Palette.muted)
                             ForEach(Array(planned.enumerated()), id: \.offset) { _, item in
