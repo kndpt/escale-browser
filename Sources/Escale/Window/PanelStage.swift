@@ -410,6 +410,10 @@ private struct PanelPage: View {
     @ObservedObject var tab: Tab
     let corner: CGFloat
     var body: some View {
+        Screened(tab: tab, screen: tab.screen) { page }
+    }
+
+    private var page: some View {
         Page(tab: tab, corner: corner)
             .overlay { SiteStoragePanel(storage: tab.siteStorage, reset: { SiteData.ask(tab, in: browser) }) }
             .overlay { VisualDetails(pick: tab.visual, again: { tab.visual.stop(); browser.pickVisual() }, capture: { browser.capturePage(.element, selection: $0) }) }

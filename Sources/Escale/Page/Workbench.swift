@@ -1,7 +1,8 @@
 // Developer mode: the hammer at the end of the bar, or Page Tools › Developer
 // Mode, brings a small dock of page tools up from the window's foot —
-// Select, Capture and Network. Network's ⌥⌘N brings it up too, so the tool
-// opened from the keyboard is shown on, with its way out. The bar keeps what
+// Select, Capture, Screens and Network. Network's ⌥⌘N and Screens' ⌥⌘R
+// bring it up too, so the tool opened from the keyboard is shown on, with
+// its way out. The bar keeps what
 // is about the browser (downloads, extensions) and the hammer; what is about
 // the page lives here, so the next tool joins the dock instead of widening
 // the bar.
@@ -34,6 +35,7 @@ extension Browser {
         developing.toggle()
         guard !developing else { return }
         for tab in tabs + parkedTabs where tab.calls.open { tab.calls.stop() }
+        for tab in tabs + parkedTabs where tab.screen.on { tab.screen.close() }
         active?.visual.stop()
         active?.area.stop()
     }
@@ -87,6 +89,7 @@ struct Workbench: View {
             grip(in: area)
             VisualTool(browser: browser)
             CaptureTool(browser: browser)
+            ScreensTool(browser: browser)
             NetworkTool(browser: browser)
         }
         .padding(metrics.length(Metrics.dockPad))

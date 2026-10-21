@@ -36,6 +36,13 @@ enum Palette {
         return "rgba(\(colour.redComponent * 255),\(colour.greenComponent * 255),\(colour.blueComponent * 255),\(alpha))"
     }
 
+    /// `danger` for a mark drawn in a page (Screens' overflow), in the
+    /// appearance the window has now.
+    static var dangerCSS: String {
+        guard let colour = NS.danger.usingColorSpace(.sRGB) else { return "red" }
+        return "rgb(\(colour.redComponent * 255),\(colour.greenComponent * 255),\(colour.blueComponent * 255))"
+    }
+
     /// Settings › Appearance › Increase contrast, on top of the Mac's own
     /// (Prefs.swift). Read by the colours that answer contrast; the window
     /// is rebuilt when it changes, so every one of them is resolved again.
@@ -596,6 +603,17 @@ enum Metrics {
     /// The dock's distance from the window's bottom edge, and the least it
     /// keeps from the others when moved.
     static let dockFoot: CGFloat = 16
+    /// Screens' readings and ruler above the page (ScreenRuler.swift), in
+    /// compact points.
+    static let screenBar: CGFloat = 26
+    static let screenRuler: CGFloat = 24
+    static let screenText: CGFloat = 12
+    static let screenSmall: CGFloat = 10
+    static let screenListWidth: CGFloat = 230
+    static let screenCodeWidth: CGFloat = 248
+    static let lineupGap: CGFloat = 20
+    /// The least height of the lineup's pictures, under which it scrolls.
+    static let lineupLeast: CGFloat = 150
     /// The card beside an inspected element (VisualPick.swift), in compact points.
     static let visualCardWidth: CGFloat = 264
     static let visualNameWidth: CGFloat = 72

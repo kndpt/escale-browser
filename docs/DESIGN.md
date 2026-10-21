@@ -205,6 +205,16 @@ Reuse or extend a component before creating one:
   mode is on, a line of `Palette.developing` runs outside the page's frame,
   behind it, the envelope takes a wash of the same, and a light sweeps the
   line once; nothing moves at rest, and Reduce Motion drops the sweep.
+- **Screens.** A line of readings and a ruler above the page, on the
+  envelope, and the page's frame narrowed under them, centred and keeping its
+  corner (`ScreenRuler.swift`). The ruler is the page's scale: the page's
+  span in `Palette.developing`, the page's breakpoints as ticks on both
+  sides, devices as dots below. The page's edges are the handle, with the
+  split grip. Nothing is drawn over the page but the overflow outline the
+  developer asks for, in `danger`. The page's size changes without animation.
+  The lineup takes the page's place in its frame, on `ground`: one picture
+  per layout at one scale, fitted to the room down to `Metrics.lineupLeast`,
+  the live layout's caption on `Chosen` (`ScreenLineup.swift`).
 - **Network.** A glass column (`.glass(.panel, lifted: false,
   edgeOutside: true)`) beside the page, `pageInset` apart, with the page's
   radius; the page shrinks, nothing covers it. An unavailable body says why.

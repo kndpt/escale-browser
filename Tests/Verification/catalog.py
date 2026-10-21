@@ -139,6 +139,15 @@ CHECKS = {
                      "Sources/Escale/Window/Bar.swift", "Sources/Escale/Window/TabBar.swift",
                      "Tests/Bench/tab_search_button.py"),
               foreground=True),
+        Check("screens", ("python3", "Tests/Bench/screens.py"),
+              BENCH + ("Tests/Bench/screens.py",),
+              "⌥⌘R lays a page out at a device's size and density, media queries and resize follow, "
+              "zoom kept; its key and Developer mode give the page back",
+              "app", ("bundle",),
+              paths=("Sources/Escale/Page/Screens.swift", "Sources/Escale/Page/ScreenRuler.swift",
+                     "Sources/Escale/Page/ScreenLineup.swift",
+                     "Sources/Escale/Page/Scripts/screens.js", "Sources/Escale/Page/Workbench.swift",
+                     "Sources/Escale/Window/PanelStage.swift", "Sources/Escale/Tabs/PageZoom.swift")),
         Check("capture-area", ("python3", "Tests/Bench/page_capture_area.py"),
               BENCH + ("Tests/Bench/page_capture_area.py", "Tests/Bench/page_visual_tools.py"),
               "Select Area: drawn, adjusted and captured rectangle, cancellation and no event reaching the page",
@@ -515,7 +524,7 @@ def plan(paths, risks=(), checks=(), quick=False, acknowledge=None):
         include_dependencies(name)
     # Dependencies are small and explicit; no scoring or model-specific workflow.
     order = ["icons", "harness", "portable", "links", "whitespace", "changelog", "build", "swift",
-             "bundle", "app", "wake", "sleeping", "sleep-by-hand", "dialogs", "tabs", "closed-tabs", "tab-reopen", "shortcut-motion", "sidebar-rows", "tab-access", "bookmark-access", "tab-search-button", "capture-area", "text-fragment", "navigation", "navigation-command-click", "history-menus", "kept-history", "download-resume", "history-panel", "clearing", "update", "address", "keywords", "keyboard", "keyboard-settings", "panel-keys", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus", "routes", "tab-source", "environments", "bookmarked-page", "inspector", "view-source", "elsewhere", "calls", "calls-browse", "json-reader", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "extension-switch", "welcome-extensions", "space-media", "tab-mute", "space-reorder", "space-send", "link-menu", "call-float", "transfer", "warnings"]
+             "bundle", "app", "wake", "sleeping", "sleep-by-hand", "dialogs", "tabs", "closed-tabs", "tab-reopen", "shortcut-motion", "sidebar-rows", "tab-access", "bookmark-access", "tab-search-button", "capture-area", "screens", "text-fragment", "navigation", "navigation-command-click", "history-menus", "kept-history", "download-resume", "history-panel", "clearing", "update", "address", "keywords", "keyboard", "keyboard-settings", "panel-keys", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus", "routes", "tab-source", "environments", "bookmarked-page", "inspector", "view-source", "elsewhere", "calls", "calls-browse", "json-reader", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "extension-switch", "welcome-extensions", "space-media", "tab-mute", "space-reorder", "space-send", "link-menu", "call-float", "transfer", "warnings"]
     return {"checks": [n for n in order if n in chosen], "reasons": chosen,
             "risks": list(risks), "requested": list(checks),
             "unknown": unknown, "acknowledge": acknowledge, "quick": quick,

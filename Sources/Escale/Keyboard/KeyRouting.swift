@@ -170,6 +170,7 @@ extension Browser {
         case .captureFull: capturePage(.full)
         case .developer: toggleWorkbench()
         case .network: toggleNetwork()
+        case .screens: toggleScreens()
         case .localhost: localhostOpen.toggle()
         case .settings: tuning.toggle()
         case .fold: toggleFold()
