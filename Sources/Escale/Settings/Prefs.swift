@@ -160,6 +160,18 @@ final class Preferences: ObservableObject {
     @Published var showsReading: Bool {
         didSet { store.set(showsReading, forKey: "tabs.reading") }
     }
+    /// Reading mode's look, column and text size, set from its bar
+    /// (Reader.swift): the window's look, the normal column and 18 px
+    /// unless chosen, which is reading mode as it always was.
+    @Published var readerLook: Look {
+        didSet { store.set(readerLook.rawValue, forKey: "reader.look") }
+    }
+    @Published var readerWidth: ReaderWidth {
+        didSet { store.set(readerWidth.rawValue, forKey: "reader.width") }
+    }
+    @Published var readerSize: Int {
+        didSet { store.set(readerSize, forKey: "reader.size") }
+    }
     /// The ad blocker. On unless turned off; there is nothing else to it.
     @Published var shielded: Bool {
         didSet { store.set(shielded, forKey: "shield") }
@@ -300,6 +312,9 @@ final class Preferences: ObservableObject {
         defaultZoom = zoom
         Tab.defaultZoom = CGFloat(zoom) / 100
         showsReading = store.object(forKey: "tabs.reading") as? Bool ?? true
+        readerLook = store.string(forKey: "reader.look").flatMap(Look.init) ?? .system
+        readerWidth = store.string(forKey: "reader.width").flatMap(ReaderWidth.init) ?? .normal
+        readerSize = Reader.size(store.object(forKey: "reader.size") as? Int)
         shielded = store.object(forKey: "shield") as? Bool ?? true
         extensionsInPrivate = store.bool(forKey: "extensions.private")
         sharedExtensions = store.object(forKey: "extensions.shared") as? Bool

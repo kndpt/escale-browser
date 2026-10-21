@@ -237,7 +237,7 @@ final class Tab: ObservableObject, Identifiable {
     /// Leaving reading mode reloads rather than putting the old markup back:
     /// restoring the HTML gives you a page that looks right and does nothing,
     /// because every listener the page had was thrown away with it.
-    func toggleReader(_ done: @escaping (Bool) -> Void) {
+    func toggleReader(_ dress: [String: String], _ done: @escaping (Bool) -> Void) {
         guard !isBlank else {
             done(false)
             return
@@ -248,11 +248,17 @@ final class Tab: ObservableObject, Identifiable {
             done(true)
             return
         }
-        web.evaluateJavaScript(Reader.script) { [weak self] answer, _ in
+        web.evaluateJavaScript(Reader.run(dress, build: true)) { [weak self] answer, _ in
             let worked = (answer as? String) == "read"
             if worked { self?.reader = true }
             done(worked)
         }
+    }
+
+    /// The article on screen in new colours, width or size (ReaderBar).
+    func dressReader(_ dress: [String: String]) {
+        guard reader, let web = built else { return }
+        web.evaluateJavaScript(Reader.run(dress, build: false))
     }
 
     /// The site's icon, for tabs set to wear one. From the cache the moment
@@ -884,6 +890,8 @@ final class Tab: ObservableObject, Identifiable {
     /// The page the view shows committed: the address follows it again.
     func arrived() {
         failure = nil
+        // A new document is never the article: the bar leaves with it.
+        reader = false
         formsReady = true
         committedHost = built?.url?.host()?.lowercased()
         if let built {
