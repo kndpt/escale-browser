@@ -490,6 +490,8 @@ enum Metrics {
     static let mediaInset: CGFloat = 8
     static let mediaRadius: CGFloat = 9
     static let mediaIcon: CGFloat = 16
+    /// An app's icon in a menu (Elsewhere.swift).
+    static let menuIcon: CGFloat = 16
     static let mediaCaption: CGFloat = 11
     static let mediaControl: CGFloat = 22
     static let mediaGlyph: CGFloat = 10
@@ -975,6 +977,9 @@ enum Motion {
     static let quick = Animation.easeOut(duration: 0.14)
     /// How long a closed tab is offered back (UndoClose.swift).
     static let undoClose: TimeInterval = 5
+    /// A copied password stays on the clipboard this long, enough to paste
+    /// it after Touch ID, then is cleared (Logins.lift).
+    static let copiedPassword: TimeInterval = 30
     /// A setting a search opened stays marked this long, then fades.
     static let foundHold: TimeInterval = 1.6
     static let foundFade = Animation.easeOut(duration: 0.6)

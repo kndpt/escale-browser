@@ -92,14 +92,87 @@ final class Updater: ObservableObject {
         case offered(Release)
     }
 
+    /// What a read of the feed came to.
+    enum Read: Equatable {
+        /// Not read: offline, the server down, or a file that is not the feed.
+        case failed
+        /// Read, and nothing newer for this Mac.
+        case latest
+        /// Read, and it names a newer build.
+        case newer(Release)
+
+        init(_ found: Release?, over build: Int = Updater.build) {
+            guard let found else { self = .failed; return }
+            self = found.build > build && found.runsHere ? .newer(found) : .latest
+        }
+
+        /// The line for somebody who asked; a newer build says its own once
+        /// it lands.
+        var said: String? {
+            switch self {
+            case .failed: return "Couldn't check for updates"
+            case .latest: return "This is the latest one"
+            case .newer: return nil
+            }
+        }
+    }
+
+    /// Why a newer build could not be swapped in, said with what to do instead.
+    enum Refusal: Equatable {
+        /// A development build: there is no team to check the new one against.
+        case unsigned
+        /// The app's folder takes no rename: a disk image, or an Applications
+        /// folder owned by another account.
+        case place
+        /// The download or the last move broke off; nothing changed.
+        case interrupted
+        /// What arrived is not this app, newer, signed by its team.
+        case untrusted
+        /// This Mac could not write it: a full disk, a folder it may not use.
+        case local
+
+        init(_ error: Error) {
+            switch error as? Swap.Refused {
+            case .unsignedHere: self = .unsigned
+            case .readOnly: self = .place
+            case .hash, .archive, .plist, .wrongApp, .notNewer, .unsigned, .wrongTeam: self = .untrusted
+            case .download, .move: self = .interrupted
+            case nil: self = error is URLError ? .interrupted : .local
+            }
+        }
+
+        var said: String {
+            switch self {
+            case .unsigned: return "This copy can't update itself — download the disk image"
+            case .place: return "This copy can't be replaced where it is — move it to Applications, or download the disk image"
+            case .interrupted: return "The download broke off — try again"
+            case .untrusted: return "The download didn't pass its checks — download the disk image"
+            case .local: return "The update couldn't be written on this Mac — download the disk image"
+            }
+        }
+    }
+
+    /// The update line in Settings once nothing newer is known: when the feed
+    /// was last read, and whether the last try failed.
+    nonisolated static func line(checked: Date?, failed: Bool) -> String {
+        guard let checked else { return failed ? "Couldn't check for updates" : "Checked every 2 hours on its own" }
+        let when = checked.formatted(.relative(presentation: .named))
+        return failed ? "Couldn't check for updates — last checked \(when)" : "Checked \(when) — every 2 hours on its own"
+    }
+
     @Published private(set) var stage: Stage = .none
+    /// Why the build offered as a disk image could not be swapped in.
+    @Published private(set) var refusal: Refusal?
     /// How much of the ZIP has arrived while it is fetched, a whole percent
     /// at a time; nil before the first byte and once it is done.
     @Published private(set) var fraction: Double?
     /// True while the file is being fetched.
     @Published private(set) var checking = false
-    /// When the file was last read, for the line in Settings.
+    /// When the file was last read, for the line in Settings. A failed read
+    /// leaves it as it was.
     @Published private(set) var lastChecked: Date?
+    /// True when the last try could not read the file.
+    @Published private(set) var failed = false
 
     /// What this app is: the version people read, and the build that
     /// decides whether another is newer.
@@ -154,29 +227,35 @@ final class Updater: ObservableObject {
         now.timeIntervalSince(last) > 60 * 60 * 2 - 60 * 10
     }
 
-    /// Now, because somebody asked. `done` gets the newer build the feed
-    /// names, or nil when this is the latest; what becomes of it after that
-    /// is said through the line handed to `checkIfDue`.
-    func check(then done: @escaping (Release?) -> Void) {
+    /// Now, because somebody asked. `done` gets what the read came to; what
+    /// becomes of a newer build after that is said through the line handed
+    /// to `checkIfDue`.
+    func check(then done: @escaping (Read) -> Void) {
         guard !checking else { return }
         checking = true
         // A test run is nobody using Escale, so it is not counted.
         let first = Store.testing ? [] : Updater.firsts(since: Store.settings.object(forKey: lastKey) as? Date)
         Task { [weak self] in
-            let found = await Updater.fetch(first: first)
+            let read = Read(await Updater.fetch(first: first))
             guard let self else { return }
             checking = false
-            lastChecked = Date()
+            // The turn is taken either way, so a failed read waits for the
+            // next one like any other: no more requests than before.
             Store.settings.set(Date(), forKey: lastKey)
-            guard let found, found.build > Updater.build, found.runsHere else {
+            failed = read == .failed
+            if !failed { lastChecked = Date() }
+            done(read)
+            switch read {
+            case .failed:
+                // Nothing was learned, so a build already known stays as it is.
+                break
+            case .latest:
                 // A build already swapped in stays ready whatever the feed
                 // says now.
                 if case .ready = stage {} else { stage = .none }
-                done(nil)
-                return
+            case .newer(let found):
+                take(found)
             }
-            done(found)
-            take(found)
         }
     }
 
@@ -190,18 +269,19 @@ final class Updater: ObservableObject {
         case .none, .offered: break
         }
         stage = .fetching(release)
+        refusal = nil
         fraction = nil
         Task.detached(priority: .utility) {
-            let worked: Bool
+            let refused: Refusal?
             do {
                 try await Swap.install(release) { part in
                     Task { @MainActor in Updater.shared.passed(part, of: release) }
                 }
-                worked = true
+                refused = nil
             } catch {
-                worked = false
+                refused = Refusal(error)
             }
-            await MainActor.run { [weak self] in self?.landed(release, worked: worked) }
+            await MainActor.run { [weak self] in self?.landed(release, refused: refused) }
         }
     }
 
@@ -211,13 +291,13 @@ final class Updater: ObservableObject {
         fraction = part
     }
 
-    private func landed(_ release: Release, worked: Bool) {
+    private func landed(_ release: Release, refused: Refusal?) {
         guard case .fetching(let fetching) = stage, fetching == release else { return }
         fraction = nil
-        stage = worked ? .ready(release) : .offered(release)
-        say?(worked
-            ? "Escale \(release.version) is ready — it's there the next time you open it"
-            : "Escale \(release.version) is out — it's in Settings")
+        refusal = refused
+        stage = refused == nil ? .ready(release) : .offered(release)
+        say?(refused.map { "Escale \(release.version) is out. \($0.said)" }
+            ?? "Escale \(release.version) is ready — it's there the next time you open it")
     }
 
     /// A stage set by hand, for a test run to look at the door and the panel
@@ -324,7 +404,7 @@ final class Updater: ObservableObject {
 /// The part that touches the disk, off the main thread. Every step checks
 /// before anything changes, and the only two things ever removed are the
 /// scratch folder it made and the `.old` bundle it set aside.
-private enum Swap {
+enum Swap {
     enum Refused: Error {
         case unsignedHere, readOnly, download, hash, archive, plist, wrongApp, notNewer, unsigned, wrongTeam, move
     }

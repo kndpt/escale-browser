@@ -155,7 +155,7 @@ holds the JavaScript its domain injects.
 | `Address/` | Bearings (⌘T, ⌘L, ⌘K): address field, suggestions, word matching, learned order, search engines, GitHub mode, environment suggestions, ⌘L's query parameters, visited local endpoints and listening ports | `Address`, `Field`, `Query`, `Parameters`, `Terms`, `Habits`, `Engine`, `Omnibox`, `NewTab`, `Bearing`, `SearchEnvironments`, `Environment`, `Localhost`, `Listening` |
 | `GitHub/` | Bearings' GitHub items: identities and observations, bounded per-Space cache, per-Space sign-in and keychain, refresh of visible items, page state reading, search, ranking and presentation | `GitHubItem`, `GitHubState`, `GitHubMemory`, `GitHubDisk`, `GitHubAccess`, `GitHubSecrets`, `GitHubHTTP`, `GitHubRefresh`, `GitHubWatch`, `GitHubShares`, `GitHubSpaces`, `GitHubPage`, `GitHubSearch`, `GitHubNavigation`, `GitHubResults`, `GitHubResult`, `GitHubSettings`, `GitHubSignIn`, `GitHubSpecimen`, `GitHubSymbol`, `GitHubMark`, `GitHubPrototype`, `GitHubBench`; `Scripts/`, `Assets/` |
 | `History/` | History, downloads, the History and Downloads panel | `History`, `Recall`, `Downloads`, `DownloadDoor`, `DownloadFlight`, `Loot` |
-| `Bookmarks/` | Bookmarks, their environments, the sidebar shelf and its folder search, their right-click actions | `Bookmarks`, `Shelf`, `FolderSearch`, `BookmarkActions`, `Environments`, `EnvironmentEditor`, `EnvironmentScope` |
+| `Bookmarks/` | Bookmarks, their environments, the sidebar shelf and its folder search, their right-click actions, export to an HTML bookmarks file | `Bookmarks`, `Shelf`, `FolderSearch`, `BookmarkActions`, `BookmarkExport`, `Environments`, `EnvironmentEditor`, `EnvironmentScope` |
 | `Passwords/` | Keychain, passwords, passkeys, forms, accounts menu | `Vault`, `Logins`, `Passwords`, `Passkeys`, `Forms`, `Accounts`; `Scripts/` |
 | `Blocking/` | Content blocker and hidden page elements | `Shield`, `Curtain`, `Hidden`; `Scripts/` |
 | `Extensions/` | Chrome extensions and the Chrome Web Store | `Extensions`, `ExtensionShims` and the API families it routes to (`ExtensionBookmarks`, `ExtensionHistory`, `ExtensionDownloads`, `ExtensionPages`, `ExtensionSystem`, `ExtensionWorker`, `ExtensionGrants`, `ExtensionUserScripts`, `ExtensionIdentity`), `ExtensionTabs`, `ExtensionButtons`, `ExtensionSpeech`, `ExtensionPopup`, `ExtensionNative`, `ExtensionSocket`, `ExtensionsUI`, `Crx`, `StoreRelay`; `Scripts/` |
@@ -163,7 +163,7 @@ holds the JavaScript its domain injects.
 | `Transfer/` | Every Space saved to one sealed file and brought into another Mac | `TransferFile`, `TransferValues`, `TransferExport`, `TransferApply`, `TransferPreferences`, `TransferFlow`, `TransferPanel`, `TransferBench` |
 | `Settings/` | Settings and preferences | `Settings`, `Prefs`, `ToneChoice` |
 | `Storage/` | Test-world boundary, paths, settings, ordered writes flushed at quit | `Store`, `Writer` |
-| `Bench/` | Script socket, off by default, driven by `./bench` | `Bench`, `BenchPointer`, `BenchKeys`, `PanelBench`, `CallsBench`, `UpdateBench`, `GitHubDataBench` |
+| `Bench/` | Script socket, off by default, driven by `./bench` | `Bench`, `BenchPointer`, `BenchKeys`, `PanelBench`, `CallsBench`, `UpdateBench`, `GitHubDataBench`, `SheetBench` |
 
 ## Where new work plugs in
 

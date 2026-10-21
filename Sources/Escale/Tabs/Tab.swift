@@ -360,6 +360,8 @@ final class Tab: ObservableObject, Identifiable {
     /// The middle button was let go over a link. The browser opens it in a
     /// tab of its own beside this one, without leaving the page you are on.
     var onMiddleClick: ((Tab, URL) -> Void)?
+    /// An entry Escale adds to a link's right-click menu was chosen (LinkMenu.swift).
+    var onLinkChoice: ((Tab, LinkChoice, MenuLink) -> Void)?
     /// Sent where this tab's view can't go: from an extension's page to the
     /// web or another extension, or from the web to an extension's page.
     /// WebKit keeps each kind of view to its own pages, so the tab has to be
@@ -514,6 +516,10 @@ final class Tab: ObservableObject, Identifiable {
             guard let self else { return }
             self.onInspect?(self)
         }
+        web.onLinkChoice = { [weak self] choice, link in
+            guard let self else { return }
+            self.onLinkChoice?(self, choice, link)
+        }
         web.holdForFirstFrame()
         // Pages follow the appearance of the window they are drawn in, and the
         // window follows Settings › Appearance — so a site that honours
@@ -538,6 +544,7 @@ final class Tab: ObservableObject, Identifiable {
         controller.removeScriptMessageHandler(forName: PasskeyRelay.name)
         controller.removeScriptMessageHandler(forName: HoveredLink.name, contentWorld: .defaultClient)
         controller.removeScriptMessageHandler(forName: SelectionWatch.name, contentWorld: .defaultClient)
+        controller.removeScriptMessageHandler(forName: LinkRelay.name, contentWorld: .defaultClient)
         controller.removeScriptMessageHandler(forName: MiddleRelay.name)
         controller.add(relay, name: ScrollRelay.name)
         controller.add(veils_, name: VeilRelay.name)
@@ -549,6 +556,7 @@ final class Tab: ObservableObject, Identifiable {
         controller.add(hovered, contentWorld: .defaultClient, name: HoveredLink.name)
         selected.tab = self
         controller.add(selected, contentWorld: .defaultClient, name: SelectionWatch.name)
+        controller.add(LinkRelay.shared, contentWorld: .defaultClient, name: LinkRelay.name)
         controller.add(middles, name: MiddleRelay.name)
         Shield.shared.protect(controller)
         built = web
@@ -682,6 +690,11 @@ final class Tab: ObservableObject, Identifiable {
                 forMainFrameOnly: true, in: .defaultClient
             ))
         }
+        // Every frame: a link in an embed is one a person can right-click (LinkMenu.swift).
+        controller.addUserScript(WKUserScript(
+            source: LinkRelay.watch, injectionTime: .atDocumentStart,
+            forMainFrameOnly: false, in: .defaultClient
+        ))
         // The main frame only: a middle-click on a link inside an ad iframe is
         // that frame's own business, and its link is not this tab's to open.
         controller.addUserScript(
@@ -873,6 +886,11 @@ final class Tab: ObservableObject, Identifiable {
         failure = nil
         formsReady = true
         committedHost = built?.url?.host()?.lowercased()
+        if let built {
+            built.asking.navigated()
+            // What the page before asked has no page left to answer for.
+            Dialogs.refuseHeld(built)
+        }
         if let fresh = built?.url, fresh.absoluteString != "about:blank" { adopt(fresh) }
     }
 
@@ -1363,6 +1381,7 @@ final class Tab: ObservableObject, Identifiable {
         ears.stop()
         guard let web = built else { return }
         built = nil
+        Dialogs.refuseHeld(web)
         let controller = web.configuration.userContentController
         controller.removeScriptMessageHandler(forName: ScrollRelay.name)
         controller.removeScriptMessageHandler(forName: VeilRelay.name)
@@ -1372,6 +1391,7 @@ final class Tab: ObservableObject, Identifiable {
         controller.removeScriptMessageHandler(forName: PasskeyRelay.name)
         controller.removeScriptMessageHandler(forName: HoveredLink.name, contentWorld: .defaultClient)
         controller.removeScriptMessageHandler(forName: SelectionWatch.name, contentWorld: .defaultClient)
+        controller.removeScriptMessageHandler(forName: LinkRelay.name, contentWorld: .defaultClient)
         controller.removeScriptMessageHandler(forName: MiddleRelay.name)
         controller.removeAllUserScripts()
         web.onPull = nil
@@ -1379,6 +1399,7 @@ final class Tab: ObservableObject, Identifiable {
         web.searchName = nil
         web.onSearch = nil
         web.onInspect = nil
+        web.onLinkChoice = nil
         web.stopLoading()
         web.navigationDelegate = nil
         web.uiDelegate = nil
@@ -1494,6 +1515,8 @@ final class PageView: WKWebView {
             item.target = self
             item.action = #selector(inspectElement(_:))
         }
+        Elsewhere.shared.offer(in: menu, page: self)
+        addLinkItems(to: menu)
         guard #available(macOS 15.4, *),
               let tab = Extensions.shared.browser?.tab(for: self)
         else { return }
@@ -1503,9 +1526,14 @@ final class PageView: WKWebView {
         items.forEach { menu.addItem($0) }
     }
 
+    /// Takes the next window WebKit asks for, as an address (Elsewhere.swift).
+    var takeLink: ((URL) -> Void)?
     var searchName: (() -> String?)?
     var onSearch: ((String) -> Void)?
     private var selection: String?
+    /// The link under the last right-click, and what to do with it (LinkMenu.swift).
+    var rightClicked: MenuLink?
+    var onLinkChoice: ((LinkChoice, MenuLink) -> Void)?
 
     /// The words selected where the right-click was, read when the menu
     /// opens. The selection of a text field is its own, not the page's, so a
@@ -1535,6 +1563,18 @@ final class PageView: WKWebView {
     @objc private func inspectElement(_ item: NSMenuItem) {
         onInspect?()
         if let action = inspectNode.action { NSApp.sendAction(action, to: inspectNode.target, from: item) }
+    }
+
+    /// What this page has asked since it last navigated, and what it asked
+    /// while out of the window (Dialogs.swift).
+    var asking = Dialogs.Asking()
+    var held: [Dialogs.Held] = []
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard window != nil, !held.isEmpty else { return }
+        // Once the stage has finished putting it there.
+        DispatchQueue.main.async { [weak self] in self.map(Dialogs.showHeld) }
     }
 
     /// Told where a sideways swipe has got to, and nil when there is none.

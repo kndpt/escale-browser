@@ -7,10 +7,15 @@ import Foundation
 // panel to be looked at and pressed.
 // `forget` makes the next launch an arrival, which a test run shows only with
 // ESCALE_FEED set (Gate.swift); `relaunch` goes through the updater's own
-// relaunch, after the answer has left.
+// relaunch, after the answer has left. `check` reads the feed the way
+// "Check now" does, and the state says what that read came to and the line
+// Settings shows for it.
 
 @MainActor
 enum UpdateBench {
+    /// What the last `check` came to, until the next one is asked.
+    private static var read: Updater.Read?
+
     static func run(_ request: [String: Any], browser: Browser) -> [String: Any] {
         guard Store.testing else { return ["error": "update needs a test world"] }
         let version = request["version"] as? String ?? "9.9"
@@ -40,12 +45,15 @@ enum UpdateBench {
             browser.gate = nil
         case "forget":
             Store.settings.set(1, forKey: Arrival.buildKey)
+        case "check":
+            read = nil
+            Updater.shared.check { read = $0 }
         case "relaunch":
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { Updater.shared.relaunch() }
         case "state":
             break
         default:
-            return ["error": "update takes ready|offered|fetching|none|open|arrival|close|forget|relaunch|state"]
+            return ["error": "update takes ready|offered|fetching|none|open|arrival|close|forget|check|relaunch|state"]
         }
         return state(browser)
     }
@@ -64,7 +72,20 @@ enum UpdateBench {
         case .ready: stage = "ready"
         case .offered: stage = "offered"
         }
+        let read: String
+        switch Self.read {
+        case nil: read = ""
+        case .failed: read = "failed"
+        case .latest: read = "latest"
+        case .newer: read = "newer"
+        }
+        let updater = Updater.shared
         return [
+            "checking": updater.checking,
+            "read": read,
+            "said": Self.read?.said as Any? ?? NSNull(),
+            "line": Updater.line(checked: updater.lastChecked, failed: updater.failed),
+            "checked": updater.lastChecked?.timeIntervalSince1970 as Any? ?? NSNull(),
             "stage": stage,
             "door": Updater.shared.stage.shown != nil,
             "fraction": Updater.shared.fraction as Any? ?? NSNull(),

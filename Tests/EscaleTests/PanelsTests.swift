@@ -135,4 +135,16 @@ import Testing
         shape.panels = [group]; shape.tabs[0].url = "not an address"
         #expect(!Session.valid(shape))
     }
+
+    /// From the keyboard, the chooser opens inside the pages on the panel's
+    /// side, and a list wider than that side still starts inside them.
+    @Test func chooserStaysOverThePages() {
+        let pages = CGRect(x: 100, y: 50, width: 600, height: 400), inset = Metrics.panelToolsInset
+        let right = PanelChoice.corner(of: CGSize(width: 200, height: 80), on: .right, in: pages)
+        #expect(right == CGPoint(x: pages.maxX - inset - 200, y: pages.midY + 40))
+        let wide = PanelChoice.corner(of: CGSize(width: 900, height: 80), on: .right, in: pages)
+        #expect(wide.x == pages.minX + inset)
+        let top = PanelChoice.corner(of: CGSize(width: 900, height: 80), on: .top, in: pages)
+        #expect(top == CGPoint(x: pages.minX + inset, y: pages.maxY - inset))
+    }
 }
