@@ -38,7 +38,7 @@ struct KeyMenus: Commands {
             Divider()
             items([.zoomIn, .zoomOut, .resetZoom])
             Divider()
-            items([.siteData, .inspector, .console, .inspectElement])
+            items([.siteData, .inspector, .console, .inspectElement, .viewSource])
         }
         CommandMenu("Tabs") {
             items([.splitRight, .splitLeft, .splitTop, .splitBottom])
