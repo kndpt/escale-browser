@@ -1,8 +1,8 @@
 // Which preferences travel. A preference travels when its meaning is the same
-// on any Mac: look, layout, search, tabs, blocker and password switches. What
-// names this Mac stays: the bench switch and local alerts socket (opt-in
-// sockets), the downloads folder (a path), passkeys (an entitlement), the first
-// launch mark. The list is closed on purpose: an unknown key in a file is never
+// on any Mac: look, layout, search, tabs, default zoom, blocker and password
+// switches. What names this Mac stays: the bench switch and local alerts
+// socket (opt-in sockets), the downloads folder (a path), passkeys (an
+// entitlement), the first launch mark. The list is closed on purpose: an unknown key in a file is never
 // written, and a value of the wrong kind or outside an enum is skipped.
 import SwiftUI
 
@@ -56,6 +56,12 @@ enum TransferPreferences {
         Entry(key: "tabs.sleep.after", read: { .number(Double($0.sleepDelay.rawValue)) }, write: { prefs, value in
             guard case .number(let minutes) = value, let chosen = Int(exactly: minutes).flatMap(SleepDelay.init) else { return false }
             if prefs.sleepDelay != chosen { prefs.sleepDelay = chosen }
+            return true
+        }),
+        Entry(key: "pages.zoom", read: { .number(Double($0.defaultZoom)) }, write: { prefs, value in
+            guard case .number(let percent) = value, let chosen = Int(exactly: percent),
+                  PageZoom.defaults.contains(chosen) else { return false }
+            if prefs.defaultZoom != chosen { prefs.defaultZoom = chosen }
             return true
         }),
         flag("tabs.reading", \.showsReading), flag("shield", \.shielded),
