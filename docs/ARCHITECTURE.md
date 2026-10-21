@@ -163,7 +163,7 @@ holds the JavaScript its domain injects.
 | `Transfer/` | Every Space saved to one sealed file and brought into another Mac | `TransferFile`, `TransferValues`, `TransferExport`, `TransferApply`, `TransferPreferences`, `TransferFlow`, `TransferPanel`, `TransferBench` |
 | `Settings/` | Settings and preferences | `Settings`, `Prefs`, `ToneChoice` |
 | `Storage/` | Test-world boundary, paths, settings, ordered writes flushed at quit | `Store`, `Writer` |
-| `Bench/` | Script socket, off by default, driven by `./bench` | `Bench`, `BenchPointer`, `BenchKeys`, `PanelBench`, `CallsBench`, `UpdateBench`, `GitHubDataBench` |
+| `Bench/` | Script socket, off by default, driven by `./bench` | `Bench`, `BenchPointer`, `BenchKeys`, `PanelBench`, `CallsBench`, `UpdateBench`, `GitHubDataBench`, `SheetBench` |
 
 ## Where new work plugs in
 
