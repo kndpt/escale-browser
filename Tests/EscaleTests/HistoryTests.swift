@@ -126,6 +126,78 @@ func anImportLeavesAtMostTheRoomInMemoryAndOnDisk(_ n: Int) throws {
 }
 
 @MainActor
+@Test func aSpanBeginsWhereItsNameSays() throws {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = try #require(TimeZone(identifier: "Europe/Paris"))
+    let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 10, day: 18, hour: 9, minute: 30)))
+    #expect(History.Span.hour.start(at: now, in: calendar) == now.addingTimeInterval(-3_600))
+    #expect(History.Span.today.start(at: now, in: calendar)
+        == calendar.date(from: DateComponents(year: 2026, month: 10, day: 18)))
+    #expect(History.Span.week.start(at: now, in: calendar) == now.addingTimeInterval(-7 * 86_400))
+    #expect(History.Span.all.start(at: now, in: calendar) == nil)
+}
+
+@MainActor
+@Test func aSpanTakesPagesLastVisitedFromItsStartOn() throws {
+    let root = folder()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let file = root.appendingPathComponent("history.json")
+    let history = History(file: file)
+    let start = Date(timeIntervalSince1970: 1_000_000)
+    for (name, last) in [("before", start.addingTimeInterval(-1)), ("at", start), ("after", start.addingTimeInterval(1))] {
+        history.take(try #require(URL(string: "https://\(name).example.test/page")), title: name, count: 1, last: last)
+    }
+    var told: [String?] = []
+    history.forgotten = { told.append($0) }
+
+    history.forget(since: start)
+
+    #expect(held(history) == ["before.example.test/page"])
+    #expect(Set(told) == ["at.example.test/page", "after.example.test/page"])
+    #expect(try onDisk(history, file) == ["before.example.test/page"])
+}
+
+@MainActor
+@Test func forgettingASiteTakesItsPagesAndItsFrontDoor() throws {
+    let root = folder()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let history = History(file: root.appendingPathComponent("history.json"))
+    for address in ["https://www.gone.example.test/a", "http://gone.example.test/b?q=1",
+                    "https://kept.example.test/gone.example.test", "https://sub.gone.example.test/c"] {
+        history.record(try #require(URL(string: address)), title: address)
+    }
+    #expect(history.suggestions(for: "gone").map(\.key).contains("gone.example.test"))
+
+    history.forget(host: "WWW.gone.example.test")
+
+    #expect(held(history) == ["kept.example.test/gone.example.test", "sub.gone.example.test/c"])
+    // The front door went with the pages: the field no longer offers it.
+    #expect(!history.suggestions(for: "gone").map(\.key).contains("gone.example.test"))
+    #expect(history.count == 4)
+}
+
+@MainActor
+@Test func forgettingASitePrunesItsLocalEndpointsOnEveryPort() throws {
+    let root = folder()
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let file = root.appendingPathComponent("localhost.json")
+    let a = UUID(), b = UUID()
+    let hub = Localhost(file: file)
+    hub.record(try #require(URL(string: "http://localhost:3000/a")), title: "App", in: a)
+    hub.record(try #require(URL(string: "http://localhost:5173/")), title: "Vite", in: a)
+    hub.record(try #require(URL(string: "http://app.localhost:8080/")), title: "Named", in: a)
+    hub.record(try #require(URL(string: "http://localhost:3000/b")), title: "Other space", in: b)
+
+    hub.forget(host: "localhost", in: a)
+
+    #expect(hub.entries(in: a).map(\.origin) == ["http://app.localhost:8080"])
+    #expect(hub.entries(in: b).count == 1)
+    Writer.to(file).flush()
+    #expect(Localhost(file: file).entries(in: a).count == 1)
+}
+
+@MainActor
 @Test func anImportAddsToWhatWasAlreadyThere() throws {
     let root = folder()
     defer { try? FileManager.default.removeItem(at: root) }

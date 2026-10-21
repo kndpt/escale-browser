@@ -256,6 +256,16 @@ enum Palette {
         /// body stays quiet, the tip is the part that can be found at a glance.
         static let readingBody = veil(light: (0, 0.26), dark: (1, 0.30), contrast: 0.55)
         static let readingTip = veil(light: (0, 0.62), dark: (1, 0.88), contrast: 0.95)
+        /// Reading mode's page (Reader.swift), beside the page's ground and
+        /// ink: a quote, a caption, the ground under code and the rule beside
+        /// a quote. Ink at an alpha, so each follows the tone. On a white
+        /// page they land on the greys reading mode always drew (#555,
+        /// #a3a3a3, #f5f5f5, #e8e8e8); on a dark one quotes and captions
+        /// keep at least 4.5:1, and Increase Contrast strengthens them.
+        static let readerQuote = veil(light: (0, 0.667), dark: (1, 0.72), contrast: 0.85)
+        static let readerCaption = veil(light: (0, 0.36), dark: (1, 0.55), contrast: 0.7)
+        static let readerCode = veil(light: (0, 0.04), dark: (1, 0.07), contrast: 0.1)
+        static let readerRule = veil(light: (0, 0.09), dark: (1, 0.16), contrast: 0.35)
         static let wash = veil(light: (0, 0.055), dark: (1, 0.08), contrast: 0.12)
         static let hover = veil(light: (0, 0.045), dark: (1, 0.06), contrast: 0.1)
         static let raised = veil(light: (1, 0.55), dark: (1, 0.035), contrast: nil)
@@ -881,7 +891,7 @@ enum Metrics {
     static let keyChartColumn: CGFloat = 260
     static let keyChartGap: CGFloat = 18
     /// The menu over selected text (SelectionMenu.swift): a round Copy, then
-    /// Translate beside it at the same height and corner.
+    /// Translate and the link beside it at the same height and corner.
     static let selectionButton: CGFloat = 36
     static let selectionGap: CGFloat = 8
     /// Between the selected line and the menu, and the page's edge and the menu.

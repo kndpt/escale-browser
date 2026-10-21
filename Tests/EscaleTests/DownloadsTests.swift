@@ -2,12 +2,52 @@
 // global percentage to a set containing an indeterminate transfer. A file
 // sent as an attachment is kept, whatever WebKit could show. A downloads
 // list written before sizes and addresses still reads, and the new fields
-// go to disk through the real writer.
+// go to disk through the real writer. A retry trashes only the very half
+// file that failed, never one put at its path since, and goes only through
+// a tab of the failure's own Space and website store.
 import Foundation
 import Testing
+import WebKit
 @testable import Escale
 
 @Suite struct DownloadsTests {
+    @Test func onlyTheSameFileIsTheHalfThatFailed() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("escale-partial-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = root.appendingPathComponent("half.bin")
+        try Data("half".utf8).write(to: file)
+        let partial = Downloads.identity(of: file)
+        #expect(partial != nil)
+        #expect(Downloads.same(file, as: partial))
+        try Data("grown".utf8).write(to: file, options: [])
+        #expect(Downloads.same(file, as: partial), "written in place, still the same file")
+
+        // Another file renamed over the path, as a save does.
+        try Data("someone else's".utf8).write(to: file, options: .atomic)
+        #expect(!Downloads.same(file, as: partial))
+        try FileManager.default.removeItem(at: file)
+        #expect(!Downloads.same(file, as: partial))
+        #expect(!Downloads.same(file, as: nil))
+    }
+
+    @MainActor @Test func aRetryGoesOnlyThroughItsOwnStore() {
+        func tab(_ space: UUID, _ store: WKWebsiteDataStore, shy: Bool = false) -> Tab {
+            let configuration = WKWebViewConfiguration()
+            configuration.websiteDataStore = store
+            return Tab(shy: shy, space: space, configuration: configuration)
+        }
+        let space = UUID(), other = UUID()
+        let shared = WKWebsiteDataStore.nonPersistent(), secret = WKWebsiteDataStore.nonPersistent()
+        let ordinary = tab(space, shared), alsoOrdinary = tab(space, shared)
+        let shy = tab(space, secret, shy: true), elsewhere = tab(other, secret, shy: true)
+        let tabs = [ordinary, shy, elsewhere, alsoOrdinary]
+        #expect(Downloads.sharing(shared, in: space, among: tabs).map(\.id) == [ordinary.id, alsoOrdinary.id])
+        #expect(Downloads.sharing(secret, in: space, among: tabs).map(\.id) == [shy.id])
+        #expect(Downloads.sharing(.nonPersistent(), in: space, among: tabs).isEmpty)
+    }
+
     @Test func knownTransfersHaveEqualWeight() {
         #expect(Downloads.fraction([0.25]) == 0.25)
         #expect(Downloads.fraction([0.25, 0.75]) == 0.5)

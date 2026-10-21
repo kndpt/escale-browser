@@ -19,7 +19,8 @@
     ./bench history ID back|forward [INDEX]  recent pages, nearest first; choose INDEX in a test world
     ./bench visual-pick ID [JSON]      test world: targeting state (summary, anchor)/start/stop/more
     ./bench page-capture ID [JSON]     test world: capture state/take/close, mode, path; {"action":"area","step":"start|stop"}
-    ./bench json-reader ID [JSON]      test world: state or action open/raw, query, node
+    ./bench json-reader ID [JSON]      test world: state or action open/raw, query, node (its copies), press LABEL
+                                       (a reader button, the tab's or the API Calls panel's, pressed as VoiceOver does)
     ./bench calls ID|- [JSON]          test world: API Calls panel state, or action open/close/clear/
                                        filter(all,search)/select(call)/record(on)/step(by,times)/resume/report/curl/
                                        frontend(js)/pids; full returns whole text bodies
@@ -53,6 +54,7 @@
     ./bench close ID | all             only tabs the bench opened
     ./bench undo [press]               the line offering closed tabs back here: label, count, and its button as
                                        VoiceOver finds it; press: test run, that button pressed as VoiceOver does
+    ./bench button LABEL               test run: the app's own button VoiceOver calls LABEL, pressed as VoiceOver does
     ./bench media [ID [JSON]]          test run: sources/listeners; action pause/play/previous/next/volume/dismiss/return, value 0...1
     ./bench sheet [press TITLE [stop]]  test world: the sheet on the window (its texts, buttons, and whether it
                                        offers to stop a page asking), or its button TITLE pressed, that box ticked first
@@ -111,9 +113,11 @@
                                        each timed until the window has caught up; go: then Return, timed
                                        until the page is loading
     ./bench row INDEX                  test run: take that row of Bearings as a click does (its action, not a pointer)
-    ./bench recall [open|close|hunt TEXT|scroll X Y TURNS]  test run: the History panel opened, closed or
-                                       searched, timed until the window rests three times (the last: settled);
-                                       scroll: its list under X Y turned down by the wheel, 40 points TURNS times
+    ./bench recall [open|close|hunt TEXT|scroll X Y TURNS|clear SPAN|forget KEY]  test run: the History panel opened,
+                                       closed or searched, timed until the window rests three times (the last: settled),
+                                       with the lines its search lists; scroll: its list under X Y turned down by the
+                                       wheel, 40 points TURNS times; clear: Clear for hour|today|week|all;
+                                       forget: Forget This Site on the line with that key
     ./bench menu [open]                test run: the Bookmarks menu as it is about to open, and its first
                                        folder (open: its first bookmark picked)
     ./bench bookmark URL [new]         test run: a bookmark picked from the list, timed until it loads
@@ -447,6 +451,9 @@ def main(argv, out=None, err=None, timeout=None, cwd=None):
     elif verb == "undo":
         if args not in ([], ["press"]): sys.exit("usage: bench undo [press]")
         request["press"] = args == ["press"]
+    elif verb == "button":
+        if not args: sys.exit("usage: bench button LABEL")
+        request["label"] = " ".join(args)
     elif verb == "row":
         if len(args) != 1: sys.exit("usage: bench row INDEX")
         request["index"] = int(args[0])
@@ -455,7 +462,8 @@ def main(argv, out=None, err=None, timeout=None, cwd=None):
         elif args[:1] == ["scroll"] and len(args) == 4:
             request["x"], request["y"], request["scroll"] = float(args[1]), float(args[2]), int(args[3])
         elif args in ([], ["open"], ["close"]): request["open"] = args != ["close"]
-        else: sys.exit("usage: bench recall [open|close|hunt TEXT|scroll X Y TURNS]")
+        elif args[:1] in (["clear"], ["forget"]) and len(args) == 2: request[args[0]] = args[1]
+        else: sys.exit("usage: bench recall [open|close|hunt TEXT|scroll X Y TURNS|clear hour|today|week|all|forget KEY]")
     elif verb == "bookmark":
         if len(args) not in (1, 2) or (len(args) == 2 and args[1] != "new"): sys.exit("usage: bench bookmark URL [new]")
         request["url"] = args[0]

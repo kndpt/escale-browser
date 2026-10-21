@@ -2,6 +2,8 @@
 // owns one bounded index, released on raw mode, navigation, sleep or close.
 // MIME detection adds no scripts to ordinary pages. One serial parsing worker
 // keeps parsing off the UI thread; cancelled reads never publish a late result.
+// At most 1,000 rows are drawn, so Expand All on a large document stays cheap
+// to show; the footer says so only when rows are hidden.
 import SwiftUI
 import WebKit
 
@@ -14,6 +16,8 @@ final class JSONReader: ObservableObject {
     @Published var query = "" { didSet { rows() } }
     @Published private(set) var visible: [Int] = []
     @Published private(set) var expanded: Set<Int> = [0]
+    /// Rows drawn at most, in the tab and in the panel.
+    static let cap = 1000
     private static let script = Bundled.script("json-response.js")
     private var revision = 0
     private var operation: BlockOperation?
@@ -70,10 +74,30 @@ final class JSONReader: ObservableObject {
         self.operation = operation
         Self.worker.addOperation(operation)
     }
-    func toggle(_ id: Int) {
-        if expanded.contains(id) { expanded.remove(id) } else { expanded.insert(id) }
+    /// Opens or closes one row; `all` does its whole subtree, as ⌥-click
+    /// on a disclosure triangle does in Finder.
+    func toggle(_ id: Int, all: Bool = false) {
+        guard all, let document else {
+            if expanded.contains(id) { expanded.remove(id) } else { expanded.insert(id) }
+            rows()
+            return
+        }
+        let containers = document.subtree(id).filter { !document.nodes[$0].children.isEmpty }
+        if expanded.contains(id) { expanded.subtract(containers) } else { expanded.formUnion(containers) }
         rows()
     }
+    /// Every object and array open, or back to the top level as on opening.
+    func openAll(_ open: Bool) {
+        guard let document else { return }
+        expanded = open ? Set(document.nodes.lazy.filter { !$0.children.isEmpty }.map(\.id)) : [0]
+        rows()
+    }
+    /// What the cap hides, said only when it hides something.
+    var hidden: String? {
+        visible.count > Self.cap ? "\(visible.count) lines; the first 1,000 are shown. Search narrows them." : nil
+    }
+    /// Whether the click being handled holds ⌥.
+    static var option: Bool { NSApp.currentEvent?.modifierFlags.contains(.option) == true }
     private func rows() {
         guard let document else { visible = []; return }
         var showing: Set<Int> = []
@@ -121,15 +145,18 @@ struct JSONSurface: View {
         if reader.shown {
             VStack(alignment: .leading, spacing: Metrics.toolGap) {
                 if reader.shown {
-                    TextField("Search keys and values", text: $reader.query)
-                        .textFieldStyle(.roundedBorder).padding(.horizontal, Metrics.toolInset)
+                    HStack {
+                        TextField("Search keys and values", text: $reader.query).textFieldStyle(.roundedBorder)
+                        Button("Expand All") { reader.openAll(true) }
+                        Button("Collapse All") { reader.openAll(false) }
+                    }.padding(.horizontal, Metrics.toolInset)
                     if let error = reader.error { Text(error).foregroundStyle(Palette.danger).padding(Metrics.toolInset) }
                     else if let document = reader.document {
-                        List(Array(reader.visible.prefix(1000)), id: \.self) { id in
+                        List(Array(reader.visible.prefix(JSONReader.cap)), id: \.self) { id in
                             let node = document.nodes[id]
                             HStack {
                                 if !node.children.isEmpty {
-                                    Button { reader.toggle(id) } label: {
+                                    Button { reader.toggle(id, all: JSONReader.option) } label: {
                                         Image(systemName: reader.expanded.contains(id) ? "chevron.down" : "chevron.right")
                                     }.accessibilityLabel("Expand or collapse \(node.label)")
                                 }
@@ -137,15 +164,15 @@ struct JSONSurface: View {
                                 Text(node.children.isEmpty ? String(document.value(id).prefix(200)) : "\(node.kind) · \(node.children.count)")
                                     .foregroundStyle(node.kind == "string" ? Palette.safe : Palette.muted).lineLimit(2)
                                 Spacer()
-                                Button("Copy Value") { Self.copy(document.value(id)) }
-                                Button("Copy Path") { Self.copy(document.path(id)) }
+                                Menu("Copy") { JSONCopies(document: document, id: id) }
+                                    .menuStyle(.borderlessButton).fixedSize()
                             }
                             .buttonStyle(.borderless)
                             .accessibilityElement(children: .contain)
                             .padding(.leading, CGFloat(min(node.depth, 12)) * Metrics.toolIndent)
                             .font(.system(size: Metrics.toolFont, design: .monospaced))
                         }.scrollContentBackground(.hidden)
-                        Text("\(reader.visible.count) matches · First 1,000 shown · Paths use JSON Pointer; the root path is empty.")
+                        Text(reader.hidden ?? "\(reader.visible.count) \(reader.query.isEmpty ? "lines" : "matches")")
                             .font(.caption).foregroundStyle(Palette.muted).padding(Metrics.toolInset)
                     } else { ProgressView().padding(Metrics.toolInset) }
                     Spacer(minLength: 0)
