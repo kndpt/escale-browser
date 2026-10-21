@@ -279,7 +279,19 @@ CHECKS = {
               paths=("Sources/Escale/Page/Inspector.swift", "Sources/Escale/Window/Stage.swift",
                      "Sources/Escale/Tabs/Tab.swift", "Sources/Escale/Browser/Browser.swift"),
               foreground=True),
-             "elsewhere", "python3", "Tests/Bench/view_source.py", "View Page Source from ⌥⌘U and view-source: shows the server's HTML, not the script's DOM", "Tests/Bench/open_elsewhere.py", "Tests/Bench/open_elsewhere.py", "Open Page In: the other browsers in the page's and link's right-click menus and the Tabs menu", "app", "bundle", "Sources/Escale/Page/Inspector.swift", "Sources/Escale/Address/Address.swift", "Sources/Escale/Keyboard/KeyCommand.swift", "Sources/Escale/Page/Elsewhere.swift", "Sources/Escale/Keyboard/KeyMenus.swift", "Tests/EscaleTests/ElsewhereTests.swift", "view-source"]
+        Check("elsewhere", ("python3", "Tests/Bench/open_elsewhere.py"),
+              BENCH + ("Tests/Bench/open_elsewhere.py",),
+              "Open Page In: the other browsers in the page's and link's right-click menus and the Tabs menu",
+              "app", ("bundle",),
+              paths=("Sources/Escale/Page/Elsewhere.swift", "Sources/Escale/Keyboard/KeyMenus.swift",
+                     "Tests/EscaleTests/ElsewhereTests.swift"),
+              foreground=True),
+        Check("view-source", ("python3", "Tests/Bench/view_source.py"),
+              BENCH + ("Tests/Bench/view_source.py",),
+              "View Page Source from ⌥⌘U and view-source: shows the server's HTML, not the script's DOM",
+              "app", ("bundle",),
+              paths=("Sources/Escale/Page/Inspector.swift", "Sources/Escale/Address/Address.swift",
+                     "Sources/Escale/Keyboard/KeyCommand.swift"),
               foreground=True),
         Check("calls", ("python3", "Tests/Bench/network_calls.py"),
               BENCH + ("Tests/Bench/network_calls.py",),
@@ -479,8 +491,7 @@ def plan(paths, risks=(), checks=(), quick=False, acknowledge=None):
         include_dependencies(name)
     # Dependencies are small and explicit; no scoring or model-specific workflow.
     order = ["icons", "harness", "portable", "links", "whitespace", "changelog", "build", "swift",
-             "bundle", "app", "wake", "sleeping", "sleep-by-hand", "tabs", "closed-tabs", "tab-reopen", "shortcut-motion", "sidebar-rows", "tab-access", "tab-search-button", "capture-area", "text-fragment", "navigation", "navigation-command-click", "history-menus", "kept-history", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "panel-keys", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus", "routes", "tab-source", "environments", "bookmarked-page", "inspector", "view-source", "calls", "calls-browse", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "welcome-extensions", "space-media", "space-reorder", "space-send", "call-float", "transfer", "warnings", "bundle", "app", "wake", "sleeping", "sleep-by-hand", "dialogs", "tabs", "closed-tabs", "tab-reopen", "shortcut-motion", "sidebar-rows", "tab-access", "tab-search-button", "capture-area", "navigation", "navigation-command-click", "history-menus", "kept-history", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "panel-keys", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus", "routes", "tab-source", "environments", "bookmarked-page", "inspector", "elsewhere", "calls", "calls-browse", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "extension-switch", "welcome-extensions", "space-media", "tab-mute", "space-reorder", "space-send", "link-menu", "call-float", "transfer", "warnings"]
->>>>>>> origin/main
+             "bundle", "app", "wake", "sleeping", "sleep-by-hand", "dialogs", "tabs", "closed-tabs", "tab-reopen", "shortcut-motion", "sidebar-rows", "tab-access", "tab-search-button", "capture-area", "text-fragment", "navigation", "navigation-command-click", "history-menus", "kept-history", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "panel-keys", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus", "routes", "tab-source", "environments", "bookmarked-page", "inspector", "view-source", "elsewhere", "calls", "calls-browse", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "extension-switch", "welcome-extensions", "space-media", "tab-mute", "space-reorder", "space-send", "link-menu", "call-float", "transfer", "warnings"]
     return {"checks": [n for n in order if n in chosen], "reasons": chosen,
             "risks": list(risks), "requested": list(checks),
             "unknown": unknown, "acknowledge": acknowledge, "quick": quick,
