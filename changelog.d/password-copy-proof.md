@@ -1,0 +1,1 @@
+In Passwords, Copy now asks for Touch ID or your Mac's password, as Show does, and a refusal copies nothing. The copied password is hidden from clipboard history apps and cleared after 30 seconds unless you have copied something else since (#7).

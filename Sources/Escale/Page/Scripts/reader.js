@@ -1,8 +1,14 @@
 /*
 Reader mode finds the page section with substantial prose and few links.
 The heuristic discounts navigation rails without needing a site-specific rule.
+Its colours, width and scale are variables Escale sets on the root (its
+"dress", from Palette): set again alone, they restyle the article in place.
 */
-(function () {
+(function (asked) {
+  var root = document.documentElement.style;
+  for (var name in asked.dress) root.setProperty('--escale-' + name, asked.dress[name]);
+  if (!asked.build) return 'dressed';
+
   function prose(el) {
     var paragraphs = el.querySelectorAll('p');
     if (paragraphs.length < 2) return 0;
@@ -64,27 +70,32 @@ The heuristic discounts navigation rails without needing a site-specific rule.
 
   var sheet = document.createElement('style');
   sheet.textContent = [
-    'html,body{background:#fff !important;margin:0 !important;padding:0 !important}',
-    '#escale-reader{max-width:38em;margin:0 auto;padding:72px 24px 160px;',
-    'font:400 18px/1.72 ui-serif,Georgia,"Times New Roman",serif;color:#171717}',
-    '#escale-reader h1{font:600 30px/1.24 -apple-system,BlinkMacSystemFont,sans-serif;',
+    'html,body{background:var(--escale-ground) !important;margin:0 !important;padding:0 !important}',
+    '#escale-reader{max-width:var(--escale-width);margin:0 auto;padding:72px 24px 160px;',
+    'font:400 calc(18px * var(--escale-scale))/1.72 ui-serif,Georgia,"Times New Roman",serif;',
+    'color:var(--escale-ink)}',
+    // The site's own colours were chosen for its ground, not this one,
+    // inline ones too: hence !important, here and on each role below.
+    '#escale-reader *{color:inherit !important;background-color:transparent !important}',
+    '#escale-reader h1{font:600 calc(30px * var(--escale-scale))/1.24 -apple-system,BlinkMacSystemFont,sans-serif;',
     'margin:0 0 8px;letter-spacing:-0.01em}',
-    '#escale-reader .escale-from{font:400 12px/1 -apple-system,sans-serif;color:#a3a3a3;',
-    'margin:0 0 40px;text-transform:uppercase;letter-spacing:.06em}',
+    '#escale-reader .escale-from{font:400 calc(12px * var(--escale-scale))/1 -apple-system,sans-serif;',
+    'color:var(--escale-caption) !important;margin:0 0 40px;text-transform:uppercase;letter-spacing:.06em}',
     '#escale-reader p{margin:0 0 1.35em}',
     '#escale-reader img,#escale-reader video,#escale-reader iframe{max-width:100%;',
     'height:auto;border-radius:6px;margin:1.6em 0;display:block}',
     '#escale-reader iframe{width:100%;aspect-ratio:16/9;height:auto;border:0}',
     '#escale-reader figure{margin:1.8em 0}',
-    '#escale-reader figcaption{font:400 13px/1.5 -apple-system,sans-serif;',
-    'color:#a3a3a3;margin-top:.6em}',
-    '#escale-reader a{color:#171717;text-underline-offset:3px}',
-    '#escale-reader h2,#escale-reader h3{font:600 20px/1.3 -apple-system,sans-serif;',
+    '#escale-reader figcaption{font:400 calc(13px * var(--escale-scale))/1.5 -apple-system,sans-serif;',
+    'color:var(--escale-caption) !important;margin-top:.6em}',
+    '#escale-reader a{color:var(--escale-ink) !important;text-underline-offset:3px}',
+    '#escale-reader h2,#escale-reader h3{font:600 calc(20px * var(--escale-scale))/1.3 -apple-system,sans-serif;',
     'margin:2em 0 .6em}',
-    '#escale-reader pre,#escale-reader code{font-family:ui-monospace,monospace;font-size:14px}',
-    '#escale-reader pre{background:#f5f5f5;padding:14px;border-radius:8px;overflow:auto}',
+    '#escale-reader pre,#escale-reader code{font-family:ui-monospace,monospace;',
+    'font-size:calc(14px * var(--escale-scale))}',
+    '#escale-reader pre{background:var(--escale-code) !important;padding:14px;border-radius:8px;overflow:auto}',
     '#escale-reader blockquote{margin:1.6em 0;padding-left:1.2em;',
-    'border-left:2px solid #e8e8e8;color:#555}'
+    'border-left:2px solid var(--escale-rule);color:var(--escale-quote) !important}'
   ].join('');
 
   var wrap = document.createElement('div');
@@ -138,4 +149,4 @@ The heuristic discounts navigation rails without needing a site-specific rule.
   document.body.appendChild(wrap);
   window.scrollTo(0, 0);
   return 'read';
-})();
+})

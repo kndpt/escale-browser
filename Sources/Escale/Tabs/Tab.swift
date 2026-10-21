@@ -237,7 +237,7 @@ final class Tab: ObservableObject, Identifiable {
     /// Leaving reading mode reloads rather than putting the old markup back:
     /// restoring the HTML gives you a page that looks right and does nothing,
     /// because every listener the page had was thrown away with it.
-    func toggleReader(_ done: @escaping (Bool) -> Void) {
+    func toggleReader(_ dress: [String: String], _ done: @escaping (Bool) -> Void) {
         guard !isBlank else {
             done(false)
             return
@@ -248,11 +248,17 @@ final class Tab: ObservableObject, Identifiable {
             done(true)
             return
         }
-        web.evaluateJavaScript(Reader.script) { [weak self] answer, _ in
+        web.evaluateJavaScript(Reader.run(dress, build: true)) { [weak self] answer, _ in
             let worked = (answer as? String) == "read"
             if worked { self?.reader = true }
             done(worked)
         }
+    }
+
+    /// The article on screen in new colours, width or size (ReaderBar).
+    func dressReader(_ dress: [String: String]) {
+        guard reader, let web = built else { return }
+        web.evaluateJavaScript(Reader.run(dress, build: false))
     }
 
     /// The site's icon, for tabs set to wear one. From the cache the moment
@@ -286,12 +292,15 @@ final class Tab: ObservableObject, Identifiable {
     /// 125% once should be the last time you think about it.
     func rememberZoom() {
         guard let host = address?.host(), !shy else { return }
-        if abs(zoom - 1) < 0.01 {
-            Store.settings.removeObject(forKey: Store.zoomKey(host, space: space))
+        if let kept = PageZoom.kept(zoom, standard: Tab.defaultZoom) {
+            Store.settings.set(kept, forKey: Store.zoomKey(host, space: space))
         } else {
-            Store.settings.set(Double(PageZoom.absolute(zoom)), forKey: Store.zoomKey(host, space: space))
+            Store.settings.removeObject(forKey: Store.zoomKey(host, space: space))
         }
     }
+
+    /// Settings › Web Pages' default, relative; set by Preferences.
+    static var defaultZoom: CGFloat = 1
 
     func applyRememberedZoom() {
         let value = rememberedZoom(for: built?.url ?? address)
@@ -302,7 +311,7 @@ final class Tab: ObservableObject, Identifiable {
 
     private func rememberedZoom(for url: URL?) -> CGFloat {
         let kept = url?.host().flatMap { Store.settings.object(forKey: Store.zoomKey($0, space: space)) as? Double }
-        return PageZoom.remembered(kept)
+        return PageZoom.remembered(kept, standard: Tab.defaultZoom)
     }
 
     /// How much bigger the page is drawn, relative to Escale's reference.
@@ -326,6 +335,10 @@ final class Tab: ObservableObject, Identifiable {
     @Published var noisy = false {
         didSet { if noisy != oldValue { onPresence?() } }
     }
+    /// Silenced from its speaker (see Mute.swift); kept across sleep and pages.
+    @Published var muted = false {
+        didSet { if muted != oldValue { onPresence?() } }
+    }
     /// Sound or capture started or stopped: the rail's mark for its Space may
     /// have changed (see Presence.swift).
     var onPresence: (() -> Void)?
@@ -348,11 +361,16 @@ final class Tab: ObservableObject, Identifiable {
     var onSearch: ((Tab, String) -> Void)?
     /// Inspect Element was chosen in this page's right-click menu.
     var onInspect: ((Tab) -> Void)?
+    /// Copy Link with Highlight was chosen, from the right-click menu or the
+    /// selection menu (TextFragment.swift).
+    var onHighlight: ((Tab) -> Void)?
     /// "Add to Escale" was pressed on the Chrome Web Store page this tab shows.
     var onStoreAdd: ((Tab) -> Void)?
     /// The middle button was let go over a link. The browser opens it in a
     /// tab of its own beside this one, without leaving the page you are on.
     var onMiddleClick: ((Tab, URL) -> Void)?
+    /// An entry Escale adds to a link's right-click menu was chosen (LinkMenu.swift).
+    var onLinkChoice: ((Tab, LinkChoice, MenuLink) -> Void)?
     /// Sent where this tab's view can't go: from an extension's page to the
     /// web or another extension, or from the web to an extension's page.
     /// WebKit keeps each kind of view to its own pages, so the tab has to be
@@ -507,6 +525,14 @@ final class Tab: ObservableObject, Identifiable {
             guard let self else { return }
             self.onInspect?(self)
         }
+        web.onHighlight = { [weak self] in
+            guard let self else { return }
+            self.onHighlight?(self)
+        }
+        web.onLinkChoice = { [weak self] choice, link in
+            guard let self else { return }
+            self.onLinkChoice?(self, choice, link)
+        }
         web.holdForFirstFrame()
         // Pages follow the appearance of the window they are drawn in, and the
         // window follows Settings › Appearance — so a site that honours
@@ -531,6 +557,7 @@ final class Tab: ObservableObject, Identifiable {
         controller.removeScriptMessageHandler(forName: PasskeyRelay.name)
         controller.removeScriptMessageHandler(forName: HoveredLink.name, contentWorld: .defaultClient)
         controller.removeScriptMessageHandler(forName: SelectionWatch.name, contentWorld: .defaultClient)
+        controller.removeScriptMessageHandler(forName: LinkRelay.name, contentWorld: .defaultClient)
         controller.removeScriptMessageHandler(forName: MiddleRelay.name)
         controller.add(relay, name: ScrollRelay.name)
         controller.add(veils_, name: VeilRelay.name)
@@ -542,6 +569,7 @@ final class Tab: ObservableObject, Identifiable {
         controller.add(hovered, contentWorld: .defaultClient, name: HoveredLink.name)
         selected.tab = self
         controller.add(selected, contentWorld: .defaultClient, name: SelectionWatch.name)
+        controller.add(LinkRelay.shared, contentWorld: .defaultClient, name: LinkRelay.name)
         controller.add(middles, name: MiddleRelay.name)
         Shield.shared.protect(controller)
         built = web
@@ -584,6 +612,7 @@ final class Tab: ObservableObject, Identifiable {
         images.tab = self
         shop.tab = self
         middles.tab = self
+        if muted { Mute.apply(true, to: web) }
         ears.watch(web) { [weak self, weak web] on in
             guard let self, let web, self.built === web else { return }
             self.noisy = on
@@ -606,10 +635,10 @@ final class Tab: ObservableObject, Identifiable {
 
     /// ⌘0 undoes both kinds of zoom at once — whichever one you reached for.
     func resetZoom() {
-        magnify(to: 1)
+        magnify(to: Tab.defaultZoom)
         guard web.magnification != 1 else { return }
         web.magnification = 1
-        onZoom?(self, 1)
+        onZoom?(self, zoom)
     }
 
     // MARK: - taking things off the page
@@ -674,6 +703,11 @@ final class Tab: ObservableObject, Identifiable {
                 forMainFrameOnly: true, in: .defaultClient
             ))
         }
+        // Every frame: a link in an embed is one a person can right-click (LinkMenu.swift).
+        controller.addUserScript(WKUserScript(
+            source: LinkRelay.watch, injectionTime: .atDocumentStart,
+            forMainFrameOnly: false, in: .defaultClient
+        ))
         // The main frame only: a middle-click on a link inside an ad iframe is
         // that frame's own business, and its link is not this tab's to open.
         controller.addUserScript(
@@ -863,8 +897,15 @@ final class Tab: ObservableObject, Identifiable {
     /// The page the view shows committed: the address follows it again.
     func arrived() {
         failure = nil
+        // A new document is never the article: the bar leaves with it.
+        reader = false
         formsReady = true
         committedHost = built?.url?.host()?.lowercased()
+        if let built {
+            built.asking.navigated()
+            // What the page before asked has no page left to answer for.
+            Dialogs.refuseHeld(built)
+        }
         if let fresh = built?.url, fresh.absoluteString != "about:blank" { adopt(fresh) }
     }
 
@@ -1355,6 +1396,7 @@ final class Tab: ObservableObject, Identifiable {
         ears.stop()
         guard let web = built else { return }
         built = nil
+        Dialogs.refuseHeld(web)
         let controller = web.configuration.userContentController
         controller.removeScriptMessageHandler(forName: ScrollRelay.name)
         controller.removeScriptMessageHandler(forName: VeilRelay.name)
@@ -1364,6 +1406,7 @@ final class Tab: ObservableObject, Identifiable {
         controller.removeScriptMessageHandler(forName: PasskeyRelay.name)
         controller.removeScriptMessageHandler(forName: HoveredLink.name, contentWorld: .defaultClient)
         controller.removeScriptMessageHandler(forName: SelectionWatch.name, contentWorld: .defaultClient)
+        controller.removeScriptMessageHandler(forName: LinkRelay.name, contentWorld: .defaultClient)
         controller.removeScriptMessageHandler(forName: MiddleRelay.name)
         controller.removeAllUserScripts()
         web.onPull = nil
@@ -1371,6 +1414,8 @@ final class Tab: ObservableObject, Identifiable {
         web.searchName = nil
         web.onSearch = nil
         web.onInspect = nil
+        web.onHighlight = nil
+        web.onLinkChoice = nil
         web.stopLoading()
         web.navigationDelegate = nil
         web.uiDelegate = nil
@@ -1486,6 +1531,19 @@ final class PageView: WKWebView {
             item.target = self
             item.action = #selector(inspectElement(_:))
         }
+        Elsewhere.shared.offer(in: menu, page: self)
+        addLinkItems(to: menu)
+        // WebKit's own Copy Link with Highlight where it offers one; where it
+        // doesn't (a frame, an older WebKit), Escale's beside Copy over
+        // selected text. Not in a field, whose menu has Paste.
+        let skipped = ["WKMenuItemIdentifierCopyLinkWithHighlight", "WKMenuItemIdentifierPaste"]
+        if onHighlight != nil,
+           !menu.items.contains(where: { skipped.contains($0.identifier?.rawValue ?? "") }),
+           let copy = menu.items.firstIndex(where: { $0.identifier?.rawValue == "WKMenuItemIdentifierCopy" }) {
+            let item = NSMenuItem(title: "Copy Link with Highlight", action: #selector(copyHighlight(_:)), keyEquivalent: "")
+            item.target = self
+            menu.insertItem(item, at: copy + 1)
+        }
         guard #available(macOS 15.4, *),
               let tab = Extensions.shared.browser?.tab(for: self)
         else { return }
@@ -1495,9 +1553,14 @@ final class PageView: WKWebView {
         items.forEach { menu.addItem($0) }
     }
 
+    /// Takes the next window WebKit asks for, as an address (Elsewhere.swift).
+    var takeLink: ((URL) -> Void)?
     var searchName: (() -> String?)?
     var onSearch: ((String) -> Void)?
     private var selection: String?
+    /// The link under the last right-click, and what to do with it (LinkMenu.swift).
+    var rightClicked: MenuLink?
+    var onLinkChoice: ((LinkChoice, MenuLink) -> Void)?
 
     /// The words selected where the right-click was, read when the menu
     /// opens. The selection of a text field is its own, not the page's, so a
@@ -1527,6 +1590,24 @@ final class PageView: WKWebView {
     @objc private func inspectElement(_ item: NSMenuItem) {
         onInspect?()
         if let action = inspectNode.action { NSApp.sendAction(action, to: inspectNode.target, from: item) }
+    }
+
+    var onHighlight: (() -> Void)?
+
+    @objc private func copyHighlight(_ item: NSMenuItem) {
+        onHighlight?()
+    }
+
+    /// What this page has asked since it last navigated, and what it asked
+    /// while out of the window (Dialogs.swift).
+    var asking = Dialogs.Asking()
+    var held: [Dialogs.Held] = []
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard window != nil, !held.isEmpty else { return }
+        // Once the stage has finished putting it there.
+        DispatchQueue.main.async { [weak self] in self.map(Dialogs.showHeld) }
     }
 
     /// Told where a sideways swipe has got to, and nil when there is none.

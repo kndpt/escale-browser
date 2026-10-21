@@ -35,14 +35,14 @@ enum Presence: Int, Comparable {
 }
 
 extension Tab {
-    /// A muted microphone or camera is not being heard or seen, so only an
+    /// A muted microphone, camera or tab is not being heard or seen, so only an
     /// active one counts; a video is a mark only while it is audible.
     var presence: Presence? {
         if let web = built {
             if web.microphoneCaptureState == .active { return .microphone }
             if web.cameraCaptureState == .active { return .camera }
         }
-        guard noisy else { return nil }
+        guard noisy, !muted else { return nil }
         return media.state?.video == true ? .video : .sound
     }
 

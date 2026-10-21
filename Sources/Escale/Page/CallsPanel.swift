@@ -5,6 +5,8 @@
 // call of the list as shown without going back to it, keeping the part
 // looked at; the JSON tree keeps them while it has the keyboard, and ⌥↑ ⌥↓
 // work from it too. The two arrows at the foot say so and do the same.
+// A row's right-click menu copies the call, or opens a GET in a new tab,
+// without opening it.
 //
 // Recording pauses and resumes from the toolbar without losing the list: a
 // pause symbol while recording, a red record dot while paused, and the word
@@ -54,8 +56,12 @@ struct CallMenu: View {
             let missing = Curl.missing(call, calls.detail)
             Menu {
                 Menu("Copy as") {
-                    Button(missing.map { "cURL (\($0.lowercased()))" } ?? "cURL") {
+                    Button(missing.map { "cURL (\(Self.reason($0)))" } ?? "cURL") {
                         if let detail = calls.detail { Clipboard.put(Curl.command(call, detail)) }
+                    }
+                    .disabled(missing != nil)
+                    Button(missing.map { "fetch (\(Self.reason($0)))" } ?? "fetch") {
+                        if let detail = calls.detail { Clipboard.put(Fetch.command(call, detail)) }
                     }
                     .disabled(missing != nil)
                 }
@@ -72,6 +78,14 @@ struct CallMenu: View {
             .help("Options")
             .accessibilityLabel("Call options")
         }
+    }
+
+    /// Why an entry is off, inside its title's brackets: a leading word
+    /// lowered unless it is a name (WebKit, GET), no closing full stop.
+    static func reason(_ text: String) -> String {
+        let word = text.prefix { $0.isLetter }
+        let lowered = word.dropFirst().allSatisfy(\.isLowercase) ? text.prefix(1).lowercased() + text.dropFirst() : text
+        return lowered.hasSuffix(".") ? String(lowered.dropLast()) : lowered
     }
 
     /// The ellipsis symbol stood upright, as a template image.
@@ -102,6 +116,9 @@ private struct CallsList: View {
     let browser: Browser
     @SwiftUI.Environment(\.chromeMetrics) private var metrics
     @FocusState private var searching: Bool
+    /// The row under the pointer, where a right-click opens its menu; a
+    /// reference, so that moving over the rows draws nothing again.
+    @State private var pointed = RowMenus.Pointer()
 
     var body: some View {
         let shown = calls.shown
@@ -135,9 +152,12 @@ private struct CallsList: View {
                     LazyVStack(spacing: metrics.length(1)) {
                         ForEach(shown) { call in
                             CallRow(call: call, wide: calls.filter != .api, match: matches[call.id]) { calls.select(call.id) }
+                                .onHover { inside in if inside { pointed.id = call.id } else if pointed.id == call.id { pointed.id = nil } }
+                                .contextMenu { CallRowMenu(calls: calls, call: call, browser: browser) }
                         }
                     }
                     .padding(metrics.length(6))
+                    .background(RowMenus(calls: calls, pointed: pointed))
                 }
             }
             if calls.list.dropped > 0 {
@@ -401,6 +421,98 @@ private struct CallRow: View {
 
     private var facts: String {
         [call.duration.map(Call.milliseconds), call.size.map { Call.bytes($0) }].compactMap { $0 }.joined(separator: " · ")
+    }
+}
+
+/// A row's right-click menu: copies of the call without opening it. What
+/// needs WebKit's record is read as the menu opens, for this call alone
+/// (RowMenus, Calls.peek), and an entry it cannot give says why.
+private struct CallRowMenu: View {
+    @ObservedObject var calls: Calls
+    let call: Call
+    let browser: Browser
+    /// The first entry, by which RowMenus knows the menu.
+    static let first = "Copy URL"
+
+    var body: some View {
+        let call = calls.list[self.call.id] ?? self.call
+        let peek = calls.peek.flatMap { $0.id == call.id ? $0 : nil } ?? CallPeek(id: call.id)
+        entry(Self.first, .url, call, peek)
+        entry("Copy as cURL", .curl, call, peek)
+        entry("Copy as fetch", .fetch, call, peek)
+        entry("Copy Response", .response, call, peek)
+        Divider()
+        let off = call.method.uppercased() != "GET" ? "GET only"
+            : ["http", "https"].contains(call.address?.scheme?.lowercased() ?? "") ? nil : "not a web address"
+        Button("Open URL in New Tab" + (off.map { " (\($0))" } ?? "")) {
+            guard let url = call.address, let tab = (browser.tabs + browser.parkedTabs).first(where: { $0.id == calls.tab }) else { return }
+            browser.open(url, foreground: true, from: tab)
+        }
+        .disabled(off != nil)
+    }
+
+    @ViewBuilder private func entry(_ title: String, _ copy: CallPeek.Copy, _ call: Call, _ peek: CallPeek) -> some View {
+        switch peek.copy(copy, of: call) {
+        case .text(let text): Button(title) { Clipboard.put(text) }
+        case .off(let reason): Button(title + " (" + CallMenu.reason(reason) + ")") {}.disabled(true)
+        }
+    }
+}
+
+/// When a row's menu opens and closes, for its reads (Calls.peek). SwiftUI
+/// builds a context menu once and keeps it, so its own appear and disappear
+/// say nothing of each opening; the menu's tracking does, and it opens on
+/// the row under the pointer.
+private struct RowMenus: NSViewRepresentable {
+    let calls: Calls
+    let pointed: Pointer
+
+    final class Pointer { var id: String? }
+
+    func makeNSView(context: Context) -> Watch { Watch() }
+
+    func updateNSView(_ view: Watch, context: Context) {
+        view.calls = calls
+        view.pointed = pointed
+    }
+
+    static func dismantleNSView(_ view: Watch, coordinator: ()) { view.stop() }
+
+    final class Watch: NSView {
+        weak var calls: Calls?
+        var pointed: Pointer?
+        /// The call whose menu is open.
+        private var open: String?
+        private var observers: [NSObjectProtocol] = []
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            stop()
+            guard window != nil else { return }
+            let centre = NotificationCenter.default
+            observers = [
+                centre.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) { [weak self] note in
+                    MainActor.assumeIsolated {
+                        guard let self, let id = self.pointed?.id,
+                              (note.object as? NSMenu)?.items.first?.title.hasPrefix(CallRowMenu.first) == true else { return }
+                        self.open = id
+                        self.calls?.peek(id)
+                    }
+                },
+                centre.addObserver(forName: NSMenu.didEndTrackingNotification, object: nil, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated {
+                        guard let self, let id = self.open else { return }
+                        self.open = nil
+                        self.calls?.unpeek(id)
+                    }
+                },
+            ]
+        }
+
+        func stop() {
+            observers.forEach(NotificationCenter.default.removeObserver)
+            observers = []
+        }
     }
 }
 
