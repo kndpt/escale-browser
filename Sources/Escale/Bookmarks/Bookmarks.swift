@@ -695,6 +695,11 @@ struct BookmarkOutline: View {
         @State private var hovering = false
         @FocusState private var nameFocused: Bool
 
+        /// The bookmark's own tab while it is open, whichever side the tabs are on.
+        private var shelfTab: Tab? {
+            node.isFolder ? nil : browser.tabs.first { browser.shelfTabs[$0.id] == node.id && $0.pin == nil }
+        }
+
         var body: some View {
             HStack(spacing: 8) {
                 if node.isFolder {
@@ -735,7 +740,7 @@ struct BookmarkOutline: View {
                         .foregroundStyle(Palette.muted)
                 }
                 if !node.destinations.isEmpty {
-                    if let tab = browser.tabs.first(where: { browser.shelfTabs[$0.id] == node.id && $0.pin == nil }) {
+                    if let tab = shelfTab {
                         OpenEnvironmentPicker(node: node, tab: tab) {
                             browser.openEnvironment($0, bookmark: node.id, space: bookmarks.space)
                         }
@@ -761,6 +766,11 @@ struct BookmarkOutline: View {
             .scaleEffect(pulsing ? 1.035 : 1)
             .onTapGesture { if !naming { open?() ?? toggle?() } }
             .onHover { hovering = $0 }
+            .modifier(BookmarkAccess(node: node, isOpen: isOpen, naming: naming, tab: shelfTab,
+                                     live: shelfTab != nil && shelfTab?.id == browser.activeID,
+                                     press: { open?() ?? toggle?() }) {
+                browser.openEnvironment($0, bookmark: node.id, space: bookmarks.space)
+            })
             .contextMenu {
                 if let open {
                     Button(action: open) { Label("Open", systemImage: "arrow.up.forward") }
