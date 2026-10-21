@@ -370,6 +370,8 @@ final class Browser: NSObject, ObservableObject {
     // MARK: - what is kept, and getting rid of it
 
     @Published var recalling = false
+    /// The ⌘/ chart of keys (KeyChart.swift).
+    @Published var listingKeys = false
     @Published var hoarding = false
     /// The update's panel: boarding a waiting build, or what one brought (Gate.swift).
     @Published var gate: Gate?

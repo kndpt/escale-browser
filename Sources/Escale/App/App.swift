@@ -311,6 +311,9 @@ struct ContentView: View {
             .ignoresSafeArea()
             .transition(.opacity)
         }
+        if browser.listingKeys {
+            sheet { KeyChart(browser: browser, prefs: browser.prefs) } close: { browser.listingKeys = false }
+        }
     }
 
     var body: some View {
@@ -412,6 +415,8 @@ struct ContentView: View {
             .animation(Motion.settle, value: browser.bookmarking)
             .animation(Motion.settle, value: browser.managing)
             .animation(Motion.settle, value: browser.reviewing)
+            .animation(Motion.settle, value: browser.listingKeys)
+            .onChange(of: browser.listingKeys) { _, open in if !open { handBack() } }
         .onAppear {
             watchKeys()
             browser.field.askFocus()
@@ -708,6 +713,10 @@ struct ContentView: View {
             }
             if browser.tuning {
                 browser.tuning = false
+                return true
+            }
+            if browser.listingKeys {
+                browser.listingKeys = false
                 return true
             }
             if browser.bookmarking {

@@ -125,7 +125,7 @@
                                        open/arrival show a panel,
                                        forget makes the next launch an arrival (shown with ESCALE_FEED set),
                                        relaunch goes through the updater's own relaunch
-    ./bench ui KEY VALUE               settings/passwords/welcome/history/downloads/bookmarks/hidden on|off,
+    ./bench ui KEY VALUE               settings/passwords/welcome/history/downloads/bookmarks/hidden/keyChart on|off,
                                        look light|dark|system, tone neutral|escale,
                                        size compact|standard|large,
                                        depth solid|subtle|clear, contrast on|off, copy on|off,
