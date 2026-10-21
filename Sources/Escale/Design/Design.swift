@@ -866,6 +866,7 @@ enum Metrics {
     static let settingsSearch: CGFloat = 26
     static let settingsSearchText: CGFloat = 11.5
     static let settingsKeywords: CGFloat = 64
+    static let settingsZoomWidth: CGFloat = 96
 
     // Keyboard uses aligned command/key columns and room between groups.
     static let keyboardPinnedHeight: CGFloat = 440
@@ -878,6 +879,10 @@ enum Metrics {
     static let keyboardRowPad: CGFloat = 12
     static let keyboardKeyPad: CGFloat = 5
     static let keyboardKeyRadius: CGFloat = 5
+    /// The ⌘/ chart (KeyChart.swift): three columns at Standard size.
+    static let keyChartWidth: CGFloat = 900
+    static let keyChartColumn: CGFloat = 260
+    static let keyChartGap: CGFloat = 18
     /// The menu over selected text (SelectionMenu.swift): a round Copy, then
     /// Translate beside it at the same height and corner.
     static let selectionButton: CGFloat = 36

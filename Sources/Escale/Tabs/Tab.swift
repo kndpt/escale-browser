@@ -288,23 +288,28 @@ final class Tab: ObservableObject, Identifiable {
     /// 125% once should be the last time you think about it.
     func rememberZoom() {
         guard let host = address?.host(), !shy else { return }
-        if abs(zoom - 1) < 0.01 {
-            Store.settings.removeObject(forKey: Store.zoomKey(host, space: space))
+        if let kept = PageZoom.kept(zoom, standard: Tab.defaultZoom) {
+            Store.settings.set(kept, forKey: Store.zoomKey(host, space: space))
         } else {
-            Store.settings.set(Double(PageZoom.absolute(zoom)), forKey: Store.zoomKey(host, space: space))
+            Store.settings.removeObject(forKey: Store.zoomKey(host, space: space))
         }
     }
+
+    /// Settings › Web Pages' default, relative; set by Preferences.
+    static var defaultZoom: CGFloat = 1
 
     func applyRememberedZoom() {
         let value = rememberedZoom(for: built?.url ?? address)
         guard let web = built else { return }
         if abs(value - web.pageZoom) > 0.004 { web.pageZoom = value }
         zoom = PageZoom.relative(value)
+        // Screens draws the zoom itself and keeps the view's at 1.
+        screen.loaded()
     }
 
     private func rememberedZoom(for url: URL?) -> CGFloat {
         let kept = url?.host().flatMap { Store.settings.object(forKey: Store.zoomKey($0, space: space)) as? Double }
-        return PageZoom.remembered(kept)
+        return PageZoom.remembered(kept, standard: Tab.defaultZoom)
     }
 
     /// How much bigger the page is drawn, relative to Escale's reference.
@@ -609,10 +614,10 @@ final class Tab: ObservableObject, Identifiable {
 
     /// ⌘0 undoes both kinds of zoom at once — whichever one you reached for.
     func resetZoom() {
-        magnify(to: 1)
+        magnify(to: Tab.defaultZoom)
         guard web.magnification != 1 else { return }
         web.magnification = 1
-        onZoom?(self, 1)
+        onZoom?(self, zoom)
     }
 
     // MARK: - taking things off the page

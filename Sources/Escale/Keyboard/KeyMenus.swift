@@ -107,7 +107,7 @@ struct KeyMenus: Commands {
                 items([.clearHistory])
             }
             CommandGroup(after: .appSettings) { items([.settings, .welcome, .passwords]) }
-            CommandGroup(replacing: .help) { items([.feedback]) }
+            CommandGroup(replacing: .help) { items([.shortcuts, .feedback]) }
         }
     }
 
