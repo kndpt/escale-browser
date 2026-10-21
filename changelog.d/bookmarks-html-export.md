@@ -1,0 +1,1 @@
+Export bookmarks… in the Bookmarks panel saves the current Space's bookmarks as a standard HTML bookmarks file for other browsers to import, folders and order kept; environments go in an Environments folder at the end (#43).
