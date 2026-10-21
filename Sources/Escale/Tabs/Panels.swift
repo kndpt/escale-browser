@@ -33,6 +33,7 @@ struct PanelGroup: Identifiable, Equatable {
 @MainActor
 final class Panels: ObservableObject {
     static let limit = 3
+    static let refused = "Up to 3 panels in one Space and website store — enlarge the window if needed"
     @Published private(set) var groups: [PanelGroup] = []
     @Published var preview: PanelEdge?
     /// The tab being carried over the pages, so its own row can step back.
@@ -218,7 +219,7 @@ extension Browser {
     func split(_ source: Tab, with target: Tab, edge: PanelEdge) -> Bool {
         let watched = panelTabs
         guard tabs.contains(where: { $0 === source }), tabs.contains(where: { $0 === target }),
-              panelsMix(source, target), panelFits(source, beside: target, edge: edge),
+              panelsMix(source, target), panelFits(source.id, beside: target, edge: edge),
               panels.add(source.id, to: target.id, edge: edge) else { return false }
         for tab in watched { tab.touch() }
         select(source)
@@ -226,8 +227,20 @@ extension Browser {
         return true
     }
 
-    func panelFits(_ source: Tab, beside target: Tab, edge: PanelEdge) -> Bool {
-        guard let count = panels.plan(source.id, beside: target.id, edge: edge)?.count else { return false }
+    /// A link from a page's right-click menu, in a new tab to the right of
+    /// that page. A link routed to another Space goes there instead, as a split
+    /// can't span Spaces. Room is asked for before the tab is made, so a
+    /// refusal loads nothing.
+    func openInSplit(_ url: URL, beside page: Tab) {
+        if routeLink(url, from: page) { return }
+        guard panelFits(UUID(), beside: page, edge: .right) else { announce(Panels.refused); return }
+        let tab = open(url, foreground: false, from: page)
+        tab.origin = page.id
+        if !split(tab, with: page, edge: .right) { announce(Panels.refused) }
+    }
+
+    func panelFits(_ source: UUID, beside target: Tab, edge: PanelEdge) -> Bool {
+        guard let count = panels.plan(source, beside: target.id, edge: edge)?.count else { return false }
         let metrics = ChromeMetrics(size: prefs.interfaceSize)
         let length = edge.horizontal ? panels.frame.width : panels.frame.height
         let minimum = metrics.length(edge.horizontal ? Metrics.panelWidth : Metrics.panelHeight)
@@ -244,7 +257,7 @@ extension Browser {
         let target = carried ? panelPartner(for: tab) : nil
         let edge = target.flatMap { target in
             PanelEdge.at(point, in: panels.frame).flatMap { edge in
-                panelsMix(tab, target) && panelFits(tab, beside: target, edge: edge) ? edge : nil
+                panelsMix(tab, target) && panelFits(tab.id, beside: target, edge: edge) ? edge : nil
             }
         }
         panels.aim(tab.id, edge: edge)
@@ -297,21 +310,30 @@ extension Browser {
         let candidates = tabs.filter { source in
             panelsMix(source, target) && !(panels.group(target.id)?.members.contains(source.id) ?? false)
         }
-        PanelChoice.show(candidates, edge: edge) { [weak self, weak target] source in
+        // A click in the window keeps the list under the pointer. A key or
+        // the menu bar leaves the pointer anywhere, so the list opens over
+        // the pages, on the side the panel will take.
+        let window = Links.window, event = NSApp.currentEvent
+        let clicked = event.map { $0.window === window && [.leftMouseDown, .leftMouseUp].contains($0.type) } ?? false
+        let pages = clicked || panels.frame.isEmpty ? nil : window.map { window in
+            window.convertToScreen(CGRect(x: panels.frame.minX, y: window.frame.height - panels.frame.maxY,
+                                          width: panels.frame.width, height: panels.frame.height))
+        }
+        PanelChoice.show(candidates, edge: edge, over: pages) { [weak self, weak target] source in
             guard let self, let target else { return }
-            if !split(source, with: target, edge: edge) { announce("Up to 3 panels in one Space and website store — enlarge the window if needed") }
+            if !split(source, with: target, edge: edge) { announce(Panels.refused) }
         }
     }
 }
 
 @MainActor
-private enum PanelChoice {
+enum PanelChoice {
     private final class Action: NSObject {
         let run: () -> Void
         init(_ run: @escaping () -> Void) { self.run = run }
         @objc func fire() { run() }
     }
-    static func show(_ tabs: [Tab], edge: PanelEdge, take: @escaping (Tab) -> Void) {
+    static func show(_ tabs: [Tab], edge: PanelEdge, over pages: CGRect?, take: @escaping (Tab) -> Void) {
         let menu = NSMenu(title: "Add \(edge.title) Split")
         var actions: [Action] = []
         for tab in tabs {
@@ -322,6 +344,26 @@ private enum PanelChoice {
             menu.addItem(item)
         }
         if tabs.isEmpty { menu.addItem(withTitle: "Open another page in this Space first", action: nil, keyEquivalent: "") }
-        _ = withExtendedLifetime(actions) { menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil) }
+        let at = pages.map { corner(of: menu.size, on: edge, in: $0) } ?? NSEvent.mouseLocation
+        _ = withExtendedLifetime(actions) { menu.popUp(positioning: nil, at: at, in: nil) }
+    }
+
+    /// The list's top left inside the pages, against the side the panel
+    /// takes and centred along it, set in as the panel's tools are. A list
+    /// wider than its side still starts inside the pages, never left of them.
+    /// Screen points: y grows upwards.
+    static func corner(of size: CGSize, on edge: PanelEdge, in pages: CGRect) -> CGPoint {
+        let inset = Metrics.panelToolsInset
+        let x: CGFloat = switch edge {
+        case .left: pages.minX + inset
+        case .right: pages.maxX - inset - size.width
+        case .top, .bottom: pages.midX - size.width / 2
+        }
+        let y: CGFloat = switch edge {
+        case .top: pages.maxY - inset
+        case .bottom: pages.minY + inset + size.height
+        case .left, .right: pages.midY + size.height / 2
+        }
+        return CGPoint(x: max(pages.minX + inset, x), y: y)
     }
 }

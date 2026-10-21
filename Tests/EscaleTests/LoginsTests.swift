@@ -178,4 +178,59 @@ import WebKit
         logins.dropChoice(in: first.id)
         #expect(logins.suggesting == nil)
     }
+
+    // Copying: each test has a board of its own, never the real clipboard.
+
+    private func copying(answer: Bool, on board: NSPasteboard, said: @escaping (String) -> Void = { _ in }) -> Logins {
+        Logins(say: said, tab: { _ in nil }, read: { [] }, prove: { _, done in done(answer) }, board: board)
+    }
+
+    @Test func aRefusedProofCopiesNothing() {
+        let board = NSPasteboard.withUniqueName()
+        defer { board.releaseGlobally() }
+        board.clearContents()
+        board.setString("what was there", forType: .string)
+        var said: [String] = []
+
+        copying(answer: false, on: board) { said.append($0) }.copy(Self.kept[0])
+
+        #expect(board.string(forType: .string) == "what was there")
+        #expect(said.isEmpty)
+    }
+
+    @Test func aProvedCopyIsConcealedAndTransient() {
+        let board = NSPasteboard.withUniqueName()
+        defer { board.releaseGlobally() }
+        var said: [String] = []
+
+        copying(answer: true, on: board) { said.append($0) }.copy(Self.kept[0])
+
+        #expect(board.string(forType: .string) == "synthetic-1")
+        let types = board.types ?? []
+        #expect(types.contains(Logins.concealed))
+        #expect(types.contains(Logins.transient))
+        #expect(said.count == 1)
+    }
+
+    @Test func anUnchangedClipboardIsCleared() {
+        let board = NSPasteboard.withUniqueName()
+        defer { board.releaseGlobally() }
+
+        let count = Logins.put("synthetic-1", on: board)
+        Logins.lift(from: board, ifStill: count)
+
+        #expect(board.string(forType: .string) == nil)
+    }
+
+    @Test func aReplacedClipboardIsLeftAlone() {
+        let board = NSPasteboard.withUniqueName()
+        defer { board.releaseGlobally() }
+
+        let count = Logins.put("synthetic-1", on: board)
+        board.clearContents()
+        board.setString("copied since", forType: .string)
+        Logins.lift(from: board, ifStill: count)
+
+        #expect(board.string(forType: .string) == "copied since")
+    }
 }

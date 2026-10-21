@@ -49,6 +49,7 @@ final class Recall: ObservableObject {
 }
 
 struct HistoryPanel: View {
+    @SwiftUI.Environment(\.chromeMetrics) private var metrics
     @ObservedObject var browser: Browser
     @ObservedObject var recall: Recall
 
@@ -56,6 +57,8 @@ struct HistoryPanel: View {
     @State private var days: [Day] = []
     @State private var count = 0
     @State private var clearing = false
+    /// What Clear removes; the shortest span until another is chosen.
+    @State private var span: History.Span = .hour
     /// The line Return opens: the top one until the arrows move it.
     @State private var chosen: History.Trace.ID?
     /// The arrows have moved it since the last keystroke in the field: until
@@ -91,7 +94,8 @@ struct HistoryPanel: View {
                                                 trace: trace,
                                                 chosen: trace.id == chosen,
                                                 go: { go(trace, apart: false) },
-                                                forget: { forget(trace) }
+                                                forget: { forget(trace) },
+                                                forgetSite: { forgetSite(trace) }
                                             )
                                         }
                                     }
@@ -110,7 +114,7 @@ struct HistoryPanel: View {
             } else {
                 HStack {
                     Text(count == 1 ? "1 page" : "\(count) pages")
-                        .font(.system(size: 12))
+                        .font(.system(size: metrics.length(Metrics.panelNote)))
                         .foregroundStyle(Palette.muted)
                     Spacer()
                     Pill("Clear…") { withAnimation(Motion.settle) { clearing = true } }
@@ -161,19 +165,31 @@ struct HistoryPanel: View {
         chosen = next
     }
 
+    /// Its whole host off the list, the selection back on the top line.
+    private func forgetSite(_ trace: History.Trace) {
+        browser.forgetSite(trace)
+        top()
+    }
+
     /// Three separate things, worded so nobody has to guess which one signs
     /// them out of their bank.
     private var sweeps: some View {
         VStack(alignment: .leading, spacing: 10) {
             Card {
-                Line("History", "Pages visited in this Space") {
+                // Only a page's last visit is known, so the words say a page
+                // goes whole rather than promise to keep its older visits.
+                Line("History", span == .all ? "Everywhere you have been"
+                     : "Each page last opened then goes, with its older visits") {
                     Pill("Clear") {
-                        browser.askToClearHistory {
+                        browser.askToClearHistory(span) {
                             refresh()
                             withAnimation(Motion.settle) { clearing = false }
                         }
                     }
                 }
+                Segmented(options: [(History.Span.hour, "Last hour"), (.today, "Today"), (.week, "Last 7 days"), (.all, "Everything")],
+                          selection: $span, wide: true)
+                    .padding([.horizontal, .bottom], 10)
                 Rule()
                 Line("Cookies and sign-ins", "Signs you out of every site, in every Space") {
                     Pill("Sign out of everything") { browser.askToClearSites() }
@@ -222,24 +238,26 @@ struct HistoryPanel: View {
     /// One line. A title, where it came from, and when — the three things you
     /// scan for, in the order you scan them.
     private struct Row: View {
+        @SwiftUI.Environment(\.chromeMetrics) private var metrics
         let trace: History.Trace
         let chosen: Bool
         let go: () -> Void
         let forget: () -> Void
+        let forgetSite: () -> Void
 
         @State private var hovering = false
 
         var body: some View {
             HStack(spacing: 12) {
                 SiteMark(host: trace.url.host()?.lowercased() ?? "", page: trace.url,
-                     letter: trace.key.first.map { String($0).uppercased() } ?? "•", size: 16)
+                     letter: trace.key.first.map { String($0).uppercased() } ?? "•", size: metrics.length(16))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(trace.title.isEmpty ? trace.key : trace.title)
-                        .font(.system(size: 13))
+                        .font(.system(size: metrics.length(Metrics.panelTitle)))
                         .foregroundStyle(Palette.ink)
                         .lineLimit(1)
                     Text(trace.key)
-                        .font(.system(size: 11.5))
+                        .font(.system(size: metrics.length(Metrics.panelDetail)))
                         .foregroundStyle(Palette.muted)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -249,7 +267,7 @@ struct HistoryPanel: View {
                     Quick("Remove", tint: Palette.danger, act: forget)
                 } else {
                     Text(When.clock(trace.last))
-                        .font(.system(size: 11.5))
+                        .font(.system(size: metrics.length(Metrics.panelDetail)))
                         .foregroundStyle(Palette.muted)
                         .monospacedDigit()
                 }
@@ -261,11 +279,13 @@ struct HistoryPanel: View {
             .onTapGesture(perform: go)
             .onHover { hovering = $0 }
             .animation(Motion.quick, value: hovering)
+            .contextMenu { Button("Forget This Site", action: forgetSite) }
         }
     }
 }
 
 struct DownloadsPanel: View {
+    @SwiftUI.Environment(\.chromeMetrics) private var metrics
     @ObservedObject var browser: Browser
     @ObservedObject var loot: Loot
 
@@ -309,7 +329,7 @@ struct DownloadsPanel: View {
             HStack {
                 Text(loot.kept.isEmpty ? "Files land in \(browser.downloadsFolder.lastPathComponent)"
                      : "Clearing the list leaves the files where they are")
-                    .font(.system(size: 12))
+                    .font(.system(size: metrics.length(Metrics.panelNote)))
                     .foregroundStyle(Palette.muted)
                 Spacer()
                 if !loot.kept.isEmpty {
@@ -347,6 +367,7 @@ struct DownloadsPanel: View {
     }
 
     private struct Row: View {
+        @SwiftUI.Environment(\.chromeMetrics) private var metrics
         let keep: Keep
         let chosen: Bool
         let open: () -> Void
@@ -362,17 +383,17 @@ struct DownloadsPanel: View {
             let there = keep.stillThere
             let line = HStack(spacing: 12) {
                 Image(systemName: there ? "doc" : "doc.badge.ellipsis")
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.system(size: metrics.length(Metrics.panelTitle), weight: .regular))
                     .foregroundStyle(there ? Palette.muted : Palette.faint)
-                    .frame(width: 18)
+                    .frame(width: metrics.length(18))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(keep.name)
-                        .font(.system(size: 13))
+                        .font(.system(size: metrics.length(Metrics.panelTitle)))
                         .foregroundStyle(there ? Palette.ink : Palette.faint)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Text(detail(there))
-                        .font(.system(size: 11.5))
+                        .font(.system(size: metrics.length(Metrics.panelDetail)))
                         .foregroundStyle(Palette.muted)
                         .lineLimit(1)
                 }

@@ -318,3 +318,42 @@ enum CallBody: Equatable {
         }
     }
 }
+
+/// What a row's menu reads of its call as it opens, for that call alone and
+/// without opening it (Calls.peek), and what each of its copies gives.
+struct CallPeek: Equatable {
+    let id: String
+    /// Headers and sent body; nil while `reading`, or when WebKit has none.
+    var detail: CallDetail?
+    var reading = true
+    var body = CallBody.reading
+
+    enum Copy { case url, curl, fetch, response }
+
+    enum Copied: Equatable {
+        case text(String)
+        /// Why the entry is off, in a few words or WebKit's own.
+        case off(String)
+    }
+
+    func copy(_ copy: Copy, of call: Call) -> Copied {
+        switch copy {
+        case .url:
+            return call.url.isEmpty ? .off("No address") : .text(call.url)
+        case .curl, .fetch:
+            if reading { return .off("Reading…") }
+            if let missing = Curl.missing(call, detail) { return .off(missing) }
+            guard let detail else { return .off("Headers unavailable") }
+            return .text(copy == .curl ? Curl.command(call, detail) : Fetch.command(call, detail))
+        case .response:
+            switch body {
+            case .reading: return .off("Reading…")
+            case .text(let text, _, let cut):
+                // A part would pass for the whole response.
+                return cut ? .off("Response too long to copy") : text.isEmpty ? .off("Empty response") : .text(text)
+            case .binary: return .off("Binary response")
+            case .unavailable(let reason): return .off(reason)
+            }
+        }
+    }
+}

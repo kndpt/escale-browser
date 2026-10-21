@@ -2,7 +2,9 @@
 // The popover observes Downloads directly; parked Spaces remain represented,
 // while completed files stay in their existing history panel. The list is
 // lazy and height-bounded. Progress and its observers end with each transfer;
-// the one-off file flight is owned by the window and stops after arrival.
+// a failed one stays below the active ones, with Resume or Retry, until it is
+// taken up again or removed. The one-off file flight is owned by the window
+// and stops after arrival.
 import SwiftUI
 
 struct DownloadDoor: View {
@@ -15,7 +17,7 @@ struct DownloadDoor: View {
         Group {
             if downloads.hasStarted {
                 Door(icon: "arrow.down", help: active ? "Active Downloads" : "Downloads") {
-                    if active { showing.toggle() } else { history() }
+                    if listed { showing.toggle() } else { history() }
                 }
                     .overlay {
                         if active {
@@ -45,7 +47,7 @@ struct DownloadDoor: View {
                         DownloadFlightFrames(door: $0)
                     }
                     .onDisappear { showing = false }
-                    .onChange(of: active) { _, running in if !running { showing = false } }
+                    .onChange(of: listed) { _, some in if !some { showing = false } }
                     .accessibilityLabel(active ? "Active Downloads" : "Downloads")
                     .accessibilityValue(status)
                     .popover(isPresented: $showing, arrowEdge: .bottom) { content }
@@ -54,19 +56,21 @@ struct DownloadDoor: View {
     }
 
     private var active: Bool { !downloads.transfers.isEmpty }
+    private var listed: Bool { active || !downloads.failures.isEmpty }
 
     private var status: String {
-        guard active else { return "Download History" }
+        let failed = downloads.failures.isEmpty ? "" : ", \(downloads.failures.count) failed"
+        guard active else { return listed ? "No active download" + failed : "Download History" }
         let count = downloads.transfers.count
         if let fraction = downloads.fraction {
-            return "\(count) active, \(Int((fraction * 100).rounded())) percent"
+            return "\(count) active, \(Int((fraction * 100).rounded())) percent" + failed
         }
-        return "\(count) active, total size unknown"
+        return "\(count) active, total size unknown" + failed
     }
 
     private var content: some View {
         VStack(alignment: .leading, spacing: metrics.length(Metrics.toolGap)) {
-            Text("Active Downloads")
+            Text(active ? "Active Downloads" : "Downloads")
                 .font(.system(size: metrics.length(Metrics.toolFont), weight: .medium))
             ScrollView {
                 LazyVStack(spacing: metrics.length(Metrics.toolGap)) {
@@ -90,9 +94,28 @@ struct DownloadDoor: View {
                             }
                         }
                     }
+                    ForEach(downloads.failures) { failure in
+                        VStack(alignment: .leading, spacing: metrics.length(Metrics.visualGap)) {
+                            HStack {
+                                Text(failure.name).lineLimit(1).truncationMode(.middle)
+                                Spacer(minLength: 0)
+                                Door(icon: "xmark", help: "Remove") { downloads.remove(failure.id) }
+                                    .accessibilityLabel("Remove \(failure.name)")
+                            }
+                            HStack {
+                                Text("Failed").foregroundStyle(Palette.danger)
+                                Spacer(minLength: 0)
+                                if let action = failure.action {
+                                    Pill(action) { downloads.retry(failure.id) }
+                                        .accessibilityLabel("\(action) \(failure.name)")
+                                }
+                            }
+                        }
+                    }
                 }
             }
-            .frame(height: min(metrics.length(Metrics.downloadListHeight), CGFloat(downloads.transfers.count) * metrics.length(Metrics.downloadRowHeight)))
+            .frame(height: min(metrics.length(Metrics.downloadListHeight),
+                               CGFloat(downloads.transfers.count + downloads.failures.count) * metrics.length(Metrics.downloadRowHeight)))
             Button { showing = false; history() } label: {
                 Label("Download History", systemImage: "clock")
             }

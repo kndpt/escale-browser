@@ -1,0 +1,1 @@
+When the update feed can't be read, Settings and Check now say "Couldn't check for updates" and keep the date of the last check that worked, instead of calling this build the latest; an update that can't be installed says why and what to do: try again, move Escale to Applications or download the disk image (#2).

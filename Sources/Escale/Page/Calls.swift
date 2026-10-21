@@ -14,7 +14,8 @@
 // Inspector's own close button), it connects again and keeps its rows.
 // Requests made before the opening are not reconstructed. Response bodies stay in WebKit's backend and are
 // read by identifier when a call is opened, cut before they reach Swift; only
-// the call on screen holds one, and one is read at a time, so stepping
+// the call on screen holds one (and a row's menu while it is open, for its
+// copies, without opening the call), and one is read at a time, so stepping
 // through calls with the arrows reads the one reached rather than each one
 // passed. The search reads them in the frontend (CallSearch.swift). The cost
 // is the frontend's process, about 80 MiB, the same as Web Inspector's:
@@ -59,6 +60,8 @@ final class Calls: NSObject, ObservableObject, WKScriptMessageHandler {
     @Published private(set) var selected: String?
     @Published private(set) var detail: CallDetail?
     @Published private(set) var body: CallBody?
+    /// The call a row's menu is open on, read for its copies alone.
+    @Published private(set) var peek: CallPeek?
     /// Readers of their own for the response and the sent body, so the
     /// page's reader is untouched.
     let reader = JSONReader()
@@ -174,6 +177,7 @@ final class Calls: NSObject, ObservableObject, WKScriptMessageHandler {
         recording = true
         cleared = false
         deselect()
+        peek = nil
     }
 
     private func detach() {
@@ -188,6 +192,8 @@ final class Calls: NSObject, ObservableObject, WKScriptMessageHandler {
         if let tab { session?.release(tab) }
         // A detail being read can no longer be.
         if body == .reading { body = .unavailable("The collection stopped before the response was read.") }
+        if peek?.reading == true { peek?.reading = false }
+        if peek?.body == .reading { peek?.body = .unavailable("The collection stopped before the response was read.") }
     }
 
     /// The tab's page process ended: WebKit's record went with it.
@@ -200,6 +206,7 @@ final class Calls: NSObject, ObservableObject, WKScriptMessageHandler {
     func clear() {
         list.clear()
         deselect()
+        peek = nil
         epoch += 1
         cleared = true
         frontend?.evaluateJavaScript("window.__escaleCalls && window.__escaleCalls.clear(\(epoch))")
@@ -293,8 +300,7 @@ final class Calls: NSObject, ObservableObject, WKScriptMessageHandler {
             return
         }
         body = .reading
-        frontend.callAsyncJavaScript("return window.__escaleCalls ? window.__escaleCalls.detail(id, max) : null",
-                                     arguments: ["id": id, "max": CallDetail.sentLimit], in: nil, in: .page) { [weak self] result in
+        frontend.callAsyncJavaScript(Self.askDetail, arguments: ["id": id, "max": CallDetail.sentLimit], in: nil, in: .page) { [weak self] result in
             MainActor.assumeIsolated {
                 guard let self, self.selected == id else { return }
                 if case .success(let value) = result, let reply = value as? [String: Any] {
@@ -317,8 +323,7 @@ final class Calls: NSObject, ObservableObject, WKScriptMessageHandler {
         guard !bodyBusy else { return }
         bodyBusy = true
         bodyReads += 1
-        frontend.callAsyncJavaScript("return window.__escaleCalls ? await window.__escaleCalls.body(id, max) : null",
-                                     arguments: ["id": id, "max": CallBody.limit], in: nil, in: .page) { [weak self, weak frontend] result in
+        frontend.callAsyncJavaScript(Self.askBody, arguments: ["id": id, "max": CallBody.limit], in: nil, in: .page) { [weak self, weak frontend] result in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 if frontend === self.frontend { self.bodyBusy = false }
@@ -351,6 +356,53 @@ final class Calls: NSObject, ObservableObject, WKScriptMessageHandler {
     static func looksJSON(_ text: String) -> Bool {
         guard let first = text.first(where: { !$0.isWhitespace }) else { return false }
         return first == "{" || first == "["
+    }
+
+    private static let askDetail = "return window.__escaleCalls ? window.__escaleCalls.detail(id, max) : null"
+    private static let askBody = "return window.__escaleCalls ? await window.__escaleCalls.body(id, max) : null"
+
+    // MARK: - A row's menu
+
+    /// Reads what a row's menu copies of `id` as it opens: that call alone,
+    /// left closed. A reply for another call, or another session, is dropped.
+    func peek(_ id: String) {
+        guard list[id] != nil else { return }
+        guard let frontend, phase == .collecting else {
+            peek = CallPeek(id: id, reading: false,
+                            body: .unavailable("The collection has stopped; WebKit's record of this call is no longer read."))
+            return
+        }
+        peek = CallPeek(id: id)
+        frontend.callAsyncJavaScript(Self.askDetail, arguments: ["id": id, "max": CallDetail.sentLimit],
+                                     in: nil, in: .page) { [weak self, weak frontend] result in
+            MainActor.assumeIsolated {
+                guard let self, self.peek?.id == id, frontend === self.frontend else { return }
+                if case .success(let value) = result, let reply = value as? [String: Any] {
+                    if let row = reply["row"] as? [String: Any] { self.list.take([row]) }
+                    self.peek?.detail = reply["error"] == nil ? CallDetail(reply) : nil
+                }
+                self.peek?.reading = false
+            }
+        }
+        bodyReads += 1
+        frontend.callAsyncJavaScript(Self.askBody, arguments: ["id": id, "max": CallBody.limit],
+                                     in: nil, in: .page) { [weak self, weak frontend] result in
+            MainActor.assumeIsolated {
+                guard let self, self.peek?.id == id, frontend === self.frontend else { return }
+                switch result {
+                case .success(let value):
+                    let answer = (value as? [String: Any]).map(CallBody.init) ?? .unavailable("The collection stopped.")
+                    self.peek?.body = answer == .unavailable("loading") ? .unavailable("Still loading") : answer
+                case .failure(let error):
+                    self.peek?.body = .unavailable(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    /// The menu closed: what it read goes with it.
+    func unpeek(_ id: String) {
+        if peek?.id == id { peek = nil }
     }
 
     // MARK: - Bench

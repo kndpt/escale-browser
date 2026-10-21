@@ -263,6 +263,9 @@ final class Bench {
         case "popover":
             // The open popover, and a click in it (PopoverBench.swift).
             PopoverBench.run(request, answer: answer)
+        case "sheet":
+            // The sheet on the window, and a press on it (SheetBench.swift).
+            SheetBench.run(request, answer: answer)
         case "update":
             // The update's door and panels (UpdateBench.swift).
             answer(UpdateBench.run(request, browser: browser))
@@ -286,6 +289,13 @@ final class Bench {
                 && button.map { AXUIElementPerformAction($0, kAXPressAction as CFString) == .success } == true
             answer(["label": closing?.label ?? "", "count": closing?.ghosts.count ?? 0, "pressed": pressed,
                     "button": button.map { Bench.ax($0, kAXValueAttribute) as? String ?? "" } as Any? ?? NSNull()])
+        case "button":
+            // Any of the app's own buttons, popovers included, found by the
+            // name VoiceOver reads and pressed the way VoiceOver does.
+            guard Store.testing else { answer(["error": "only in a test run"]); return }
+            let button = Bench.accessible(button: request["label"] as? String ?? "")
+            let pressed = button.map { AXUIElementPerformAction($0, kAXPressAction as CFString) == .success } == true
+            Bench.afterRests(2) { answer(["found": button != nil, "pressed": pressed]) }
 
         case "media":
             guard Store.testing else { answer(["error": "only in a test run"]); return }
@@ -299,6 +309,7 @@ final class Bench {
                     tab.web.loadHTMLString(html, baseURL: base)
                 }
                 else if action == "dismiss" { tab.media.dismiss() }
+                else if action == "speaker" { tab.toggleMute() }
                 else if action == "return" { browser.returnToMedia(tab.id) }
                 else if action == "float" { browser.floatMedia(tab.id) }
                 else if action == "minimize" { browser.floater.onMinimize?() }
@@ -697,6 +708,7 @@ final class Bench {
                 "welcome": browser.welcoming,
                 "passwords": browser.managing,
                 "history": browser.recalling,
+                "keyChart": browser.listingKeys,
                 "downloads": browser.hoarding,
                 "keptDownloads": browser.loot.kept.map(\.name),
                 "handedDownloads": Loot.handed,
@@ -722,6 +734,10 @@ final class Bench {
                 "transfers": browser.downloads.transfers.map { transfer -> [String: Any] in
                     ["name": transfer.name, "space": transfer.space.uuidString,
                      "fraction": transfer.fraction as Any? ?? NSNull()]
+                },
+                "failedDownloads": browser.downloads.failures.map { failure -> [String: Any] in
+                    ["name": failure.name, "space": failure.space.uuidString, "folder": failure.file?.deletingLastPathComponent().path ?? "",
+                     "action": failure.action ?? ""]
                 },
                 "modal": NSApp.modalWindow.map { "\(type(of: $0)) “\($0.title)”" } ?? "",
                 "look": browser.prefs.look.rawValue,
@@ -1184,6 +1200,16 @@ final class Bench {
             let start = CACurrentMediaTime()
             if let hunt = request["hunt"] as? String {
                 browser.recallHunt = hunt
+            } else if let clear = request["clear"] as? String {
+                // What the panel's Clear does for that span.
+                let spans: [String: History.Span] = ["hour": .hour, "today": .today, "week": .week, "all": .all]
+                guard let span = spans[clear] else { answer(["error": "recall clear hour|today|week|all"]); return }
+                browser.clearHistory(span)
+            } else if let key = request["forget"] as? String {
+                // What a line's Forget This Site does.
+                guard let trace = browser.history.everything().first(where: { $0.key == key })
+                else { answer(["error": "no line \(key)"]); return }
+                browser.forgetSite(trace)
             } else {
                 browser.recalling = request["open"] as? Bool ?? true
             }
@@ -1192,7 +1218,9 @@ final class Bench {
                 Bench.whenResting(since: start) { rested in
                     rests.append(rested)
                     guard rests.count == 3 else { DispatchQueue.main.async { rest() }; return }
-                    answer(["ms": rests, "open": browser.recalling, "hunt": browser.recallHunt])
+                    // The lines the panel lists for its search, as it reads them.
+                    answer(["ms": rests, "open": browser.recalling, "hunt": browser.recallHunt,
+                            "lines": browser.history.everything(matching: browser.recallHunt).count])
                 }
             }
             rest()
@@ -1784,10 +1812,12 @@ final class Bench {
             if request["clearHistory"] as? Bool == true { browser.clearHistory() }
             if let on = request["downloads"] as? Bool { browser.hoarding = on }
             if let on = request["bookmarks"] as? Bool { browser.bookmarking = on }
+            if let on = request["keyChart"] as? Bool { browser.listingKeys = on }
             if let on = request["hidden"] as? Bool { browser.reviewing = on }
             if let look = (request["look"] as? String).flatMap(Look.init) { browser.prefs.look = look }
             if let tone = (request["tone"] as? String).flatMap(Tone.init) { browser.prefs.tone = tone }
             if let size = (request["size"] as? String).flatMap(InterfaceSize.init) { browser.prefs.interfaceSize = size }
+            if let zoom = request["zoom"] as? Int, PageZoom.defaults.contains(zoom) { browser.prefs.defaultZoom = zoom }
             if let depth = (request["depth"] as? String).flatMap(Depth.init) { browser.prefs.depth = depth }
             if Store.testing, let on = request["fasterShortcuts"] as? Bool { browser.prefs.fasterShortcuts = on }
             if let on = request["contrast"] as? Bool { browser.prefs.increasesContrast = on }
@@ -1831,7 +1861,7 @@ final class Bench {
             if #available(macOS 15.4, *), let on = request["extensions"] as? Bool { Extensions.shared.menuOpen = on }
             answer(["ok": true])
 
-        case "extensions", "ext-add", "ext-folder", "ext-press", "ext-remove", "ext-reload", "ext-page", "ext-popup", "ext-menu", "ext-pin", "ext-shot", "ext-answer", "ext-enable":
+        case "extensions", "ext-add", "ext-folder", "ext-press", "ext-remove", "ext-reload", "ext-page", "ext-popup", "ext-menu", "ext-pin", "ext-shot", "ext-answer", "ext-enable", "ext-mode":
             guard #available(macOS 15.4, *) else {
                 answer(["error": "extensions need macOS 15.4"])
                 return
@@ -1840,7 +1870,7 @@ final class Bench {
 
         default:
             answer(["error": "unknown command “\(verb)”", "commands": [
-                "calls", "update", "tabs", "alerts", "transfer", "open", "go", "close", "wait", "sleep", "idle", "pin", "caches", "select", "crash", "text", "eval", "click", "type", "submit", "shot", "probe", "key", "resize", "hit", "pointer", "drag", "film", "window", "pages", "picture", "place", "field", "recall", "bookmark", "menu", "space", "routes", "shelf", "environments", "strip", "column", "bar", "ui",
+                "calls", "update", "tabs", "alerts", "sheet", "transfer", "open", "go", "close", "wait", "sleep", "idle", "pin", "caches", "select", "crash", "text", "eval", "click", "type", "submit", "shot", "probe", "key", "resize", "hit", "pointer", "drag", "film", "window", "pages", "picture", "place", "field", "recall", "bookmark", "menu", "space", "routes", "shelf", "environments", "strip", "column", "bar", "ui",
             ]])
         }
     }
@@ -1906,6 +1936,11 @@ final class Bench {
             guard let id = request["id"] as? String else { answer(["error": "ext-enable needs an id"]); return }
             extensions.setEnabled(id, request["on"] as? Bool ?? true)
             answer(["enabled": request["on"] as? Bool ?? true])
+        case "ext-mode":
+            // Settings' switch without its question or relaunch: the
+            // scenario quits and launches again itself.
+            let shared = request["shared"] as? Bool ?? true
+            answer(["stored": browser.keepExtensions(shared: shared), "shared": shared])
         case "ext-answer":
             // In a test run: answer every extension's question yes or no
             // without asking, or go back to asking.
@@ -2002,6 +2037,8 @@ final class Bench {
             "pageZoom": Double(tab.built?.pageZoom ?? 1),
             "zoom": Double(tab.zoom),
             "noisy": tab.noisy,
+            "muted": tab.muted,
+            "pageMuted": tab.built.flatMap { Mute.available ? ($0.value(forKey: "_mediaMutedState") as? UInt).map { $0 & 1 == 1 } : nil } as Any? ?? NSNull(),
             "audioAvailable": tab.built?.responds(to: NSSelectorFromString("_isPlayingAudio")) ?? false,
             "audioValue": tab.built.flatMap { $0.responds(to: NSSelectorFromString("_isPlayingAudio")) ? $0.value(forKey: "_isPlayingAudio") as? Bool : nil } as Any? ?? NSNull(),
             "camera": Bench.name(of: tab.built?.cameraCaptureState),
@@ -2015,6 +2052,8 @@ final class Bench {
             "covered": tab.cover != nil,
             "returning": tab.returning,
             "unpainted": tab.built?.unpainted ?? false,
+            // Questions the page asked while out of the window (Dialogs.swift).
+            "held": tab.built?.held.count ?? 0,
             "shy": tab.shy,
             "space": tab.space.uuidString,
             "store": tab.store.identifier?.uuidString ?? "default",
