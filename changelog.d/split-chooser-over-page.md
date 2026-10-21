@@ -1,0 +1,1 @@
+Add Right Split and the other split commands, from the keyboard or the menu bar, open their list of tabs over the page, on the side the panel will take, instead of wherever the pointer is; from a click it still opens under the pointer (#11).
