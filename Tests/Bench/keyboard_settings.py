@@ -47,6 +47,10 @@ def run():
         h.require('⌘/ opens the shortcut chart', ask('probe')['keyChart'], True)
         press(53, '\x1b')
         h.require('Escape closes the shortcut chart', ask('probe')['keyChart'], False)
+        press(11, 'b', 'opt', 'cmd')
+        h.require('default Show Bookmarks key opens them', ask('probe')['bookmarks'], True)
+        press(11, 'b', 'opt', 'cmd')
+        h.require('default Show Bookmarks key closes them', ask('probe')['bookmarks'], False)
         first = ask('space')['current']
         ask('space', 'new', 'Second')
         ask('space', 'new', 'Third')
