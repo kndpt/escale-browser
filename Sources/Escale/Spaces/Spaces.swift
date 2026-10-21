@@ -30,7 +30,8 @@ struct Space: Codable, Identifiable, Equatable {
     var sharesSignIns: Bool?
     /// Where this space's downloads go; nil for the folder in Settings.
     var downloads: String?
-    /// Names and store IDs to reinstall after an explicit duplication.
+    /// Names and store IDs to reinstall after an explicit duplication, or a
+    /// change of how extensions are kept.
     var plannedExtensions: [PlannedExtension]?
 
     /// The first space: the session and the store there were before spaces.
@@ -795,7 +796,7 @@ enum Ask {
         }
     }
 
-    private static func show(_ alert: NSAlert, _ done: @escaping (Bool) -> Void) {
+    static func show(_ alert: NSAlert, _ done: @escaping (Bool) -> Void) {
         guard let window = Links.window else {
             done(alert.runModal() == .alertFirstButtonReturn)
             return

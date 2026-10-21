@@ -18,8 +18,9 @@ import AppKit
 // It sees no `Browser`: it says things through `say`, and finds a tab by its
 // id through `tab`. Which tab a box belongs to, whether filling is on and
 // which site a page is on stay the window's to decide (see Browser.prepare).
-// One per window, for the window's life; its only timer is the 0.2 s before
-// a list of accounts is taken down, cancelled by the next event.
+// One per window, for the window's life. Its timers are the 0.2 s before a
+// list of accounts is taken down, cancelled by the next event, and the one
+// that takes a copied password off the clipboard (`lift`).
 
 @MainActor
 final class Logins: ObservableObject {
@@ -86,17 +87,26 @@ final class Logins: ObservableObject {
     private let read: () -> [Login]
     /// The accounts kept for a site, read off the main thread (see `caret`).
     private let lookup: (String, UUID) -> [Login]
+    /// Asks the Mac who you are before a password leaves the panel: Vault's,
+    /// but for the tests, which answer for it.
+    private let prove: (String, @escaping (Bool) -> Void) -> Void
+    /// Where a copied password goes: the clipboard, or a test's own board.
+    private let board: NSPasteboard
 
     init(
         say: @escaping (String) -> Void,
         tab: @escaping (Tab.ID?) -> Tab?,
         read: @escaping () -> [Login] = { Vault.all() },
-        lookup: @escaping (String, UUID) -> [Login] = { Vault.logins(matching: $0, space: $1) }
+        lookup: @escaping (String, UUID) -> [Login] = { Vault.logins(matching: $0, space: $1) },
+        prove: @escaping (String, @escaping (Bool) -> Void) -> Void = Vault.prove,
+        board: NSPasteboard = .general
     ) {
         self.say = say
         self.tab = tab
         self.read = read
         self.lookup = lookup
+        self.prove = prove
+        self.board = board
     }
 
     // MARK: - the offer
@@ -288,10 +298,42 @@ final class Logins: ObservableObject {
         relist()
     }
 
+    /// Copy asks for the same proof as Show: a password on the clipboard can
+    /// be pasted anywhere by anyone at the Mac. Refused, nothing is copied.
     func copy(_ login: Login) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(login.password, forType: .string)
-        say("Password copied")
+        prove("copy the password for \(login.host)") { [weak self] ok in
+            guard ok, let self else { return }
+            let board = self.board
+            let count = Self.put(login.password, on: board)
+            DispatchQueue.main.asyncAfter(deadline: .now() + Motion.copiedPassword) {
+                Self.lift(from: board, ifStill: count)
+            }
+            self.say("Password copied for \(Int(Motion.copiedPassword)) seconds")
+        }
+    }
+
+    /// nspasteboard.org's markers: clipboard histories neither show nor keep
+    /// an entry carrying them.
+    static let concealed = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
+    static let transient = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
+
+    /// Puts `password` on `board`, marked concealed and transient, and returns
+    /// the board's count once it is there.
+    static func put(_ password: String, on board: NSPasteboard) -> Int {
+        board.clearContents()
+        let item = NSPasteboardItem()
+        item.setString(password, forType: .string)
+        item.setData(Data(), forType: concealed)
+        item.setData(Data(), forType: transient)
+        board.writeObjects([item])
+        return board.changeCount
+    }
+
+    /// Takes the password off `board`, unless something else was copied since:
+    /// what you copied after it is yours, not ours to clear.
+    static func lift(from board: NSPasteboard, ifStill count: Int) {
+        guard board.changeCount == count else { return }
+        board.clearContents()
     }
 
 }

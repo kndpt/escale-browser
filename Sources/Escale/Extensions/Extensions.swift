@@ -19,7 +19,7 @@ import IOKit.pwr_mgt
 // buttons in the bar are in ExtensionButtons.swift.
 //
 // Each Space has its own extensions, unless one set serves every Space
-// (`sharesOne`, chosen once at Welcome). A tab carries one controller, which
+// (`sharesOne`, chosen at Welcome or in Settings, ExtensionSwitch.swift). A tab carries one controller, which
 // runs every extension it holds in every page attached to it, and an
 // extension's sign-in lives in its controller: so it is a mode, not a choice
 // per extension. Shared, the first Space's owner serves them all, its pages
@@ -63,8 +63,9 @@ final class Extensions: NSObject, ObservableObject {
 
     /// What a Space keeps installed, read from its list without building its
     /// WebKit controller and data store: a transfer file must not wake Spaces.
-    static func saved(space: UUID) -> [Installed] {
-        let space = owner(of: space)
+    /// Per Space (`sharing` false), a Space's own set, whatever the mode.
+    static func saved(space: UUID, sharing: Bool = sharesOne) -> [Installed] {
+        let space = owner(of: space, sharing: sharing)
         if let owner = owners[space] { return owner.installed }
         let folder = Store.file(space == Space.firstID ? "Extensions" : "Extensions-\(space.uuidString)")
         let data = try? Data(contentsOf: folder.appendingPathComponent("installed.json"))

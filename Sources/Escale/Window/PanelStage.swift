@@ -420,6 +420,9 @@ private struct PanelPage: View {
             }
             .overlay { SelectionOver(menu: browser.selectionMenu, tab: tab) }
             .overlay(alignment: .topLeading) { AccountsOver(logins: browser.logins, tab: tab.id) }
+            .overlay(alignment: .bottom) {
+                if tab.reader { ReaderBar(tab: tab, prefs: browser.prefs) }
+            }
     }
 }
 

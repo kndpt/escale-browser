@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Relative zoom, legacy site size, navigation, private/Space isolation and restart.
+"""Relative zoom, legacy site size, navigation, private/Space isolation, restart
+a default zoom set before launch, and one changed while a page is open.
 
 Uses real zoom shortcuts and real WebKit pages on a loopback server. Synthetic
 legacy settings are written only into suite.py's unique test world before launch.
@@ -81,7 +82,26 @@ def main():
         bench('space', 'go', '1')
         press(29, '0', 'cmd'); zoom(1 / 1.1, 1)
         go(old + '/reset-navigation'); zoom(1 / 1.1, 1)
-        print('ok: default, shortcuts, legacy size, navigation, tabs, private writes, Spaces and restart')
+        # A 110% default: sites without a value follow it, ⌘0 returns to it,
+        # and a site taken to 100% keeps 100%.
+        press(12, 'q', 'cmd')
+        s.until('quit', lambda: not s.running(), 15)
+        s.command('defaults', 'write', s.SUITE, 'pages.zoom', '-int', '110')
+        s.launch()
+        bench('ui', 'welcome', 'off')
+        bench('wait', active()['id'], '10'); zoom(1, 1.1)
+        go(base + '/default-110'); zoom(1, 1.1)
+        press(27, '-', 'cmd'); zoom(1 / 1.1, 1)
+        go(old + '/default-110'); zoom(1, 1.1)
+        go(base + '/kept-100'); zoom(1 / 1.1, 1)
+        press(29, '0', 'cmd'); zoom(1, 1.1)
+        go(old + '/away'); go(base + '/cleared'); zoom(1, 1.1)
+        # A new default moves the page on screen, not a site with its own size.
+        press(24, '+', 'cmd'); zoom(1.1, 1.21)
+        go(old + '/follows'); zoom(1, 1.1)
+        bench('ui', 'zoom', '125'); zoom(1.25 / 1.1, 1.25)
+        go(base + '/own'); zoom(1.1, 1.21)
+        print('ok: default, shortcuts, legacy size, navigation, tabs, private writes, Spaces, restart and default zoom, set before launch and while open')
     finally:
         s.command(str(s.ROOT / 'fresh.sh'), 'wipe')
         server.shutdown(); server.server_close()
