@@ -43,6 +43,32 @@ import Testing
         }
         #expect(KeyBindings().matches(KeyAction.moveTabToNextSpace.command, query: "move tab next space"))
     }
+    static let added: [(KeyAction, KeyStroke)] = [
+        (.bookmarks, KeyStroke("b", [.command, .option])),
+        (.closeOthers, KeyStroke("w", [.command, .option])),
+        (.copyMarkdown, KeyStroke("c", [.command, .option, .shift])),
+        (.captureArea, KeyStroke("s", [.command, .option, .shift])),
+        (.localhost, KeyStroke("l", [.command, .shift])),
+    ]
+    @Test(arguments: added)
+    func commonCommandsHaveTheirOwnDefault(action: KeyAction, stroke: KeyStroke) {
+        #expect(action.command.defaults == [stroke])
+        #expect(stroke.refusal == nil)
+        #expect(KeyBindings().action(for: stroke) == action)
+    }
+    @Test(arguments: added)
+    func aNewDefaultLeavesAChosenKeyAlone(action: KeyAction, stroke: KeyStroke) throws {
+        // Saved before the default existed, on a command before and after it.
+        for owner in [KeyAction.newTab, .feedback] {
+            let saved = try JSONSerialization.data(withJSONObject: ["overrides": [
+                owner.rawValue: [["key": stroke.key, "modifiers": stroke.modifiers]],
+            ]])
+            let loaded = KeyBindings.read(saved)
+            #expect(loaded.keys(owner) == [stroke])
+            #expect(loaded.keys(action).isEmpty)
+            #expect(loaded.action(for: stroke) == owner)
+        }
+    }
     @Test func reassignmentAndRemovalSurviveReload() {
         var bindings = KeyBindings()
         let custom = KeyStroke("t", [.command, .option])

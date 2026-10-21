@@ -27,8 +27,10 @@ Return to a project, find its pages and recognise the environment before acting.
   user: one set installed and signed in to once for every Space, or a set per
   Space as before. Sites stay per Space either way. A tab carries one
   extension controller, which holds the sign-in, so it is a mode, not a choice
-  per extension; existing users stay per Space, and switching later is out of
-  scope.
+  per extension. Settings › Extensions switches it with a relaunch and
+  deletes nothing: the first Space's set becomes the shared one, each Space
+  gets its own back on the way back, and what a Space loses sight of is
+  listed to reinstall.
 - **Later, if useful:** local JWT decoding and other tools suggested by
   observed workflows. These are candidates, not commitments.
 

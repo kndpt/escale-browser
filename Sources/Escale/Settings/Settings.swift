@@ -72,11 +72,11 @@ struct SettingsPanel: View {
             case .github: return "github bearings pull requests issues local search repository"
             case .routing: return "link routing route rules links open site host domain url space spaces meet routage liens"
             case .tabs: return "tabs spaces sidebar folded address bookmarks copy icons reading sleep delay idle"
-            case .pages: return "web pages links scroll middle button"
+            case .pages: return "web pages zoom default size links scroll middle button"
             case .migration: return "import migration bookmarks history passwords browser profiles safari firefox chrome arc zen orion aside"
             case .passwords: return "passwords passkeys keychain sign in import accounts"
             case .privacy: return "privacy ads trackers block camera microphone history cookies cache site data"
-            case .extensions: return "extensions chrome web store add folder"
+            case .extensions: return "extensions chrome web store add folder shared every space separate"
             case .developer: return "developer notifications alerts agents builds pull requests workflows script bench"
             case .keyboard: return "keyboard shortcuts keys commands bearings"
             case .about: return "about updates version feedback"
@@ -529,6 +529,13 @@ struct SettingsPanel: View {
     private var webPages: some View {
         VStack(alignment: .leading, spacing: metrics.length(Metrics.settingsGap)) {
             Card {
+                Line(.defaultZoom) {
+                    MigrationField(title: "Default zoom", options: PageZoom.defaults.map { ($0, "\($0)%") },
+                                   selection: $prefs.defaultZoom, height: Metrics.settingsRow, showsTitle: false)
+                        .frame(width: metrics.length(Metrics.settingsZoomWidth))
+                        .accessibilityLabel("Default zoom")
+                }
+                Rule()
                 Line(.showsLinks) {
                     Switch(on: $prefs.showsLinks)
                 }

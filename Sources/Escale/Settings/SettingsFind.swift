@@ -7,7 +7,7 @@ import SwiftUI
 
 enum Setting: String, CaseIterable, Identifiable {
     case defaultBrowser, engine, keywords, downloads, askWhere
-    case showsLinks, selection, autoScroll
+    case defaultZoom, showsLinks, selection, autoScroll
     case theme, colours, transparency, contrast, fasterShortcuts, interfaceSize
     case sidebar, sideFolded, addressBar, sideBookmarks, copyDoor, glyph, reading, sleep, sleepAfter, spaces
     case vault, savePasswords, fillPasswords, passkeys, neverAsked, importPasswords
@@ -20,7 +20,7 @@ enum Setting: String, CaseIterable, Identifiable {
     var page: SettingsPanel.Page {
         switch self {
         case .defaultBrowser, .engine, .keywords, .downloads, .askWhere: return .general
-        case .showsLinks, .selection, .autoScroll: return .pages
+        case .defaultZoom, .showsLinks, .selection, .autoScroll: return .pages
         case .theme, .colours, .transparency, .contrast, .fasterShortcuts, .interfaceSize: return .appearance
         case .sidebar, .sideFolded, .addressBar, .sideBookmarks, .copyDoor, .glyph, .reading, .sleep, .sleepAfter, .spaces: return .tabs
         case .vault, .savePasswords, .fillPasswords, .passkeys, .neverAsked, .importPasswords: return .passwords
@@ -52,6 +52,7 @@ enum Setting: String, CaseIterable, Identifiable {
         case .keywords: return ("Search a site by keyword", "A keyword, then an address with %s, on each line. Type “npm react” to search npm")
         case .downloads: return ("Save downloads to", "The folder new downloads go to")
         case .askWhere: return ("Ask where to save each file", "")
+        case .defaultZoom: return ("Default zoom", "For every site you haven't zoomed. Actual Size returns a site to it")
         case .showsLinks: return ("Show where links go", "Point at a link and its address shows at the bottom of the page")
         case .selection: return ("Copy or translate selected text", "Select text on a page with the mouse and Copy and Translate appear beside it")
         case .autoScroll: return ("Scroll with the middle button", "Click the wheel on a page, then move the mouse up or down to scroll, as on Windows. Click again to stop")

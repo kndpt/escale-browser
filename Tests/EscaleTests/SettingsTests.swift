@@ -58,6 +58,7 @@ import Testing
         ("agent sessions", .agents),
         ("sessions agent", .agents),
         ("middle scroll", .autoScroll),
+        ("zoom", .defaultZoom),
         ("keychain", .vault),
         ("TRACKERS", .shield),
     ])
