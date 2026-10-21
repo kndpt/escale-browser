@@ -848,6 +848,7 @@ enum Metrics {
     static let settingsSearch: CGFloat = 26
     static let settingsSearchText: CGFloat = 11.5
     static let settingsKeywords: CGFloat = 64
+    static let settingsZoomWidth: CGFloat = 96
 
     // Keyboard uses aligned command/key columns and room between groups.
     static let keyboardPinnedHeight: CGFloat = 440

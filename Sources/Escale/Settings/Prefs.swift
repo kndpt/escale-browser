@@ -149,6 +149,14 @@ final class Preferences: ObservableObject {
     @Published var sleepDelay: SleepDelay {
         didSet { store.set(sleepDelay.rawValue, forKey: "tabs.sleep.after") }
     }
+    /// The zoom, in percent, of every site not zoomed on its own (PageZoom.swift).
+    /// 100 unless chosen; not under `zoom.`, where every key is a site.
+    @Published var defaultZoom: Int {
+        didSet {
+            store.set(defaultZoom, forKey: "pages.zoom")
+            Tab.defaultZoom = CGFloat(defaultZoom) / 100
+        }
+    }
     @Published var showsReading: Bool {
         didSet { store.set(showsReading, forKey: "tabs.reading") }
     }
@@ -288,6 +296,9 @@ final class Preferences: ObservableObject {
         searchKeywords = store.string(forKey: "search.keywords") ?? ""
         sleepsTabs = store.object(forKey: "tabs.sleep") as? Bool ?? true
         sleepDelay = SleepDelay.stored(store.object(forKey: "tabs.sleep.after") as? Int)
+        let zoom = PageZoom.standard(store.object(forKey: "pages.zoom") as? Int)
+        defaultZoom = zoom
+        Tab.defaultZoom = CGFloat(zoom) / 100
         showsReading = store.object(forKey: "tabs.reading") as? Bool ?? true
         shielded = store.object(forKey: "shield") as? Bool ?? true
         extensionsInPrivate = store.bool(forKey: "extensions.private")
