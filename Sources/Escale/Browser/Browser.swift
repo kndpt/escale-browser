@@ -1565,6 +1565,7 @@ final class Browser: NSObject, ObservableObject {
         moved.pin = tab.pin
         moved.migration = tab.migration
         moved.name = tab.name
+        moved.muted = tab.muted
         prepare(moved)
         if moved.pin != nil {
             tabs.insert(moved, at: pinnedCount)
@@ -1673,6 +1674,7 @@ final class Browser: NSObject, ObservableObject {
         } else {
             Tab(bench: tab.bench, space: tab.space, configuration: page)
         }
+        fresh.muted = tab.muted
         prepare(fresh)
         if let here {
             let wasActive = activeID == tab.id
