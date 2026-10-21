@@ -33,6 +33,7 @@ struct PanelGroup: Identifiable, Equatable {
 @MainActor
 final class Panels: ObservableObject {
     static let limit = 3
+    static let refused = "Up to 3 panels in one Space and website store — enlarge the window if needed"
     @Published private(set) var groups: [PanelGroup] = []
     @Published var preview: PanelEdge?
     /// The tab being carried over the pages, so its own row can step back.
@@ -218,7 +219,7 @@ extension Browser {
     func split(_ source: Tab, with target: Tab, edge: PanelEdge) -> Bool {
         let watched = panelTabs
         guard tabs.contains(where: { $0 === source }), tabs.contains(where: { $0 === target }),
-              panelsMix(source, target), panelFits(source, beside: target, edge: edge),
+              panelsMix(source, target), panelFits(source.id, beside: target, edge: edge),
               panels.add(source.id, to: target.id, edge: edge) else { return false }
         for tab in watched { tab.touch() }
         select(source)
@@ -226,8 +227,20 @@ extension Browser {
         return true
     }
 
-    func panelFits(_ source: Tab, beside target: Tab, edge: PanelEdge) -> Bool {
-        guard let count = panels.plan(source.id, beside: target.id, edge: edge)?.count else { return false }
+    /// A link from a page's right-click menu, in a new tab to the right of
+    /// that page. A link routed to another Space goes there instead, as a split
+    /// can't span Spaces. Room is asked for before the tab is made, so a
+    /// refusal loads nothing.
+    func openInSplit(_ url: URL, beside page: Tab) {
+        if routeLink(url, from: page) { return }
+        guard panelFits(UUID(), beside: page, edge: .right) else { announce(Panels.refused); return }
+        let tab = open(url, foreground: false, from: page)
+        tab.origin = page.id
+        if !split(tab, with: page, edge: .right) { announce(Panels.refused) }
+    }
+
+    func panelFits(_ source: UUID, beside target: Tab, edge: PanelEdge) -> Bool {
+        guard let count = panels.plan(source, beside: target.id, edge: edge)?.count else { return false }
         let metrics = ChromeMetrics(size: prefs.interfaceSize)
         let length = edge.horizontal ? panels.frame.width : panels.frame.height
         let minimum = metrics.length(edge.horizontal ? Metrics.panelWidth : Metrics.panelHeight)
@@ -244,7 +257,7 @@ extension Browser {
         let target = carried ? panelPartner(for: tab) : nil
         let edge = target.flatMap { target in
             PanelEdge.at(point, in: panels.frame).flatMap { edge in
-                panelsMix(tab, target) && panelFits(tab, beside: target, edge: edge) ? edge : nil
+                panelsMix(tab, target) && panelFits(tab.id, beside: target, edge: edge) ? edge : nil
             }
         }
         panels.aim(tab.id, edge: edge)
@@ -299,7 +312,7 @@ extension Browser {
         }
         PanelChoice.show(candidates, edge: edge) { [weak self, weak target] source in
             guard let self, let target else { return }
-            if !split(source, with: target, edge: edge) { announce("Up to 3 panels in one Space and website store — enlarge the window if needed") }
+            if !split(source, with: target, edge: edge) { announce(Panels.refused) }
         }
     }
 }
