@@ -162,9 +162,10 @@ final class Preferences: ObservableObject {
     @Published var extensionsInPrivate: Bool {
         didSet { store.set(extensionsInPrivate, forKey: "extensions.private") }
     }
-    /// One set of extensions for every Space, or a set per Space: chosen
-    /// once, at Welcome, or settled per Space by the first install. Nil
-    /// until then, which is per Space (see Extensions.swift).
+    /// One set of extensions for every Space, or a set per Space: chosen at
+    /// Welcome, or settled per Space by the first install, and changed in
+    /// Settings with a relaunch. Nil until then, which is per Space (see
+    /// Extensions.swift).
     @Published var sharedExtensions: Bool? {
         didSet { store.set(sharedExtensions, forKey: "extensions.shared") }
     }
