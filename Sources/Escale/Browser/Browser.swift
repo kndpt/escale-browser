@@ -370,6 +370,8 @@ final class Browser: NSObject, ObservableObject {
     // MARK: - what is kept, and getting rid of it
 
     @Published var recalling = false
+    /// The ⌘/ chart of keys (KeyChart.swift).
+    @Published var listingKeys = false
     @Published var hoarding = false
     /// The update's panel: boarding a waiting build, or what one brought (Gate.swift).
     @Published var gate: Gate?
@@ -1113,6 +1115,20 @@ final class Browser: NSObject, ObservableObject {
             }
             .store(in: &bag)
 
+        // Pages already open follow a new default unless their site has its
+        // own; one not built yet reads it when it is.
+        prefs.$defaultZoom
+            .dropFirst()
+            .sink { [weak self] percent in
+                guard let self else { return }
+                // Sent before Preferences' didSet sets it.
+                Tab.defaultZoom = CGFloat(percent) / 100
+                // A floating meeting keeps its own size until it lands, which
+                // reapplies the default; a floating video has none of its own.
+                for tab in tabs + parkedTabs where !(tab.floating && floatingMeeting) { tab.applyRememberedZoom() }
+            }
+            .store(in: &bag)
+
         // The reading bar: every tab's next page, and the page each is showing
         // now, report their scroll only while it is shown (see ScrollRelay).
         prefs.$showsReading
@@ -1549,6 +1565,7 @@ final class Browser: NSObject, ObservableObject {
         moved.pin = tab.pin
         moved.migration = tab.migration
         moved.name = tab.name
+        moved.muted = tab.muted
         prepare(moved)
         if moved.pin != nil {
             tabs.insert(moved, at: pinnedCount)
@@ -1657,6 +1674,7 @@ final class Browser: NSObject, ObservableObject {
         } else {
             Tab(bench: tab.bench, space: tab.space, configuration: page)
         }
+        fresh.muted = tab.muted
         prepare(fresh)
         if let here {
             let wasActive = activeID == tab.id

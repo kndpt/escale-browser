@@ -311,6 +311,9 @@ struct ContentView: View {
             .ignoresSafeArea()
             .transition(.opacity)
         }
+        if browser.listingKeys {
+            sheet { KeyChart(browser: browser, prefs: browser.prefs) } close: { browser.listingKeys = false }
+        }
     }
 
     var body: some View {
@@ -412,6 +415,8 @@ struct ContentView: View {
             .animation(Motion.settle, value: browser.bookmarking)
             .animation(Motion.settle, value: browser.managing)
             .animation(Motion.settle, value: browser.reviewing)
+            .animation(Motion.settle, value: browser.listingKeys)
+            .onChange(of: browser.listingKeys) { _, open in if !open { handBack() } }
         .onAppear {
             watchKeys()
             browser.field.askFocus()
@@ -451,20 +456,20 @@ struct ContentView: View {
             HStack(spacing: 7) {
                 if let symbol {
                     Image(systemName: symbol)
-                        .font(.system(size: 11))
+                        .font(.system(size: metrics.length(Metrics.panelSymbol)))
                         .foregroundStyle(Palette.muted)
                 }
                 // One with a symbol names a thing, an address most often:
                 // one line, giving up its middle, since where it goes and
                 // what it ends with say the most.
                 Text(text)
-                    .font(.system(size: 12))
+                    .font(.system(size: metrics.length(Metrics.panelNote)))
                     .foregroundStyle(Palette.ink)
                     .lineLimit(symbol == nil ? nil : 1)
                     .truncationMode(.middle)
                     // As wide as the line needs, up to the cap: a bare
                     // maxWidth would stretch every line to it.
-                    .frame(maxWidth: symbol == nil ? nil : 480)
+                    .frame(maxWidth: symbol == nil ? nil : metrics.length(480))
                     .fixedSize(horizontal: symbol != nil, vertical: false)
             }
             .padding(.horizontal, 15)
@@ -480,14 +485,14 @@ struct ContentView: View {
     private func captureAsking(_ ask: Browser.CaptureAsk) -> some View {
         HStack(spacing: 12) {
             Image(systemName: ask.wants == "microphone" ? "mic" : "video")
-                .font(.system(size: 11, weight: .regular))
+                .font(.system(size: metrics.length(Metrics.panelSymbol), weight: .regular))
                 .foregroundStyle(Palette.muted)
             Text("\(ask.host) wants to use your \(ask.wants)")
-                .font(.system(size: 12.5))
+                .font(.system(size: metrics.length(Metrics.panelText)))
                 .foregroundStyle(Palette.ink)
             Button { browser.allowCapture() } label: {
                 Text("Allow")
-                    .font(.system(size: 12))
+                    .font(.system(size: metrics.length(Metrics.panelNote)))
                     .foregroundStyle(Palette.inverse)
                     .padding(.horizontal, 11)
                     .padding(.vertical, 5)
@@ -496,7 +501,7 @@ struct ContentView: View {
             .buttonStyle(.plain)
             Button { browser.denyCapture() } label: {
                 Text("Don't allow")
-                    .font(.system(size: 12))
+                    .font(.system(size: metrics.length(Metrics.panelNote)))
                     .foregroundStyle(Palette.muted)
             }
             .buttonStyle(.plain)
@@ -511,7 +516,7 @@ struct ContentView: View {
     /// as the mode does, which is how you know you are still in it.
     private func hint(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 11.5))
+            .font(.system(size: metrics.length(Metrics.panelDetail)))
             .foregroundStyle(Palette.inverse)
             .padding(.horizontal, 15)
             .padding(.vertical, 9)
@@ -708,6 +713,10 @@ struct ContentView: View {
             }
             if browser.tuning {
                 browser.tuning = false
+                return true
+            }
+            if browser.listingKeys {
+                browser.listingKeys = false
                 return true
             }
             if browser.bookmarking {

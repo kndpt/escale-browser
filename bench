@@ -69,6 +69,7 @@
     ./bench ext-menu PATH              the puzzle button's list, drawn to a PNG
     ./bench ext-shot ID PATH           a picture of its popup while it is open
     ./bench ext-answer yes|no|ask      test run: answer extensions' questions without asking; lists what was asked
+    ./bench ext-mode shared|apart      store how extensions are kept, with Spaces' lists to reinstall; applies at the next launch
     ./bench ext-enable ID on|off       switch an extension on or off
     ./bench ext-remove ID
     ./bench strip PATH [WIDTH]         the row of tabs across the top, drawn off screen to a PNG
@@ -124,9 +125,9 @@
                                        open/arrival show a panel,
                                        forget makes the next launch an arrival (shown with ESCALE_FEED set),
                                        relaunch goes through the updater's own relaunch
-    ./bench ui KEY VALUE               settings/passwords/welcome/history/downloads/bookmarks/hidden on|off,
+    ./bench ui KEY VALUE               settings/passwords/welcome/history/downloads/bookmarks/hidden/keyChart on|off,
                                        look light|dark|system, tone neutral|escale,
-                                       size compact|standard|large,
+                                       size compact|standard|large, zoom PERCENT (a Default zoom choice),
                                        depth solid|subtle|clear, contrast on|off, copy on|off,
                                        sidebar on|off, spaces on|off, hides on|off,
                                        bar on|off, shelf on|off, folded on|off, peek on|off,
@@ -247,7 +248,7 @@ def main(argv, out=None, err=None, timeout=None, cwd=None):
     elif verb == "ui":
         if len(args) != 2: sys.exit("usage: bench ui KEY VALUE")
         key, value = args
-        request[key] = value if key in ("look", "tone", "size", "depth", "edittab", "renametab") else value in ("on", "true", "1", "yes")
+        request[key] = int(value) if key == "zoom" else value if key in ("look", "tone", "size", "depth", "edittab", "renametab") else value in ("on", "true", "1", "yes")
     elif verb in ("ext-add", "ext-press", "ext-remove", "ext-reload"):
         if len(args) != 1: sys.exit(f"usage: bench {verb} ID")
         request["id"] = args[0]
@@ -260,6 +261,9 @@ def main(argv, out=None, err=None, timeout=None, cwd=None):
         if not 1 <= len(args) <= 2: sys.exit("usage: bench ext-pin ID [on|off]")
         request["id"] = args[0]
         request["on"] = (args[1] if len(args) > 1 else "on") in ("on", "true", "1", "yes")
+    elif verb == "ext-mode":
+        if len(args) != 1 or args[0] not in ("shared", "apart"): sys.exit("usage: bench ext-mode shared|apart")
+        request["shared"] = args[0] == "shared"
     elif verb == "ext-answer":
         if len(args) != 1 or args[0] not in ("yes", "no", "ask"): sys.exit("usage: bench ext-answer yes|no|ask")
         request["answer"] = args[0]
