@@ -453,10 +453,15 @@ final class Bench {
                 if action == "open" { reader.open(tab.built) }
                 if action == "raw" { reader.raw() }
                 if let query = request["query"] as? String { reader.query = query }
+                // A reader button, the tab's or the API Calls panel's, pressed as VoiceOver does.
+                let pressed = (request["press"] as? String).flatMap { Bench.accessible(button: $0) }
+                    .map { AXUIElementPerformAction($0, kAXPressAction as CFString) == .success }
                 var state: [String: Any] = ["available": reader.available, "shown": reader.shown,
-                    "count": reader.document?.nodes.count ?? 0, "visible": reader.visible.count, "failure": reader.error ?? ""]
+                    "count": reader.document?.nodes.count ?? 0, "visible": reader.visible.count, "failure": reader.error ?? "",
+                    "hidden": reader.hidden ?? "", "pressed": pressed ?? false]
                 if let id = request["node"] as? Int, let document = reader.document, document.nodes.indices.contains(id) {
-                    state["value"] = document.value(id); state["path"] = document.path(id)
+                    state["value"] = document.value(id); state["path"] = document.path(id); state["script"] = document.script(id)
+                    state["minified"] = document.formatted(id, indent: false); state["indented"] = document.formatted(id, indent: true)
                 }
                 answer(state)
             } else {

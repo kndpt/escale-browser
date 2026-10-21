@@ -19,7 +19,8 @@
     ./bench history ID back|forward [INDEX]  recent pages, nearest first; choose INDEX in a test world
     ./bench visual-pick ID [JSON]      test world: targeting state (summary, anchor)/start/stop/more
     ./bench page-capture ID [JSON]     test world: capture state/take/close, mode, path; {"action":"area","step":"start|stop"}
-    ./bench json-reader ID [JSON]      test world: state or action open/raw, query, node
+    ./bench json-reader ID [JSON]      test world: state or action open/raw, query, node (its copies), press LABEL
+                                       (a reader button, the tab's or the API Calls panel's, pressed as VoiceOver does)
     ./bench calls ID|- [JSON]          test world: API Calls panel state, or action open/close/clear/
                                        filter(all,search)/select(call)/record(on)/step(by,times)/resume/report/curl/
                                        frontend(js)/pids; full returns whole text bodies
