@@ -31,6 +31,10 @@ struct SettingsPanel: View {
     private var increasing: Bool { contrast == .increased }
     @State private var page: Page = Page.restored(Store.settings.string(forKey: "settings.page"))
     @State private var query = ""
+    /// The row a search result opened, until its mark fades.
+    @State private var found: Setting?
+    @State private var shown: Set<Setting> = []
+    @SwiftUI.Environment(\.accessibilityReduceMotion) private var reduced
 
     init(browser: Browser, prefs: Preferences, availableWidth: CGFloat) {
         self.browser = browser; self.prefs = prefs; self.availableWidth = availableWidth
@@ -68,20 +72,18 @@ struct SettingsPanel: View {
             case .github: return "github bearings pull requests issues local search repository"
             case .routing: return "link routing route rules links open site host domain url space spaces meet routage liens"
             case .tabs: return "tabs spaces sidebar folded address bookmarks copy icons reading sleep delay idle"
-            case .pages: return "web pages links scroll middle button"
+            case .pages: return "web pages zoom default size links scroll middle button"
             case .migration: return "import migration bookmarks history passwords browser profiles safari firefox chrome arc zen orion aside"
             case .passwords: return "passwords passkeys keychain sign in import accounts"
             case .privacy: return "privacy ads trackers block camera microphone history cookies cache site data"
-            case .extensions: return "extensions chrome web store add folder"
+            case .extensions: return "extensions chrome web store add folder shared every space separate"
             case .developer: return "developer notifications alerts agents builds pull requests workflows script bench"
             case .keyboard: return "keyboard shortcuts keys commands bearings"
             case .about: return "about updates version feedback"
             }
         }
 
-        func matches(_ query: String) -> Bool {
-            title.localizedCaseInsensitiveContains(query) || searchTerms.localizedCaseInsensitiveContains(query)
-        }
+        func matches(_ query: String) -> Bool { Setting.words(query, in: title + " " + searchTerms) }
 
         var title: String {
             switch self {
@@ -179,12 +181,14 @@ struct SettingsPanel: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: metrics.length(4)) {
                     let matches = Page.allCases.filter { query.isEmpty || $0.matches(query) }
-                    if matches.isEmpty {
+                    let settings = Setting.found(query)
+                    if matches.isEmpty && settings.isEmpty {
                         Text("No settings found")
                             .font(.system(size: metrics.length(Metrics.settingsRowText)))
                             .foregroundStyle(Palette.muted)
                     } else {
                         pageGroup(matches)
+                        foundGroup(settings)
                     }
                 }
             }
@@ -227,13 +231,24 @@ struct SettingsPanel: View {
                         pageGroup(Page.tools)
                     } else {
                         let matches = Page.allCases.filter { $0.matches(query) }
-                        if matches.isEmpty {
+                        let settings = Setting.found(query)
+                        if matches.isEmpty && settings.isEmpty {
                             Text("No settings found")
                                 .font(.system(size: metrics.length(Metrics.settingsRowText)))
                                 .foregroundStyle(Palette.muted)
                                 .padding(.horizontal, metrics.length(8))
                         } else {
                             pageGroup(matches)
+                            if !settings.isEmpty {
+                                Text("Settings")
+                                    .font(.system(size: metrics.length(Metrics.settingsHeading), weight: .medium))
+                                    .foregroundStyle(Palette.muted)
+                                    .padding(.horizontal, metrics.length(8))
+                                    .padding(.top, matches.isEmpty ? 0 : metrics.length(10))
+                                    .padding(.bottom, metrics.length(3))
+                                    .accessibilityAddTraits(.isHeader)
+                                foundGroup(settings)
+                            }
                         }
                     }
                 }
@@ -252,6 +267,61 @@ struct SettingsPanel: View {
     private func pageGroup(_ items: [Page]) -> some View {
         ForEach(items) { item in
             PageRow(page: item, on: page == item) { page = item }
+        }
+    }
+
+    private func foundGroup(_ items: [Setting]) -> some View {
+        ForEach(items) { item in
+            FoundRow(setting: item) { land(on: item) }
+        }
+    }
+
+    /// Opens the row's page, brings the row into view and marks it a moment.
+    private func land(on setting: Setting) {
+        page = setting.page
+        found = setting
+        DispatchQueue.main.asyncAfter(deadline: .now() + Motion.foundHold) {
+            guard found == setting else { return }
+            withAnimation(reduced ? nil : Motion.foundFade) { found = nil }
+        }
+    }
+
+    /// The row a search lands on: a hidden one's parent until it shows.
+    private var landing: Setting? {
+        found.map { shown.contains($0) ? $0 : $0.under ?? $0 }
+    }
+
+    /// A setting found by its words: what it is, then where it lives.
+    private struct FoundRow: View {
+        let setting: Setting
+        let act: () -> Void
+        @SwiftUI.Environment(\.chromeMetrics) private var metrics
+        @State private var hovering = false
+
+        var body: some View {
+            Button(action: act) {
+                VStack(alignment: .leading, spacing: metrics.length(1)) {
+                    Text(setting.title)
+                        .font(.system(size: metrics.length(Metrics.settingsRowText)))
+                        .foregroundStyle(hovering ? Palette.ink : Palette.ink.opacity(0.85))
+                        .lineLimit(2)
+                    Text(setting.page.title)
+                        .font(.system(size: metrics.length(Metrics.settingsHeading)))
+                        .foregroundStyle(Palette.muted)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, metrics.length(8))
+                .padding(.vertical, metrics.length(5))
+                .background(
+                    RoundedRectangle(cornerRadius: metrics.length(Metrics.settingsRowRadius), style: .continuous)
+                        .fill(hovering ? Palette.hover : .clear)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: metrics.length(Metrics.settingsRowRadius), style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .onHover { hovering = $0 }
+            .animation(Motion.quick, value: hovering)
+            .accessibilityLabel("\(setting.title), in \(setting.page.title)")
         }
     }
 
@@ -313,41 +383,52 @@ struct SettingsPanel: View {
             } else if page == .keyboard {
                 KeyboardSettings(prefs: prefs)
             } else {
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: metrics.length(Metrics.settingsGap)) {
-                        switch page {
-                        case .github:
-                            GitHubSettings(access: browser.github.owner(for: browser.spaceID).access,
-                                           shares: browser.github.owner(for: browser.spaceID).shares,
-                                           stroke: prefs.keyBindings.keys(.searchGitHub).first,
-                                           visit: { browser.tuning = false; _ = browser.open($0, foreground: true) }) {
-                                browser.tuning = false; browser.beginGitHub()
+                ScrollViewReader { proxy in
+                    ScrollView(showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: metrics.length(Metrics.settingsGap)) {
+                            switch page {
+                            case .github:
+                                GitHubSettings(access: browser.github.owner(for: browser.spaceID).access,
+                                               shares: browser.github.owner(for: browser.spaceID).shares,
+                                               stroke: prefs.keyBindings.keys(.searchGitHub).first,
+                                               visit: { browser.tuning = false; _ = browser.open($0, foreground: true) }) {
+                                    browser.tuning = false; browser.beginGitHub()
+                                }
+                            case .routing: EmptyView()
+                            case .general: general
+                            case .appearance: appearance
+                            case .tabs: tabs
+                            case .pages: webPages
+                            case .migration:
+                                MigrationPanel(browser: browser, flow: migration) { browser.tuning = false }
+                                TransferSavePanel(browser: browser, transfer: browser.transfer)
+                                    .padding(.top, metrics.length(Metrics.settingsGap))
+                            case .passwords: passwords
+                            case .privacy: privacy
+                            case .extensions: ExtensionsPage(browser: browser)
+                            case .developer: developer
+                            case .keyboard: EmptyView()
+                            case .about: about
                             }
-                        case .routing: EmptyView()
-                        case .general: general
-                        case .appearance: appearance
-                        case .tabs: tabs
-                        case .pages: webPages
-                        case .migration:
-                            MigrationPanel(browser: browser, flow: migration) { browser.tuning = false }
-                            TransferSavePanel(browser: browser, transfer: browser.transfer)
-                                .padding(.top, metrics.length(Metrics.settingsGap))
-                        case .passwords: passwords
-                        case .privacy: privacy
-                        case .extensions: ExtensionsPage(browser: browser)
-                        case .developer: developer
-                        case .keyboard: EmptyView()
-                        case .about: about
+                        }
+                        .padding(.bottom, metrics.length(4))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        // A scroll view clips at its edge: it takes the page's side
+                        // margins and gives them back inside, so a floating card's
+                        // shadow (GitHub's specimen) is not cut where the column starts.
+                        .padding(.horizontal, metrics.length(Metrics.settingsInset))
+                    }
+                    .padding(.horizontal, -metrics.length(Metrics.settingsInset))
+                    .environment(\.settingFound, landing)
+                    .onPreferenceChange(SettingsShown.self) { shown = $0 }
+                    .onChange(of: landing, initial: true) { _, target in
+                        guard let target else { return }
+                        // After the page that holds it has been laid out.
+                        DispatchQueue.main.async {
+                            withAnimation(reduced ? nil : Motion.settle) { proxy.scrollTo(target, anchor: .center) }
                         }
                     }
-                    .padding(.bottom, metrics.length(4))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    // A scroll view clips at its edge: it takes the page's side
-                    // margins and gives them back inside, so a floating card's
-                    // shadow (GitHub's specimen) is not cut where the column starts.
-                    .padding(.horizontal, metrics.length(Metrics.settingsInset))
                 }
-                .padding(.horizontal, -metrics.length(Metrics.settingsInset))
                 .id(page)
             }
         }
@@ -363,10 +444,7 @@ struct SettingsPanel: View {
     private var general: some View {
         VStack(alignment: .leading, spacing: metrics.length(Metrics.settingsGap)) {
             Card {
-                Line(
-                    "Open links from other apps",
-                    isDefault ? "Escale is the default browser on this Mac" : "Mail, Slack and the rest still send links elsewhere"
-                ) {
+                Line(.defaultBrowser, isDefault ? "Escale is the default browser on this Mac" : nil) {
                     if isDefault {
                         Image(systemName: "checkmark")
                             .font(.system(size: metrics.length(11), weight: .regular))
@@ -382,7 +460,7 @@ struct SettingsPanel: View {
                     }
                 }
                 Rule()
-                Line("Search with", searchDetail) {
+                Line(.engine, searchDetail) {
                     Picker("", selection: $prefs.engine) {
                         ForEach(Engine.allCases) { engine in
                             Text(engine.title).tag(engine)
@@ -411,7 +489,7 @@ struct SettingsPanel: View {
                     .padding(.bottom, metrics.length(CardDensity.settings.pad))
                 }
                 Rule()
-                Line("Search a site by keyword", keywordDetail) { EmptyView() }
+                Line(.keywords, keywordDetail) { EmptyView() }
                 // One per line, so the list is plain text to write, read and carry.
                 ZStack(alignment: .topLeading) {
                     if prefs.searchKeywords.isEmpty {
@@ -435,11 +513,11 @@ struct SettingsPanel: View {
                 .padding(.bottom, metrics.length(CardDensity.settings.pad))
             }
             Card {
-                Line("Save downloads to", prefs.downloads.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")) {
+                Line(.downloads, prefs.downloads.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")) {
                     Pill("Change…") { chooseFolder() }
                 }
                 Rule()
-                Line("Ask where to save each file") {
+                Line(.askWhere) {
                     Switch(on: $prefs.asksWhereToSave)
                 }
             }
@@ -451,15 +529,22 @@ struct SettingsPanel: View {
     private var webPages: some View {
         VStack(alignment: .leading, spacing: metrics.length(Metrics.settingsGap)) {
             Card {
-                Line("Show where links go", "Point at a link and its address shows at the bottom of the page") {
+                Line(.defaultZoom) {
+                    MigrationField(title: "Default zoom", options: PageZoom.defaults.map { ($0, "\($0)%") },
+                                   selection: $prefs.defaultZoom, height: Metrics.settingsRow, showsTitle: false)
+                        .frame(width: metrics.length(Metrics.settingsZoomWidth))
+                        .accessibilityLabel("Default zoom")
+                }
+                Rule()
+                Line(.showsLinks) {
                     Switch(on: $prefs.showsLinks)
                 }
                 Rule()
-                Line("Copy or translate selected text", "Select text on a page with the mouse and Copy and Translate appear beside it") {
+                Line(.selection) {
                     Switch(on: $prefs.selectionMenu)
                 }
                 Rule()
-                Line("Scroll with the middle button", "Click the wheel on a page, then move the mouse up or down to scroll, as on Windows. Click again to stop") {
+                Line(.autoScroll) {
                     Switch(on: $prefs.autoScroll)
                 }
             }
@@ -472,33 +557,31 @@ struct SettingsPanel: View {
     /// contrast and its size. None of it touches a page's own look or zoom.
     private var appearance: some View {
         Card {
-            Line("Theme", "Light, dark, or whatever the Mac is doing — pages follow it too") {
+            Line(.theme) {
                 Segmented(options: Look.allCases.map { ($0, $0.title) }, selection: $prefs.look)
             }
             Rule()
-            Line("Colours", "Neutral greys, or Escale's own warm sand and umber, in light and dark") {
+            Line(.colours) {
                 EmptyView()
             }
             ToneChoice(selection: $prefs.tone, look: prefs.look)
             Rule()
-            Line("Transparency", transparencyDetail) {
+            Line(.transparency, transparencyDetail) {
                 Segmented(options: Depth.allCases.map { ($0, $0.title) }, selection: $prefs.depth)
                     .opacity(reducing ? 0.45 : 1)
             }
             Rule()
-            Line("Increase contrast", increasing
-                 ? "On in macOS's Accessibility settings, which Escale follows"
-                 : "Stronger edges, separators and secondary text in Escale's own surfaces") {
+            Line(.contrast, increasing ? "On in macOS's Accessibility settings, which Escale follows" : nil) {
                 Switch(on: $prefs.increasesContrast)
                     .accessibilityLabel("Increase contrast")
             }
             Rule()
-            Line("Faster shortcut animations", "Tab and layout changes finish sooner from the keyboard. macOS Reduce Motion takes priority.") {
+            Line(.fasterShortcuts) {
                 Switch(on: $prefs.fasterShortcuts)
                     .accessibilityLabel("Faster shortcut animations")
             }
             Rule()
-            Line("Interface size", "Changes Escale's controls, not the zoom of web pages") {
+            Line(.interfaceSize) {
                 SizeChoice(selection: $prefs.interfaceSize)
             }
         }
@@ -509,12 +592,12 @@ struct SettingsPanel: View {
         if reducing {
             return "Solid while Reduce transparency is on in macOS"
         }
-        return "How much shows through Escale's own surfaces — never through pages"
+        return Setting.transparency.detail
     }
 
 
     private var searchDetail: String {
-        guard prefs.engine == .custom else { return "Where words that aren't an address go" }
+        guard prefs.engine == .custom else { return Setting.engine.detail }
         guard Engine.accepts(prefs.customEngine) else {
             return "An http or https address with %s where the words go. Until then, Google"
         }
@@ -523,7 +606,7 @@ struct SettingsPanel: View {
 
     private var keywordDetail: String {
         switch Keyword.refused(prefs.searchKeywords) {
-        case 0: return "A keyword, then an address with %s, on each line. Type “npm react” to search npm"
+        case 0: return Setting.keywords.detail
         case 1: return "One line isn't a keyword and an http or https address with %s, and is left out"
         case let count: return "\(count) lines aren't a keyword and an http or https address with %s, and are left out"
         }
@@ -533,7 +616,7 @@ struct SettingsPanel: View {
 
     private var tabs: some View {
         Card {
-            Line("Tabs in a sidebar", "Down the left instead of across the top. Pull its edge to make it wider; double-click the edge to reset.") {
+            Line(.sidebar) {
                 Switch(on: Binding(
                     get: { prefs.sidebar },
                     set: { on in withAnimation(Motion.glide) { prefs.sidebar = on } }
@@ -541,47 +624,47 @@ struct SettingsPanel: View {
             }
             if prefs.sidebar {
                 Rule()
-                Line("Keep the sidebar folded", "Folded from launch, the page takes the tabs' room. Use its button or your Keyboard shortcut to bring it back.") {
+                Line(.sideFolded) {
                     Switch(on: $prefs.sideHides)
                 }
                 Rule()
                 // See Bar.swift.
-                Line("Address bar above the page", "Back, forward, reload, the site and the page's title across the top, as in Arc's developer mode. Click the site for its details, the title to go somewhere else.") {
+                Line(.addressBar) {
                     Switch(on: Binding(
                         get: { prefs.addressBar },
                         set: { on in withAnimation(Motion.glide) { prefs.addressBar = on } }
                     ))
                 }
                 Rule()
-                Line("Bookmarks in the sidebar", "Above the tabs, folders opening in place. Bookmark This Page adds the page you're on.") {
+                Line(.sideBookmarks) {
                     Switch(on: $prefs.sideBookmarks)
                 }
             }
             Rule()
-            Line("Copy address button", "Beside the page's title while the pointer is on it in the address bar, at the right end of the tab row. Off, Copy Address stays in the site's card and in the Tabs menu") {
+            Line(.copyDoor) {
                 Switch(on: $prefs.copyDoor)
                     .accessibilityLabel("Copy address button")
             }
             Rule()
-            Line("Tabs show", "Beside the title, and on a pinned square") {
+            Line(.glyph) {
                 Segmented(options: Glyph.allCases.map { ($0, $0.title) }, selection: $prefs.glyph)
             }
             Rule()
-            Line("Show how far you've read", "The tab you're on fills with grey as you scroll down the page") {
+            Line(.reading) {
                 Switch(on: $prefs.showsReading)
             }
             Rule()
-            Line("Sleep tabs you aren't using", "After \(prefs.sleepDelay.phrase) away they come back where you left them. Pinned tabs, sound, calls and anything typed stay awake.") {
+            Line(.sleep, "After \(prefs.sleepDelay.phrase) away they come back where you left them. Pinned tabs, sound, calls and anything typed stay awake.") {
                 Switch(on: $prefs.sleepsTabs)
             }
             if prefs.sleepsTabs {
                 Rule()
-                Line("Sleep after", "How long a tab waits once you leave it") {
+                Line(.sleepAfter) {
                     Segmented(options: SleepDelay.allCases.map { ($0, $0.title) }, selection: $prefs.sleepDelay)
                 }
             }
             Rule()
-            Line("Spaces", "Independent workspaces with their own sites and accounts. Switch from the Spaces menu, the rail or a swipe. Set your shortcuts in Keyboard.") {
+            Line(.spaces) {
                 Switch(on: $prefs.usesSpaces)
             }
         }
@@ -594,40 +677,40 @@ struct SettingsPanel: View {
         if #available(macOS 15.4, *), let name = Extensions.shared.passwordSavingTakenBy {
             return "\(name) does the saving — it asked Escale not to offer"
         }
-        return "Asked once per site, never again for a site you refuse"
+        return Setting.savePasswords.detail
     }
 
     private var passwords: some View {
         VStack(alignment: .leading, spacing: metrics.length(Metrics.settingsGap)) {
             Card {
-                Line("Your passwords", "In the macOS keychain, shown with Touch ID") {
+                Line(.vault) {
                     Pill("Open…") {
                         browser.tuning = false
                         browser.managing = true
                     }
                 }
                 Rule()
-                Line("Offer to save passwords", savingDetail) {
+                Line(.savePasswords, savingDetail) {
                     Switch(on: $prefs.savesPasswords)
                 }
                 Rule()
-                Line("Fill in sign-ins", "Click a sign-in box and the accounts kept for the site hang from it") {
+                Line(.fillPasswords) {
                     Switch(on: $prefs.fillsPasswords)
                 }
                 Rule()
                 Line(
-                    "Offer passkeys",
+                    .passkeys,
                     !prefs.passkeysPossible
                         ? "Needs an Apple entitlement this build doesn't have — off keeps sites to the password"
                         : Passkeys.access == .denied
                         ? "macOS was told no — System Settings › Privacy & Security › Passkeys Access for Web Browsers"
-                        : "Touch ID or an iCloud passkey, on sites that offer one"
+                        : nil
                 ) {
                     Switch(on: $prefs.passkeys)
                 }
                 if !Vault.never.isEmpty {
                     Rule()
-                    Line("Sites never asked", "\(Vault.never.count) sites told to stop offering") {
+                    Line(.neverAsked, "\(Vault.never.count) sites told to stop offering") {
                         Pill("Forget") {
                             Vault.never = []
                             browser.announce("Every site can ask again")
@@ -636,7 +719,7 @@ struct SettingsPanel: View {
                 }
             }
             Card {
-                Line("Bring yours in", "From Dia, Chrome, Arc, Brave or Edge on this Mac — nothing leaves it") {
+                Line(.importPasswords) {
                     Pill("Import…") {
                         browser.tuning = false
                         browser.managing = true
@@ -651,24 +734,24 @@ struct SettingsPanel: View {
     private var developer: some View {
         VStack(alignment: .leading, spacing: metrics.length(Metrics.settingsGap)) {
             Card {
-                Line("Alerts from local tools", "An agent or script on this Mac can send a short event to macOS. Nothing is checked online.") {
+                Line(.alerts) {
                     Switch(on: $prefs.developerAlerts)
                 }
                 if prefs.developerAlerts {
                     Rule()
-                    Line("Agent sessions", "Completion and other events from coding agents") {
+                    Line(.agents) {
                         Switch(on: $prefs.alertAgents)
                     }
                     Rule()
-                    Line("Builds", "Results from local build tools") {
+                    Line(.builds) {
                         Switch(on: $prefs.alertBuilds)
                     }
                     Rule()
-                    Line("Pull requests", "Events sent by a local PR tool") {
+                    Line(.pullRequests) {
                         Switch(on: $prefs.alertPRs)
                     }
                     Rule()
-                    Line("Workflows", "Events sent by a local workflow tool") {
+                    Line(.workflows) {
                         Switch(on: $prefs.alertWorkflows)
                     }
                 }
@@ -682,7 +765,7 @@ struct SettingsPanel: View {
                     .foregroundStyle(Palette.unsafe)
             }
             Card {
-                Line("Let a script drive Escale", "A local socket for testing. Its tabs open beside yours with a flask on them and never take over — see ./bench") {
+                Line(.bench) {
                     Switch(on: $prefs.bench)
                 }
             }
@@ -694,7 +777,7 @@ struct SettingsPanel: View {
     private var privacy: some View {
         VStack(alignment: .leading, spacing: metrics.length(Metrics.settingsGap)) {
             Card {
-                Line("Block ads and trackers", shield.trouble ?? "Third parties whose only job is to watch") {
+                Line(.shield, shield.trouble) {
                     Switch(on: $prefs.shielded)
                 }
                 if let trouble = shield.trouble {
@@ -716,21 +799,21 @@ struct SettingsPanel: View {
                     }
                 }
                 Rule()
-                Line("Camera and microphone", "What sites in this Space were allowed or refused") {
+                Line(.capture) {
                     Pill("Forget choices") { browser.forgetCaptureChoices() }
                 }
             }
             Card {
-                Line("History", "Every address you have been to") {
-                    Pill("Clear") { browser.clearHistory() }
+                Line(.history) {
+                    Pill("Clear") { browser.askToClearHistory() }
                 }
                 Rule()
-                Line("Cookies and sign-ins", "Signs you out of every site") {
-                    Pill("Sign out of everything") { browser.clearSites() }
+                Line(.cookies) {
+                    Pill("Sign out of everything") { browser.askToClearSites() }
                 }
                 Rule()
-                Line("Cache", "Only what was fetched to draw pages") {
-                    Pill("Clear") { browser.clearCache() }
+                Line(.cache) {
+                    Pill("Clear") { browser.askToClearCache() }
                 }
             }
         }
@@ -759,7 +842,7 @@ struct SettingsPanel: View {
             Card {
                 Line(versionTitle, versionDetail) { versionControl }
                 Rule()
-                Line("Found something wrong?", "Opens a draft with the version already in it") {
+                Line(.feedback) {
                     Pill("Send Feedback") { Links.writeFeedback() }
                 }
             }
@@ -781,14 +864,13 @@ struct SettingsPanel: View {
     private var versionDetail: String {
         switch updater.stage {
         case .none:
-            return updater.lastChecked.map { "Checked \($0.formatted(.relative(presentation: .named))) — every 2 hours on its own" }
-                ?? "Checked every 2 hours on its own"
+            return Updater.line(checked: updater.lastChecked, failed: updater.failed)
         case .fetching(let next):
             return next.notes ?? "Quietly, in the background — nothing you have set is touched"
         case .ready(let next):
             return next.notes ?? "It's there the next time you open Escale"
         case .offered(let next):
-            return next.notes ?? "Open the disk image, the same as the first time"
+            return updater.refusal?.said ?? next.notes ?? "Open the disk image, the same as the first time"
         }
     }
 
@@ -796,21 +878,28 @@ struct SettingsPanel: View {
     private var versionControl: some View {
         switch updater.stage {
         case .none:
-            Pill(updater.checking ? "Checking…" : "Check now") {
-                updater.check { found in
-                    if found == nil { browser.announce("This is the latest one") }
-                }
-            }
-            .disabled(updater.checking)
+            Pill(updater.checking ? "Checking…" : "Check now") { checkNow() }
+                .disabled(updater.checking)
         case .fetching:
             Ring(size: 12)
         case .ready:
             Pill("Relaunch now", filled: true) { updater.relaunch() }
         case .offered(let next):
-            Pill("Download", filled: true) {
-                browser.tuning = false
-                browser.open(next.dmg, foreground: true)
+            if updater.refusal == .interrupted {
+                Pill(updater.checking ? "Checking…" : "Try again", filled: true) { checkNow() }
+                    .disabled(updater.checking)
+            } else {
+                Pill("Download", filled: true) {
+                    browser.tuning = false
+                    browser.open(next.dmg, foreground: true)
+                }
             }
+        }
+    }
+
+    private func checkNow() {
+        updater.check { read in
+            if let line = read.said { browser.announce(line) }
         }
     }
 

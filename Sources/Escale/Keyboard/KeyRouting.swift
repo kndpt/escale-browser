@@ -27,7 +27,11 @@ import SwiftUI
         }
         if browser.veiling, stroke == KeyStroke("z", .command) { browser.undoHiding(); return true }
         if typing, stroke.flags == .command, ["left", "right"].contains(stroke.key) { return false }
-        guard let action = browser.prefs.keyBindings.action(for: stroke) else {
+        let action = browser.prefs.keyBindings.action(for: stroke)
+        // Web code editors comment a line with ⌘/; the chart waits for the page,
+        // unless it is open (from the Help menu) and ⌘/ closes it.
+        if action == .shortcuts, !browser.listingKeys, browser.active?.typing == true, !browser.editing, !(event.window?.firstResponder is NSTextView) { return false }
+        guard let action else {
             if #available(macOS 15.4, *), !stroke.flags.intersection([.command, .control, .option]).isEmpty {
                 if Extensions.shared.take(event) { return true }
             }
@@ -129,8 +133,7 @@ extension Browser {
         case .copyMarkdown: copyMarkdownLink()
         case .pasteGo: pasteAndGo()
         case .history: recalling.toggle()
-        case .clearHistory:
-            Ask.sure("Clear this Space’s history?", detail: "Visited pages and learned search choices will be removed.", confirm: "Clear History") { self.clearHistory() }
+        case .clearHistory: askToClearHistory()
         case .addBookmark: bookmarkCurrent()
         case .bookmarks: bookmarking.toggle()
         case .previousSpace, .nextSpace:
@@ -160,6 +163,7 @@ extension Browser {
         case .inspector: toggleInspector()
         case .console: showConsole()
         case .inspectElement: inspectElement()
+        case .viewSource: viewSource()
         case .visual: pickVisual()
         case .capture: capturePage(.visible)
         case .captureArea: pickArea()
@@ -175,6 +179,7 @@ extension Browser {
         case .passwords: managing.toggle()
         case .welcome: welcoming = true
         case .feedback: Links.writeFeedback()
+        case .shortcuts: tuning = false; listingKeys.toggle()
         default: break // Numbered destinations were handled above.
         }
     }

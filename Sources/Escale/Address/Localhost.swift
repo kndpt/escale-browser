@@ -195,6 +195,11 @@ final class Localhost: ObservableObject {
         remove(in: space) { $0.visited >= start && $0.visited <= end }
     }
 
+    /// A site forgotten from the history: its key has no port, so every port goes.
+    func forget(host: String, in space: UUID) {
+        remove(in: space) { $0.address?.host()?.lowercased() == host.lowercased() }
+    }
+
     private func remove(in space: UUID, where matches: (Entry) -> Bool) {
         let key = space.uuidString
         let old = saved[key] ?? []

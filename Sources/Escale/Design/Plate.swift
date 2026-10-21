@@ -173,9 +173,13 @@ struct Rule: View {
 struct Line<Control: View>: View {
     let title: String
     let detail: String?
+    /// A Settings row, which Find a setting can land on (SettingsFind.swift).
+    private var setting: Setting?
     @ViewBuilder let control: () -> Control
     @SwiftUI.Environment(\.chromeMetrics) private var metrics
     @SwiftUI.Environment(\.cardDensity) private var density
+    @SwiftUI.Environment(\.settingFound) private var found
+    @AccessibilityFocusState private var focused: Bool
 
     init(_ title: String, _ detail: String? = nil, @ViewBuilder control: @escaping () -> Control) {
         self.title = title
@@ -183,12 +187,32 @@ struct Line<Control: View>: View {
         self.control = control
     }
 
-    var body: some View {
+    /// A row of the settings catalogue; `detail` replaces its usual wording.
+    init(_ setting: Setting, _ detail: String? = nil, @ViewBuilder control: @escaping () -> Control) {
+        let detail = detail ?? setting.detail
+        self.init(setting.title, detail.isEmpty ? nil : detail, control: control)
+        self.setting = setting
+    }
+
+    @ViewBuilder var body: some View {
+        if let setting {
+            row
+                .background(Palette.found.opacity(found == setting ? 1 : 0))
+                .id(setting)
+                .preference(key: SettingsShown.self, value: [setting])
+                .onChange(of: found == setting, initial: true) { _, landed in if landed { focused = true } }
+        } else {
+            row
+        }
+    }
+
+    private var row: some View {
         HStack(alignment: .center, spacing: metrics.length(density.gap)) {
             VStack(alignment: .leading, spacing: metrics.length(3)) {
                 Text(title)
                     .font(.system(size: metrics.length(density.title)))
                     .foregroundStyle(Palette.ink)
+                    .accessibilityFocused($focused)
                 if let detail {
                     Text(detail)
                         .font(.system(size: metrics.length(density.detail)))

@@ -64,6 +64,7 @@ final class Find: ObservableObject {
 /// Looking for a word on the page. A pill in the top corner, the same white and
 /// hairline as everything else that floats, and gone the moment it isn't wanted.
 struct FindBar: View {
+    @SwiftUI.Environment(\.chromeMetrics) private var metrics
     /// For closing; what is looked for is `find`'s.
     let browser: Browser
     @ObservedObject var find: Find
@@ -83,8 +84,8 @@ struct FindBar: View {
                     .focused($focused)
                     .onSubmit { find.look(forward: true) }
             }
-            .font(.system(size: 12.5))
-            .frame(width: 160)
+            .font(.system(size: metrics.length(Metrics.panelText)))
+            .frame(width: metrics.length(160))
 
             step("chevron.up") { find.look(forward: false) }
             step("chevron.down") { find.look(forward: true) }
@@ -116,9 +117,9 @@ struct FindBar: View {
     private func step(_ icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 9, weight: .medium))
+                .font(.system(size: metrics.length(Metrics.panelBadge), weight: .medium))
                 .foregroundStyle(Palette.muted)
-                .frame(width: 24, height: 24)
+                .frame(width: metrics.length(24), height: metrics.length(24))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
