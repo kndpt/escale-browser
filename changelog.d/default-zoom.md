@@ -1,0 +1,1 @@
+Settings › Web Pages has a Default zoom: every site you haven't zoomed opens at it, open pages follow it, and Actual Size (⌘0) brings a site back to it, while a site you set to another size, 100% included, keeps its own (#24).

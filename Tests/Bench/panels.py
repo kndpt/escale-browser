@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Real drags and WebKit identity, focus, limits, boundaries and split restore.
+"""Real drags and WebKit identity, focus, limits, boundaries, split restore and
+where the split chooser opens.
 
 The standard runner owns a random world; all pages are synthetic loopback
 documents.
@@ -101,6 +102,51 @@ def click_page(id):
     bench('pointer', 'move', x + 20, y + 20)
     bench('hit', x + 20, y + 20, 'click', 'live')
     assert active()['id'] == id
+
+
+def chooser(a):
+    print('chooser: over the pages from the keyboard, under the pointer from a click', flush=True)
+    def behind(*args):
+        # The answer can wait on the menu's own tracking loop.
+        return subprocess.Popen([str(s.ROOT / 'bench'), '--world', s.WORLD, '--json', *map(str, args)],
+                                cwd=s.ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    def opened(what):
+        return s.until(what, lambda: (value if (value := bench('pointer'))['tracking'] and value['frame'] else None), 5)
+    def done(*processes):
+        for process in processes:
+            output, error = process.communicate(timeout=15)
+            assert process.returncode == 0, (output, error)
+    bench('select', a); settled()
+    away = bench('pointer', 'away')
+    width, height = next(v['frame'][2:] for v in bench('probe')['windows'] if v['number'] == away['windowNumber'])
+    assert not (0 <= away['at'][0] <= width and 0 <= away['at'][1] <= height), away
+    x, y, w, h = state()['frame']
+    key = behind('press', 14, 'e', 'cmd', 'shift')
+    mx, my, mw, mh = opened('⇧⌘E opens the list with the pointer away')['frame']
+    assert x + w / 2 <= mx and mx + mw <= x + w and y <= my and my + mh <= y + h, ((x, y, w, h), (mx, my, mw, mh))
+    # The arrows and Return alone choose a page, as in any menu.
+    down = behind('press', 125, '\uf701')
+    s.until('Down picks the first page', lambda: bench('pointer')['tracking'] and down.poll() is not None, 5)
+    bench('press', 36, '\r')
+    s.until('Return adds the panel', lambda: state()['groups'], 5)
+    done(key, down)
+    group = state()['groups'][0]
+    assert len(group['members']) == 2 and group['members'][0] == a, group
+    bench('panels', 'separate', a); bench('select', a); settled()
+    # Bearings' first row: the field's top at 28 % of the page, its 38-point
+    # row, a hairline, a 6-point gap, half a 32-point row (Metrics).
+    bench('press', 17, 't', 'cmd')
+    s.until('⌘T opens Bearings', lambda: bench('probe')['fieldFocused'], 5)
+    bench('field', '> add right split', 'type')
+    s.until('the command is offered', lambda: bench('probe')['offers'][:1] == ['Add Right Split'], 5)
+    px, py = x + w / 2, y + h * 0.28 + 38 + 1 + 6 + 16
+    click = behind('pointer', 'click', px, py)
+    mx, my, mw, mh = opened('a clicked row opens the list')['frame']
+    assert abs(mx - px) <= 12 and abs(my - py) <= 12, ((px, py), (mx, my, mw, mh))
+    bench('press', 53, '\x1b')
+    s.until('Escape closes the list', lambda: not bench('pointer')['tracking'], 5)
+    done(click)
+    assert not state()['groups']
 
 
 def page_commands(a, b, base):
@@ -237,6 +283,7 @@ def main(require_reduced_motion=False):
         drag(b, 'right', 'cancelled', escape=True)
         assert not state()['groups']
         assert [t['id'] for t in bench('tabs')['tabs']] == before
+        chooser(a)
         # Two layouts and all three interface scales use the same targets.
         for sidebar in ('on', 'off'):
             bench('ui', 'sidebar', sidebar); settled()
@@ -381,7 +428,7 @@ def main(require_reduced_motion=False):
         assert next(t for t in bench('tabs')['tabs'] if t['id'] == pins[1])['asleep']
         if require_reduced_motion:
             s.require('macOS Reduce Motion stayed enabled', bench('probe')['reduceMotion'], True)
-        print('ok: four real drag directions, carried face, active tab partner, inert group entry, preview, cancellation, identity, focus, zoom, layouts/sizes, resize, boundaries, lazy restoration and closure')
+        print('ok: four real drag directions, carried face, active tab partner, inert group entry, preview, cancellation, split chooser over the pages or under a click, identity, focus, zoom, layouts/sizes, resize, boundaries, lazy restoration and closure')
     finally:
         s.command(str(s.ROOT / 'fresh.sh'), 'wipe')
         server.shutdown(); server.server_close()

@@ -38,8 +38,9 @@ struct KeyBindings: Codable, Equatable {
                 clean.assign(strokes, to: action)
             }
         }
+        // A key someone chose keeps its command when a later default claims it.
         var used = Set<KeyStroke>()
-        for action in KeyAction.allCases {
+        for action in KeyAction.allCases.filter(clean.changed) + KeyAction.allCases.filter({ !clean.changed($0) }) {
             let strokes = clean.keys(action).filter { used.insert($0).inserted }
             clean.assign(strokes, to: action)
         }

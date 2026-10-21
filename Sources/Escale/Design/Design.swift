@@ -490,6 +490,8 @@ enum Metrics {
     static let mediaInset: CGFloat = 8
     static let mediaRadius: CGFloat = 9
     static let mediaIcon: CGFloat = 16
+    /// An app's icon in a menu (Elsewhere.swift).
+    static let menuIcon: CGFloat = 16
     static let mediaCaption: CGFloat = 11
     static let mediaControl: CGFloat = 22
     static let mediaGlyph: CGFloat = 10
@@ -848,8 +850,22 @@ enum Metrics {
     static let settingsSearch: CGFloat = 26
     static let settingsSearchText: CGFloat = 11.5
     static let settingsKeywords: CGFloat = 64
+    static let settingsZoomWidth: CGFloat = 96
 
     // Keyboard uses aligned command/key columns and room between groups.
+    // The panels' type (History, Bookmarks, Passwords, the site card, find,
+    // announcements), in compact points: ChromeMetrics scales it with the
+    // interface size, as it does the column's.
+    static let panelLead: CGFloat = 14
+    static let panelTitle: CGFloat = 13
+    static let panelText: CGFloat = 12.5
+    static let panelNote: CGFloat = 12
+    static let panelDetail: CGFloat = 11.5
+    static let panelSymbol: CGFloat = 11
+    static let panelSmall: CGFloat = 10.5
+    static let panelMark: CGFloat = 10
+    static let panelBadge: CGFloat = 9
+
     static let keyboardPinnedHeight: CGFloat = 440
     static let keyboardToolbarGap: CGFloat = 14
     static let keyboardFilterWidth: CGFloat = 180
@@ -860,6 +876,10 @@ enum Metrics {
     static let keyboardRowPad: CGFloat = 12
     static let keyboardKeyPad: CGFloat = 5
     static let keyboardKeyRadius: CGFloat = 5
+    /// The ⌘/ chart (KeyChart.swift): three columns at Standard size.
+    static let keyChartWidth: CGFloat = 900
+    static let keyChartColumn: CGFloat = 260
+    static let keyChartGap: CGFloat = 18
     /// The menu over selected text (SelectionMenu.swift): a round Copy, then
     /// Translate beside it at the same height and corner.
     static let selectionButton: CGFloat = 36
@@ -957,6 +977,9 @@ enum Motion {
     static let quick = Animation.easeOut(duration: 0.14)
     /// How long a closed tab is offered back (UndoClose.swift).
     static let undoClose: TimeInterval = 5
+    /// A setting a search opened stays marked this long, then fades.
+    static let foundHold: TimeInterval = 1.6
+    static let foundFade = Animation.easeOut(duration: 0.6)
     /// The page tools' dock rising from the window's foot: a spring with a
     /// little give.
     static let dock = Animation.spring(response: 0.42, dampingFraction: 0.76)
