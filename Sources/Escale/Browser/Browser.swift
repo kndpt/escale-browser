@@ -2368,6 +2368,11 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         for action: WKNavigationAction,
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
+        if let page = webView as? PageView, let take = page.takeLink {
+            page.takeLink = nil
+            if let url = action.request.url { take(url) }
+            return nil
+        }
         let opener = tab(for: webView)
         if action.navigationType == .linkActivated, action.request.httpMethod == "GET",
            !action.shouldPerformDownload, let url = action.request.url, let opener,

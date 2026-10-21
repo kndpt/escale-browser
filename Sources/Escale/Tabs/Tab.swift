@@ -1509,6 +1509,7 @@ final class PageView: WKWebView {
             item.target = self
             item.action = #selector(inspectElement(_:))
         }
+        Elsewhere.shared.offer(in: menu, page: self)
         addLinkItems(to: menu)
         guard #available(macOS 15.4, *),
               let tab = Extensions.shared.browser?.tab(for: self)
@@ -1519,6 +1520,8 @@ final class PageView: WKWebView {
         items.forEach { menu.addItem($0) }
     }
 
+    /// Takes the next window WebKit asks for, as an address (Elsewhere.swift).
+    var takeLink: ((URL) -> Void)?
     var searchName: (() -> String?)?
     var onSearch: ((String) -> Void)?
     private var selection: String?
