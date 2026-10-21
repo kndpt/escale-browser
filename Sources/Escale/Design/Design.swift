@@ -893,6 +893,8 @@ enum Metrics {
     static let panelSmall: CGFloat = 10.5
     static let panelMark: CGFloat = 10
     static let panelBadge: CGFloat = 9
+    /// The longest line of a failed address before its middle gives way.
+    static let troubleWidth: CGFloat = 420
 
     static let keyboardPinnedHeight: CGFloat = 440
     static let keyboardToolbarGap: CGFloat = 14

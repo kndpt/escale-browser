@@ -87,7 +87,8 @@ struct Page: View {
             }
 
             if let failure = tab.failure {
-                Trouble(message: failure) { tab.reload() }
+                Trouble(message: failure, address: tab.failedAddress, code: tab.failedCode,
+                        back: tab.holdsPageBehind || tab.canGoBack ? { tab.back() } : nil) { tab.reload() }
                     .transition(.opacity)
             }
 
@@ -271,22 +272,44 @@ final class StageView: NSView {
     }
 }
 
-/// What there is to say when the page never came. One line, and the only thing
-/// worth offering — another go.
+/// What there is to say when the page never came: why, where, WebKit's code
+/// for it, and the ways out — back to the page before, or another go.
 private struct Trouble: View {
     @SwiftUI.Environment(\.chromeMetrics) private var metrics
     let message: String
+    let address: URL?
+    let code: String?
+    let back: (() -> Void)?
     let retry: () -> Void
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: metrics.length(10)) {
             Text(message)
                 .font(.system(size: metrics.length(Metrics.panelLead)))
                 .foregroundStyle(Palette.ink)
-            Button("Try again", action: retry)
-                .buttonStyle(.plain)
-                .font(.system(size: metrics.length(Metrics.panelNote)))
-                .foregroundStyle(Palette.muted)
+            if let address {
+                Text(address.absoluteString)
+                    .font(.system(size: metrics.length(Metrics.panelNote)))
+                    .foregroundStyle(Palette.muted)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: metrics.length(Metrics.troubleWidth))
+                    .textSelection(.enabled)
+            }
+            if let code {
+                Text(code)
+                    .font(.system(size: metrics.length(Metrics.panelSmall), design: .monospaced))
+                    .foregroundStyle(Palette.faint)
+                    .textSelection(.enabled)
+            }
+            HStack(spacing: metrics.length(16)) {
+                if let back { Button("Back", action: back) }
+                Button("Try again", action: retry)
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: metrics.length(Metrics.panelNote)))
+            .foregroundStyle(Palette.muted)
+            .padding(.top, metrics.length(4))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Palette.ground)

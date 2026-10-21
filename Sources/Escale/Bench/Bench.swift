@@ -2070,7 +2070,11 @@ final class Bench {
             out["firstVisibleAt"] = firstVisibleAt
             out["firstVisibleSource"] = page.firstVisibleSource ?? "unknown"
         }
-        if let failure = tab.failure { out["failure"] = failure }
+        if let failure = tab.failure {
+            out["failure"] = failure
+            out["failedCode"] = tab.failedCode ?? ""
+            out["backFromFailure"] = tab.holdsPageBehind || tab.canGoBack
+        }
         return out
     }
 
