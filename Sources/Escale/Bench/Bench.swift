@@ -698,6 +698,7 @@ final class Bench {
                 "welcome": browser.welcoming,
                 "passwords": browser.managing,
                 "history": browser.recalling,
+                "keyChart": browser.listingKeys,
                 "downloads": browser.hoarding,
                 "keptDownloads": browser.loot.kept.map(\.name),
                 "handedDownloads": Loot.handed,
@@ -1785,10 +1786,12 @@ final class Bench {
             if request["clearHistory"] as? Bool == true { browser.clearHistory() }
             if let on = request["downloads"] as? Bool { browser.hoarding = on }
             if let on = request["bookmarks"] as? Bool { browser.bookmarking = on }
+            if let on = request["keyChart"] as? Bool { browser.listingKeys = on }
             if let on = request["hidden"] as? Bool { browser.reviewing = on }
             if let look = (request["look"] as? String).flatMap(Look.init) { browser.prefs.look = look }
             if let tone = (request["tone"] as? String).flatMap(Tone.init) { browser.prefs.tone = tone }
             if let size = (request["size"] as? String).flatMap(InterfaceSize.init) { browser.prefs.interfaceSize = size }
+            if let zoom = request["zoom"] as? Int, PageZoom.defaults.contains(zoom) { browser.prefs.defaultZoom = zoom }
             if let depth = (request["depth"] as? String).flatMap(Depth.init) { browser.prefs.depth = depth }
             if Store.testing, let on = request["fasterShortcuts"] as? Bool { browser.prefs.fasterShortcuts = on }
             if let on = request["contrast"] as? Bool { browser.prefs.increasesContrast = on }
@@ -1832,7 +1835,7 @@ final class Bench {
             if #available(macOS 15.4, *), let on = request["extensions"] as? Bool { Extensions.shared.menuOpen = on }
             answer(["ok": true])
 
-        case "extensions", "ext-add", "ext-folder", "ext-press", "ext-remove", "ext-reload", "ext-page", "ext-popup", "ext-menu", "ext-pin", "ext-shot", "ext-answer", "ext-enable":
+        case "extensions", "ext-add", "ext-folder", "ext-press", "ext-remove", "ext-reload", "ext-page", "ext-popup", "ext-menu", "ext-pin", "ext-shot", "ext-answer", "ext-enable", "ext-mode":
             guard #available(macOS 15.4, *) else {
                 answer(["error": "extensions need macOS 15.4"])
                 return
@@ -1907,6 +1910,11 @@ final class Bench {
             guard let id = request["id"] as? String else { answer(["error": "ext-enable needs an id"]); return }
             extensions.setEnabled(id, request["on"] as? Bool ?? true)
             answer(["enabled": request["on"] as? Bool ?? true])
+        case "ext-mode":
+            // Settings' switch without its question or relaunch: the
+            // scenario quits and launches again itself.
+            let shared = request["shared"] as? Bool ?? true
+            answer(["stored": browser.keepExtensions(shared: shared), "shared": shared])
         case "ext-answer":
             // In a test run: answer every extension's question yes or no
             // without asking, or go back to asking.

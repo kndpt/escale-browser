@@ -1,0 +1,1 @@
+Show Bookmarks (⌥⌘B), Close Other Tabs (⌥⌘W), Copy as Markdown Link (⌥⇧⌘C), Select Area to Capture (⌥⇧⌘S) and Show Localhost (⇧⌘L) now have a shortcut out of the box; a key you already gave another command stays with it (#15).
