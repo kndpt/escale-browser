@@ -21,6 +21,12 @@ screen, ⌘Return in a new tab, ⌫ in the field removes a letter until the
 arrows have moved and the line after that, and Escape closes the panel.
 Which line a key chose is read from the page it opens.
 
+Then what Clear and Forget This Site remove (`bench recall clear|forget`, the
+panel's actions without the pointer): Forget This Site on one synthetic page
+takes every line of its host; Clear for the last hour takes the pages opened
+within it, their local endpoints with them, and keeps a page an hour older.
+The pointer on the button and the menu item is checked by hand.
+
 The median settled opening must stay under 500 ms. That is a guard against the
 whole list being built again (about 2,000 ms on an M1, release build), not
 a budget: the lazy list settles in about 15 ms there. The times are printed for
@@ -148,6 +154,31 @@ def keyboard():
     harness.until("Escape closes History", lambda: bench("probe").get("history") is False, 10)
 
 
+def lines(hunt):
+    return recall("hunt", hunt, showing=True)["lines"]
+
+
+def sweeps():
+    """Forget This Site, then Clear for the last hour, read from the lines listed."""
+    recall("open", showing=True)
+    site = "site1.example.test/"
+    harness.require("site1 pages before", lines(site) > 1, True)
+    bench("recall", "forget", "site1.example.test/page/1")
+    harness.require("site1 pages after Forget This Site", lines(site), 0)
+    harness.require("site10 pages after Forget This Site", lines("site10.example.test/") > 0, True)
+
+    # Seeded at launch: page 0 now, page 3 an hour before; the keyboard's
+    # loopback pages were opened since, with a local endpoint each.
+    harness.require("local endpoints before Clear", bench("localhost")["count"] > 0, True)
+    bench("recall", "clear", "hour")
+    harness.require("page 0 after Clear for the last hour", lines("site0.example.test/page/0"), 0)
+    harness.require("page 3 after Clear for the last hour", lines("site3.example.test/page/3"), 1)
+    harness.require("loopback pages after Clear for the last hour", lines("keys-"), 0)
+    harness.require("local endpoints after Clear for the last hour", bench("localhost")["count"], 0)
+    recall("hunt", showing=True)
+    recall("close", showing=False)
+
+
 def summary(name, samples):
     first = [ms[0] for ms in samples]
     settled = [ms[-1] for ms in samples]
@@ -178,6 +209,7 @@ def main():
         recall("close", showing=False)
 
         keyboard()
+        sweeps()
 
         settled = statistics.median(ms[-1] for ms in opens)
         if settled >= GUARD_MS:
@@ -185,6 +217,7 @@ def main():
                                  f"expected under {GUARD_MS} ms: is the whole list built again?")
         print(f"ok: {PLACES} seeded places, {lines} listed; panel opened, closed and searched as asked")
         print("ok: ↑ ↓ held in bounds, Return, ⌘Return, ⌫ (field first, then the line) and Escape")
+        print("ok: Forget This Site took its host's lines; Clear for the last hour took its pages and endpoints")
         print(summary("first open", [first]))
         print(summary("open", opens))
         print(summary("close", closes))

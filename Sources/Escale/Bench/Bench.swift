@@ -1189,6 +1189,16 @@ final class Bench {
             let start = CACurrentMediaTime()
             if let hunt = request["hunt"] as? String {
                 browser.recallHunt = hunt
+            } else if let clear = request["clear"] as? String {
+                // What the panel's Clear does for that span.
+                let spans: [String: History.Span] = ["hour": .hour, "today": .today, "week": .week, "all": .all]
+                guard let span = spans[clear] else { answer(["error": "recall clear hour|today|week|all"]); return }
+                browser.clearHistory(span)
+            } else if let key = request["forget"] as? String {
+                // What a line's Forget This Site does.
+                guard let trace = browser.history.everything().first(where: { $0.key == key })
+                else { answer(["error": "no line \(key)"]); return }
+                browser.forgetSite(trace)
             } else {
                 browser.recalling = request["open"] as? Bool ?? true
             }
@@ -1197,7 +1207,9 @@ final class Bench {
                 Bench.whenResting(since: start) { rested in
                     rests.append(rested)
                     guard rests.count == 3 else { DispatchQueue.main.async { rest() }; return }
-                    answer(["ms": rests, "open": browser.recalling, "hunt": browser.recallHunt])
+                    // The lines the panel lists for its search, as it reads them.
+                    answer(["ms": rests, "open": browser.recalling, "hunt": browser.recallHunt,
+                            "lines": browser.history.everything(matching: browser.recallHunt).count])
                 }
             }
             rest()

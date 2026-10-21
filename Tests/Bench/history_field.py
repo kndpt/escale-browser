@@ -5,7 +5,8 @@ The bound and the ranking are proven by the Swift tests on History
 (Tests/EscaleTests/HistoryTests.swift). This checks what they can't: the app
 reading a 20,000-place history.json at launch, the real field offering the
 places a person goes to most while it is typed into a key at a time, a visit
-recorded at the bound, and the file written back within it on ⌘Q.
+recorded at the bound, a site forgotten (`bench recall forget`, as its line's
+Forget This Site) no longer offered, and the file written back within it on ⌘Q.
 
 The history is synthetic: three places visited often (projectalpha, beta and
 gamma under example.test) among 19,997 seen once, two months ago or more, all
@@ -143,6 +144,13 @@ def typed_round():
     return [rested for _, rested in answer["ms"]]
 
 
+def offers(text):
+    """What the field offers for text pasted into it; Escape closes it again."""
+    answer = json.loads(bench("field", text, deadline=30).stdout)
+    bench("press", "53", "\x1b", deadline=10)
+    return answer.get("offers", [])
+
+
 def percentile(values, share):
     ordered = sorted(values)
     return ordered[min(len(ordered) - 1, int(len(ordered) * share))]
@@ -158,6 +166,8 @@ def main():
     try:
         run([REPO / "fresh.sh", "wipe"], deadline=60)
         run(["defaults", "write", SUITE, "bench", "-bool", "YES"])
+        # Past the welcome, which holds the field until it is done.
+        run(["defaults", "write", SUITE, "welcomed", "-bool", "YES"])
         seed()
         launch()
 
@@ -173,6 +183,15 @@ def main():
         # A visit recorded with the history at its bound, then ⌘Q.
         bench("field", later, "go", deadline=30)
         until("the later page to load", lambda: loaded(later), 15)
+
+        # Forget This Site on a place the field offers first: it goes from the
+        # field, and from the file below.
+        gone = OFTEN[1]
+        if gone not in offers(gone):
+            raise AssertionError(f"{gone} not offered before Forget This Site")
+        bench("recall", "forget", gone, deadline=30)
+        if gone in offers(gone):
+            raise AssertionError(f"{gone} still offered after Forget This Site")
         bench("press", "12", "q", "cmd", deadline=10, check=False)
         until("the app to quit", lambda: not running(), 30)
 
@@ -181,12 +200,16 @@ def main():
         urls = {visit["url"] for visit in saved}
         if len(saved) > ROOM:
             raise AssertionError(f"history.json after quit: {len(saved)} places, expected at most {ROOM}")
-        missing = [key for key in OFTEN if key not in keys] + [url for url in (start, later) if url not in urls]
+        kept = [key for key in OFTEN if key != gone]
+        missing = [key for key in kept if key not in keys] + [url for url in (start, later) if url not in urls]
         if missing:
             raise AssertionError(f"history.json after quit is missing {missing}")
+        if gone in keys:
+            raise AssertionError(f"history.json after quit still holds {gone}")
 
         print(f"ok: offers {OFTEN} for {TYPED!r} over {PLACES} seeded places; "
-              f"{len(saved)} places on disk after quit, both visits kept")
+              f"{gone} no longer offered once forgotten; "
+              f"{len(saved)} places on disk after quit, both visits kept, {gone} gone")
         print(f"keys={len(times)} rested_ms median={statistics.median(times):.2f} "
               f"p95={percentile(times, 0.95):.2f} max={max(times):.2f}")
         print("rested_ms=" + json.dumps([round(t, 3) for t in times]))
