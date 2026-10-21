@@ -4,6 +4,7 @@ import SwiftUI
 /// rest, and the same rule: a password is never shown until you have proved
 /// you are you, and never for longer than it takes to read it.
 struct PasswordsPanel: View {
+    @SwiftUI.Environment(\.chromeMetrics) private var metrics
     /// For closing; what is listed is `logins`' (see Logins.swift).
     let browser: Browser
     @ObservedObject var logins: Logins
@@ -56,7 +57,7 @@ struct PasswordsPanel: View {
                 Pill("Import passwords…") { browser.showMigration() }
                 Spacer()
                 Text("Existing accounts are kept. Import from an exported CSV.")
-                    .font(.system(size: 12)).foregroundStyle(Palette.muted)
+                    .font(.system(size: metrics.length(Metrics.panelNote))).foregroundStyle(Palette.muted)
             }
         }
         .animation(Motion.settle, value: adding)
@@ -66,6 +67,7 @@ struct PasswordsPanel: View {
 
     /// A site, and under it its accounts once opened.
     private struct Site: View {
+        @SwiftUI.Environment(\.chromeMetrics) private var metrics
         let host: String
         let logins: [Login]
         let open: Bool
@@ -78,25 +80,25 @@ struct PasswordsPanel: View {
         var body: some View {
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
-                    SiteMark(host: host, letter: host.first.map { String($0).uppercased() } ?? "•", size: 16)
+                    SiteMark(host: host, letter: host.first.map { String($0).uppercased() } ?? "•", size: metrics.length(16))
                     Text(host)
-                        .font(.system(size: 13))
+                        .font(.system(size: metrics.length(Metrics.panelTitle)))
                         .foregroundStyle(Palette.ink)
                         .lineLimit(1)
                     if logins.count > 1 {
                         Text("\(logins.count) accounts")
-                            .font(.system(size: 11.5))
+                            .font(.system(size: metrics.length(Metrics.panelDetail)))
                             .foregroundStyle(Palette.muted)
                     } else if let only = logins.first, !only.user.isEmpty, !open {
                         Text(only.user)
-                            .font(.system(size: 11.5))
+                            .font(.system(size: metrics.length(Metrics.panelDetail)))
                             .foregroundStyle(Palette.muted)
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
                     Spacer(minLength: 8)
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.system(size: metrics.length(Metrics.panelBadge), weight: .medium))
                         .foregroundStyle(Palette.muted)
                         .rotationEffect(.degrees(open ? 90 : 0))
                 }
@@ -124,8 +126,9 @@ struct PasswordsPanel: View {
     }
 
     /// One account: the name, the password as dots, and the three things to
-    /// do with it. Show asks the Mac who you are first.
+    /// do with it. Show and Copy ask the Mac who you are first.
     private struct Account: View {
+        @SwiftUI.Environment(\.chromeMetrics) private var metrics
         let login: Login
         let copy: () -> Void
         let forget: () -> Void
@@ -137,14 +140,14 @@ struct PasswordsPanel: View {
         var body: some View {
             HStack(spacing: 10) {
                 Text(login.user.isEmpty ? "No username" : login.user)
-                    .font(.system(size: 12))
+                    .font(.system(size: metrics.length(Metrics.panelNote)))
                     .foregroundStyle(login.user.isEmpty ? Palette.faint : Palette.ink)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                    .frame(minWidth: 120, alignment: .leading)
+                    .frame(minWidth: metrics.length(120), alignment: .leading)
 
                 Text(shown ? login.password : String(repeating: "•", count: min(12, max(6, login.password.count))))
-                    .font(.system(size: shown ? 12.5 : 10, design: .monospaced))
+                    .font(.system(size: metrics.length(shown ? Metrics.panelText : Metrics.panelMark), design: .monospaced))
                     .foregroundStyle(shown ? Palette.ink : Palette.muted)
                     .lineLimit(1)
                     .textSelection(.enabled)
@@ -187,6 +190,7 @@ struct PasswordsPanel: View {
 
     /// Typing one in by hand. The site, the name, the password, and Save.
     private struct AddForm: View {
+        @SwiftUI.Environment(\.chromeMetrics) private var metrics
         let logins: Logins
         let done: () -> Void
 
@@ -209,7 +213,7 @@ struct PasswordsPanel: View {
                         }
                         SecureField("", text: $password)
                             .textFieldStyle(.plain)
-                            .font(.system(size: 12.5, design: .monospaced))
+                            .font(.system(size: metrics.length(Metrics.panelText), design: .monospaced))
                             .foregroundStyle(Palette.ink)
                             .focused($focus, equals: 2)
                             .onSubmit(keep)
@@ -237,7 +241,7 @@ struct PasswordsPanel: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 7)
             }
-            .font(.system(size: 12.5))
+            .font(.system(size: metrics.length(Metrics.panelText)))
             .background(Palette.wash, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
         }
 

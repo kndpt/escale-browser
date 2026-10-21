@@ -370,6 +370,8 @@ final class Browser: NSObject, ObservableObject {
     // MARK: - what is kept, and getting rid of it
 
     @Published var recalling = false
+    /// The ⌘/ chart of keys (KeyChart.swift).
+    @Published var listingKeys = false
     @Published var hoarding = false
     /// The update's panel: boarding a waiting build, or what one brought (Gate.swift).
     @Published var gate: Gate?
@@ -654,15 +656,22 @@ final class Browser: NSObject, ObservableObject {
     /// links, not a bare address to explain in your own words.
     func copyMarkdownLink() {
         guard let tab = active, let url = tab.address else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(Browser.markdownLink(tab.label, to: url), forType: .string)
+        announce("Link copied")
+    }
+
+    /// `[text](address)`, on one line; the address is the text when there is
+    /// none, as for a link that is only a picture.
+    nonisolated static func markdownLink(_ text: String, to url: URL) -> String {
+        let words = text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
         // A backslash first, so the ones added next aren't doubled; then both
         // brackets, either of which would end or break the link's text.
-        let title = tab.label
+        let title = (words.isEmpty ? url.absoluteString : words)
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "[", with: "\\[")
             .replacingOccurrences(of: "]", with: "\\]")
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString("[\(title)](\(url.absoluteString))", forType: .string)
-        announce("Link copied")
+        return "[\(title)](\(url.absoluteString))"
     }
 
     func announce(_ text: String, symbol: String? = nil) {
@@ -1113,6 +1122,20 @@ final class Browser: NSObject, ObservableObject {
             }
             .store(in: &bag)
 
+        // Pages already open follow a new default unless their site has its
+        // own; one not built yet reads it when it is.
+        prefs.$defaultZoom
+            .dropFirst()
+            .sink { [weak self] percent in
+                guard let self else { return }
+                // Sent before Preferences' didSet sets it.
+                Tab.defaultZoom = CGFloat(percent) / 100
+                // A floating meeting keeps its own size until it lands, which
+                // reapplies the default; a floating video has none of its own.
+                for tab in tabs + parkedTabs where !(tab.floating && floatingMeeting) { tab.applyRememberedZoom() }
+            }
+            .store(in: &bag)
+
         // The reading bar: every tab's next page, and the page each is showing
         // now, report their scroll only while it is shown (see ScrollRelay).
         prefs.$showsReading
@@ -1549,6 +1572,7 @@ final class Browser: NSObject, ObservableObject {
         moved.pin = tab.pin
         moved.migration = tab.migration
         moved.name = tab.name
+        moved.muted = tab.muted
         prepare(moved)
         if moved.pin != nil {
             tabs.insert(moved, at: pinnedCount)
@@ -1657,6 +1681,7 @@ final class Browser: NSObject, ObservableObject {
         } else {
             Tab(bench: tab.bench, space: tab.space, configuration: page)
         }
+        fresh.muted = tab.muted
         prepare(fresh)
         if let here {
             let wasActive = activeID == tab.id
@@ -2018,6 +2043,7 @@ final class Browser: NSObject, ObservableObject {
         // From a private tab, the new one is private too, as for ⌘-click.
         tab.onMiddleClick = { [weak self] tab, url in self?.openPageLink(url, from: tab, foreground: false) }
         tab.onCross = { [weak self] tab, url in self?.replace(tab, going: url) }
+        tab.onLinkChoice = { [weak self] tab, choice, link in self?.chose(choice, link, on: tab) }
 
         // The caret in a sign-in box: the accounts kept for this site hang
         // from the box, and go when the caret does. Nothing is filled on
@@ -2349,6 +2375,11 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         for action: WKNavigationAction,
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
+        if let page = webView as? PageView, let take = page.takeLink {
+            page.takeLink = nil
+            if let url = action.request.url { take(url) }
+            return nil
+        }
         let opener = tab(for: webView)
         if action.navigationType == .linkActivated, action.request.httpMethod == "GET",
            !action.shouldPerformDownload, let url = action.request.url, let opener,

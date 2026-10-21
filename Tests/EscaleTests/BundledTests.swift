@@ -40,7 +40,7 @@ import Testing
         var scripts = [
             Veiling.picker, Reader.script, AutoScroll.script, Swipe.calm, Swipe.watch,
             Isolate.on, Isolate.where_, Isolate.toggle, Isolate.off, HoveredLink.script,
-            SelectionWatch.script,
+            SelectionWatch.script, LinkRelay.watch,
             ImageRelay.watch, StoreRelay.script,
             FormRelay.withoutPasskeys, FormRelay.script, MiddleRelay.watch, PageView.selected,
             PasskeyRelay.script, ScrollRelay.script,

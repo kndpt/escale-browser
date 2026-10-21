@@ -318,3 +318,118 @@ import Testing
         #expect(Curl.missing(call("POST"), emoji) == nil)
     }
 }
+
+// Copy as › fetch (Curl.swift).
+@Suite struct FetchTests {
+    private func call(_ method: String, url: String = "https://api.example.test/v1/items?q=1") -> Call {
+        var call = Call(id: "1")
+        call.method = method
+        call.url = url
+        return call
+    }
+
+    private func detail(_ headers: [(String, String)], body: String? = nil) -> CallDetail {
+        var detail = CallDetail()
+        detail.requestHeaders = headers.map { CallDetail.Header(name: $0.0, value: $0.1) }
+        detail.requestBody = body
+        return detail
+    }
+
+    @Test func aBareGetIsItsAddressAlone() {
+        #expect(Fetch.command(call("GET"), detail([("Host", "api.example.test"), ("Accept-Encoding", "gzip")]))
+                == #"fetch("https://api.example.test/v1/items?q=1");"#)
+    }
+
+    @Test func aCallWithCookiesAsksForCredentials() {
+        #expect(Fetch.command(call("GET"), detail([("Cookie", "id=1")])).contains(#""credentials": "include""#))
+        #expect(!Fetch.command(call("GET"), detail([("Accept", "*/*")])).contains("credentials"))
+    }
+
+    @Test func aPostCarriesMethodHeadersAndBody() {
+        let text = Fetch.command(call("post"), detail([("Content-Type", "application/json"), ("Content-Length", "9"), ("Authorization", "Bearer t")],
+                                                      body: #"{"a":"b"}"#))
+        #expect(text == #"""
+            fetch("https://api.example.test/v1/items?q=1", {
+              "method": "POST",
+              "headers": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer t"
+              },
+              "body": "{\"a\":\"b\"}"
+            });
+            """#)
+    }
+
+    @Test func otherMethodsAreNamedAndAMissingBodyIsLeftOut() {
+        for method in ["PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] {
+            let text = Fetch.command(call(method), detail([]))
+            #expect(text.contains(#""method": "\#(method)""#) && !text.contains("body"))
+        }
+        #expect(Fetch.command(call("POST"), detail([], body: "")).contains(#""body": """#))
+    }
+
+    @Test func stringsReadBackLiterally() {
+        #expect(Fetch.string(#"say "hi" \ $x `y` été ✓"#) == #""say \"hi\" \\ $x `y` été ✓""#)
+        #expect(Fetch.string("a\nb\r\tc\u{2028}d\u{2029}") == "\"a\\nb\\r\\tc\\u2028d\\u2029\"")
+    }
+
+    @Test func aBinaryBodyStaysOneValidLiteral() {
+        let body = "\u{0}\u{1}\u{1F}\u{7F}\u{FF}PNG"
+        #expect(Fetch.string(body) == "\"\\u0000\\u0001\\u001F\\u007F\u{FF}PNG\"")
+        #expect(!Fetch.command(call("POST"), detail([], body: body)).contains("\u{0}"))
+    }
+}
+
+// A row's menu (Call.swift, CallPeek): what each copy gives, or why not.
+@Suite struct CallPeekTests {
+    private var call: Call {
+        var call = Call(id: "1")
+        call.method = "POST"
+        call.url = "https://api.example.test/v1/items"
+        return call
+    }
+
+    @Test func theAddressNeedsNothingRead() {
+        #expect(CallPeek(id: "1").copy(.url, of: call) == .text("https://api.example.test/v1/items"))
+        #expect(CallPeek(id: "1").copy(.url, of: Call(id: "2")) == .off("No address"))
+    }
+
+    @Test func commandsWaitForTheDetailAndAreRefusedAsCurlIs() {
+        var peek = CallPeek(id: "1")
+        #expect(peek.copy(.fetch, of: call) == .off("Reading…"))
+        peek.reading = false
+        #expect(peek.copy(.curl, of: call) == .off("Headers unavailable"))
+        #expect(peek.copy(.fetch, of: call) == .off("Headers unavailable"))
+        var detail = CallDetail()
+        detail.requestBody = "abc"
+        detail.requestCut = true
+        peek.detail = detail
+        #expect(peek.copy(.fetch, of: call) == .off("Body too long to copy"))
+        detail.requestCut = false
+        peek.detail = detail
+        #expect(peek.copy(.curl, of: call) == .text(Curl.command(call, detail)))
+        #expect(peek.copy(.fetch, of: call) == .text(Fetch.command(call, detail)))
+    }
+
+    @Test func theResponseIsCopiedWholeOrNotAtAll() {
+        var peek = CallPeek(id: "1", reading: false)
+        #expect(peek.copy(.response, of: call) == .off("Reading…"))
+        peek.body = .text(#"{"ok":true}"#, length: 11, cut: false)
+        #expect(peek.copy(.response, of: call) == .text(#"{"ok":true}"#))
+        peek.body = .text("abc", length: 9_000_000, cut: true)
+        #expect(peek.copy(.response, of: call) == .off("Response too long to copy"))
+        peek.body = .text("", length: 0, cut: false)
+        #expect(peek.copy(.response, of: call) == .off("Empty response"))
+        peek.body = .binary(length: 12)
+        #expect(peek.copy(.response, of: call) == .off("Binary response"))
+        peek.body = .unavailable("The request failed; WebKit keeps no response body.")
+        #expect(peek.copy(.response, of: call) == .off("The request failed; WebKit keeps no response body."))
+    }
+
+    @Test func reasonsReadInsideATitle() {
+        #expect(CallMenu.reason("Headers unavailable") == "headers unavailable")
+        #expect(CallMenu.reason("The request failed; WebKit keeps no response body.") == "the request failed; WebKit keeps no response body")
+        #expect(CallMenu.reason("WebKit gave no answer.") == "WebKit gave no answer")
+        #expect(CallMenu.reason("Reading…") == "reading…")
+    }
+}
