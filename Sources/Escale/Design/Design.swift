@@ -891,7 +891,7 @@ enum Metrics {
     static let keyChartColumn: CGFloat = 260
     static let keyChartGap: CGFloat = 18
     /// The menu over selected text (SelectionMenu.swift): a round Copy, then
-    /// Translate beside it at the same height and corner.
+    /// Translate and the link beside it at the same height and corner.
     static let selectionButton: CGFloat = 36
     static let selectionGap: CGFloat = 8
     /// Between the selected line and the menu, and the page's edge and the menu.
