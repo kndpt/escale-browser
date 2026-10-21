@@ -289,6 +289,13 @@ final class Bench {
                 && button.map { AXUIElementPerformAction($0, kAXPressAction as CFString) == .success } == true
             answer(["label": closing?.label ?? "", "count": closing?.ghosts.count ?? 0, "pressed": pressed,
                     "button": button.map { Bench.ax($0, kAXValueAttribute) as? String ?? "" } as Any? ?? NSNull()])
+        case "button":
+            // Any of the app's own buttons, popovers included, found by the
+            // name VoiceOver reads and pressed the way VoiceOver does.
+            guard Store.testing else { answer(["error": "only in a test run"]); return }
+            let button = Bench.accessible(button: request["label"] as? String ?? "")
+            let pressed = button.map { AXUIElementPerformAction($0, kAXPressAction as CFString) == .success } == true
+            Bench.afterRests(2) { answer(["found": button != nil, "pressed": pressed]) }
 
         case "media":
             guard Store.testing else { answer(["error": "only in a test run"]); return }
@@ -727,6 +734,10 @@ final class Bench {
                 "transfers": browser.downloads.transfers.map { transfer -> [String: Any] in
                     ["name": transfer.name, "space": transfer.space.uuidString,
                      "fraction": transfer.fraction as Any? ?? NSNull()]
+                },
+                "failedDownloads": browser.downloads.failures.map { failure -> [String: Any] in
+                    ["name": failure.name, "space": failure.space.uuidString, "folder": failure.file?.deletingLastPathComponent().path ?? "",
+                     "action": failure.action ?? ""]
                 },
                 "modal": NSApp.modalWindow.map { "\(type(of: $0)) “\($0.title)”" } ?? "",
                 "look": browser.prefs.look.rawValue,
