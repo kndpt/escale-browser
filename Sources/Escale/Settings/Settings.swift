@@ -864,14 +864,13 @@ struct SettingsPanel: View {
     private var versionDetail: String {
         switch updater.stage {
         case .none:
-            return updater.lastChecked.map { "Checked \($0.formatted(.relative(presentation: .named))) — every 2 hours on its own" }
-                ?? "Checked every 2 hours on its own"
+            return Updater.line(checked: updater.lastChecked, failed: updater.failed)
         case .fetching(let next):
             return next.notes ?? "Quietly, in the background — nothing you have set is touched"
         case .ready(let next):
             return next.notes ?? "It's there the next time you open Escale"
         case .offered(let next):
-            return next.notes ?? "Open the disk image, the same as the first time"
+            return updater.refusal?.said ?? next.notes ?? "Open the disk image, the same as the first time"
         }
     }
 
@@ -879,21 +878,28 @@ struct SettingsPanel: View {
     private var versionControl: some View {
         switch updater.stage {
         case .none:
-            Pill(updater.checking ? "Checking…" : "Check now") {
-                updater.check { found in
-                    if found == nil { browser.announce("This is the latest one") }
-                }
-            }
-            .disabled(updater.checking)
+            Pill(updater.checking ? "Checking…" : "Check now") { checkNow() }
+                .disabled(updater.checking)
         case .fetching:
             Ring(size: 12)
         case .ready:
             Pill("Relaunch now", filled: true) { updater.relaunch() }
         case .offered(let next):
-            Pill("Download", filled: true) {
-                browser.tuning = false
-                browser.open(next.dmg, foreground: true)
+            if updater.refusal == .interrupted {
+                Pill(updater.checking ? "Checking…" : "Try again", filled: true) { checkNow() }
+                    .disabled(updater.checking)
+            } else {
+                Pill("Download", filled: true) {
+                    browser.tuning = false
+                    browser.open(next.dmg, foreground: true)
+                }
             }
+        }
+    }
+
+    private func checkNow() {
+        updater.check { read in
+            if let line = read.said { browser.announce(line) }
         }
     }
 
