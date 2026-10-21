@@ -7,7 +7,7 @@ enum KeyAction: String, CaseIterable, Codable {
     // Network keeps "developer", its ID from when Developer Mode was the
     // Network column, so a key someone chose or removed for it stays with it;
     // the dock that now has the name is "workbench".
-    case closeWindow, newTab, privateTab, reopenTab, closeTab, searchTabs, searchGitHub, nextTab, previousTab, duplicateTab, renameTab, pinTab, changeLetter, closeOthers, clearTabs, sleepTab, sleepOthers, moveTabToPreviousSpace, moveTabToNextSpace, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, lastTab, splitRight, splitLeft, splitTop, splitBottom, nextPanel, previousPanel, swapPanel, movePanelOut, separatePanels, openAddress, back, forward, reload, stopLoading, copyAddress, copyMarkdown, pasteGo, history, clearHistory, addBookmark, bookmarks, previousSpace, nextSpace, newSpace, renameSpace, duplicateSpace, moveSpaceUp, moveSpaceDown, deleteSpace, find, findNext, findPrevious, zoomIn, zoomOut, resetZoom, print, reader, floatVideo, stopSound, hideElements, hiddenElements, resetSite, siteData, inspector, console, inspectElement, visual, capture, captureArea, captureFull, developer = "workbench", network = "developer", localhost, settings, fold, focus, sidebar, downloads, passwords, welcome, feedback, space1, space2, space3, space4, space5, space6, space7, space8, space9
+    case closeWindow, newTab, privateTab, reopenTab, closeTab, searchTabs, searchGitHub, nextTab, previousTab, duplicateTab, renameTab, pinTab, changeLetter, closeOthers, clearTabs, sleepTab, sleepOthers, moveTabToPreviousSpace, moveTabToNextSpace, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, lastTab, splitRight, splitLeft, splitTop, splitBottom, nextPanel, previousPanel, swapPanel, movePanelOut, separatePanels, openAddress, back, forward, reload, stopLoading, copyAddress, copyMarkdown, pasteGo, history, clearHistory, addBookmark, bookmarks, previousSpace, nextSpace, newSpace, renameSpace, duplicateSpace, moveSpaceUp, moveSpaceDown, deleteSpace, find, findNext, findPrevious, zoomIn, zoomOut, resetZoom, print, reader, floatVideo, stopSound, hideElements, hiddenElements, resetSite, siteData, inspector, console, inspectElement, visual, capture, captureArea, captureFull, developer = "workbench", network = "developer", localhost, settings, fold, focus, sidebar, downloads, passwords, welcome, feedback, shortcuts, space1, space2, space3, space4, space5, space6, space7, space8, space9
 
     var command: KeyCommand { KeyCommand.catalog[self] ?? KeyCommand(self, rawValue, .app) }
     var index: Int? { Int(rawValue.dropFirst(rawValue.hasPrefix("space") ? 5 : 3)) }
@@ -42,7 +42,7 @@ struct KeyCommand: Identifiable {
         .init(.renameTab, "Rename Tab", .tabs, "", []),
         .init(.pinTab, "Pin or Unpin Tab", .tabs, "", []),
         .init(.changeLetter, "Change Pinned Letter", .tabs, "", []),
-        .init(.closeOthers, "Close Other Tabs", .tabs, "", []),
+        .init(.closeOthers, "Close Other Tabs", .tabs, "", [.init("w", [.command, .option])]),
         .init(.clearTabs, "Clear Ordinary Tabs", .tabs, "Keep pins and bookmarks.", []),
         .init(.sleepTab, "Sleep Tab", .tabs, "Go back to the previous tab and let this page go until you return.", []),
         .init(.sleepOthers, "Sleep Other Tabs", .tabs, "In this Space. Pins, sound, calls, downloads and typed text stay awake.", []),
@@ -72,12 +72,12 @@ struct KeyCommand: Identifiable {
         .init(.reload, "Reload Page", .navigation, "", [.init("r", [.command])]),
         .init(.stopLoading, "Stop Loading", .navigation, "", [.init(".", [.command])]),
         .init(.copyAddress, "Copy Address", .navigation, "", [.init("c", [.command, .shift])]),
-        .init(.copyMarkdown, "Copy as Markdown Link", .navigation, "", []),
+        .init(.copyMarkdown, "Copy as Markdown Link", .navigation, "", [.init("c", [.command, .option, .shift])]),
         .init(.pasteGo, "Paste and Go", .navigation, "The default pastes plain text while editing.", [.init("v", [.command, .shift])]),
         .init(.history, "Show History", .navigation, "", [.init("y", [.command])]),
         .init(.clearHistory, "Clear History", .navigation, "Asks before removing browsing history.", []),
         .init(.addBookmark, "Bookmark This Page", .navigation, "", [.init("b", [.command, .shift])]),
-        .init(.bookmarks, "Show Bookmarks", .navigation, "", []),
+        .init(.bookmarks, "Show Bookmarks", .navigation, "", [.init("b", [.command, .option])]),
         .init(.previousSpace, "Previous Space", .spaces, "Follow the displayed order; wrap at the ends.", [.init("up", [.command, .option])]),
         .init(.nextSpace, "Next Space", .spaces, "Follow the displayed order; wrap at the ends.", [.init("down", [.command, .option])]),
         .init(.newSpace, "New Space", .spaces, "", []),
@@ -105,11 +105,11 @@ struct KeyCommand: Identifiable {
         .init(.inspectElement, "Inspect Element", .tools, "", [.init("c", [.command, .option])]),
         .init(.visual, "Visual Inspection", .tools, "", [.init("v", [.command, .option])]),
         .init(.capture, "Capture Visible Page", .tools, "", [.init("s", [.command, .option])]),
-        .init(.captureArea, "Select Area to Capture", .tools, "", []),
+        .init(.captureArea, "Select Area to Capture", .tools, "", [.init("s", [.command, .option, .shift])]),
         .init(.captureFull, "Capture Full Page", .tools, "Subject to the page capture limits.", []),
         .init(.developer, "Developer Mode", .tools, "Capture, element selection and Network, in a dock at the window’s foot.", [.init("i", [.command, .shift])]),
         .init(.network, "Network", .tools, "Inspect the page’s API calls.", [.init("n", [.command, .option])]),
-        .init(.localhost, "Show Localhost", .tools, "", []),
+        .init(.localhost, "Show Localhost", .tools, "", [.init("l", [.command, .shift])]),
         .init(.closeWindow, "Close Window", .app, "Close the focused browser window.", [.init("w", [.command, .shift])]),
         .init(.settings, "Settings", .app, "", [.init(",", [.command])]),
         .init(.fold, "Show or Hide Tab Bar", .app, "Fold the sidebar or horizontal tab bar.", [.init("s", [.command])]),
@@ -119,6 +119,7 @@ struct KeyCommand: Identifiable {
         .init(.passwords, "Passwords", .app, "", [.init("l", [.command, .option])]),
         .init(.welcome, "Welcome", .app, "", []),
         .init(.feedback, "Send Feedback", .app, "", []),
+        .init(.shortcuts, "Keyboard Shortcuts", .app, "Every key at a glance, over the page.", [.init("/", [.command])]),
         .init(.space1, "Go to Space 1", .spaces, "By its position in the rail. Mission Control may take this default first.", [.init("#1", [.control])]),
         .init(.space2, "Go to Space 2", .spaces, "By its position in the rail. Mission Control may take this default first.", [.init("#2", [.control])]),
         .init(.space3, "Go to Space 3", .spaces, "By its position in the rail. Mission Control may take this default first.", [.init("#3", [.control])]),

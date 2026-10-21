@@ -170,6 +170,15 @@ acknowledged the first time is added. Saving snapshots every owner in one turn
 of the main actor and writes atomically, so a failed save keeps the earlier
 export.
 
+## Bookmarks file
+
+**Export bookmarks…** in the Bookmarks panel saves the current Space's list as
+a Netscape bookmarks file, which other browsers import (`BookmarkExport`).
+Folders and order are kept; titles and addresses are escaped. Environments
+follow the list in a last `Environments` folder, one subfolder per bookmark,
+and the panel says how many went there. The file is written atomically, off
+the main thread.
+
 ## For contributors
 
 - A test run reads each automatic brand from its own test root,

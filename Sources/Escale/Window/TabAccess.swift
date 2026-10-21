@@ -35,6 +35,9 @@ struct TabAccess: ViewModifier {
             .accessibilityActions {
                 if closes { Button("Close Tab") { browser.close(tab) } }
                 if tab.address != nil { Button("Copy Link") { browser.copyAddress(of: tab) } }
+                if (tab.noisy || tab.muted) && Mute.available {
+                    Button(tab.muted ? "Unmute Tab" : "Mute Tab") { tab.toggleMute() }
+                }
             }
     }
 

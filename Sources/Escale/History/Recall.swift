@@ -49,6 +49,7 @@ final class Recall: ObservableObject {
 }
 
 struct HistoryPanel: View {
+    @SwiftUI.Environment(\.chromeMetrics) private var metrics
     @ObservedObject var browser: Browser
     @ObservedObject var recall: Recall
 
@@ -110,7 +111,7 @@ struct HistoryPanel: View {
             } else {
                 HStack {
                     Text(count == 1 ? "1 page" : "\(count) pages")
-                        .font(.system(size: 12))
+                        .font(.system(size: metrics.length(Metrics.panelNote)))
                         .foregroundStyle(Palette.muted)
                     Spacer()
                     Pill("Clear…") { withAnimation(Motion.settle) { clearing = true } }
@@ -221,6 +222,7 @@ struct HistoryPanel: View {
     /// One line. A title, where it came from, and when — the three things you
     /// scan for, in the order you scan them.
     private struct Row: View {
+        @SwiftUI.Environment(\.chromeMetrics) private var metrics
         let trace: History.Trace
         let chosen: Bool
         let go: () -> Void
@@ -231,14 +233,14 @@ struct HistoryPanel: View {
         var body: some View {
             HStack(spacing: 12) {
                 SiteMark(host: trace.url.host()?.lowercased() ?? "", page: trace.url,
-                     letter: trace.key.first.map { String($0).uppercased() } ?? "•", size: 16)
+                     letter: trace.key.first.map { String($0).uppercased() } ?? "•", size: metrics.length(16))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(trace.title.isEmpty ? trace.key : trace.title)
-                        .font(.system(size: 13))
+                        .font(.system(size: metrics.length(Metrics.panelTitle)))
                         .foregroundStyle(Palette.ink)
                         .lineLimit(1)
                     Text(trace.key)
-                        .font(.system(size: 11.5))
+                        .font(.system(size: metrics.length(Metrics.panelDetail)))
                         .foregroundStyle(Palette.muted)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -248,7 +250,7 @@ struct HistoryPanel: View {
                     Quick("Remove", tint: Palette.danger, act: forget)
                 } else {
                     Text(When.clock(trace.last))
-                        .font(.system(size: 11.5))
+                        .font(.system(size: metrics.length(Metrics.panelDetail)))
                         .foregroundStyle(Palette.muted)
                         .monospacedDigit()
                 }
@@ -265,6 +267,7 @@ struct HistoryPanel: View {
 }
 
 struct DownloadsPanel: View {
+    @SwiftUI.Environment(\.chromeMetrics) private var metrics
     @ObservedObject var browser: Browser
     @ObservedObject var loot: Loot
 
@@ -308,7 +311,7 @@ struct DownloadsPanel: View {
             HStack {
                 Text(loot.kept.isEmpty ? "Files land in \(browser.downloadsFolder.lastPathComponent)"
                      : "Clearing the list leaves the files where they are")
-                    .font(.system(size: 12))
+                    .font(.system(size: metrics.length(Metrics.panelNote)))
                     .foregroundStyle(Palette.muted)
                 Spacer()
                 if !loot.kept.isEmpty {
@@ -346,6 +349,7 @@ struct DownloadsPanel: View {
     }
 
     private struct Row: View {
+        @SwiftUI.Environment(\.chromeMetrics) private var metrics
         let keep: Keep
         let chosen: Bool
         let open: () -> Void
@@ -361,17 +365,17 @@ struct DownloadsPanel: View {
             let there = keep.stillThere
             let line = HStack(spacing: 12) {
                 Image(systemName: there ? "doc" : "doc.badge.ellipsis")
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.system(size: metrics.length(Metrics.panelTitle), weight: .regular))
                     .foregroundStyle(there ? Palette.muted : Palette.faint)
-                    .frame(width: 18)
+                    .frame(width: metrics.length(18))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(keep.name)
-                        .font(.system(size: 13))
+                        .font(.system(size: metrics.length(Metrics.panelTitle)))
                         .foregroundStyle(there ? Palette.ink : Palette.faint)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Text(detail(there))
-                        .font(.system(size: 11.5))
+                        .font(.system(size: metrics.length(Metrics.panelDetail)))
                         .foregroundStyle(Palette.muted)
                         .lineLimit(1)
                 }

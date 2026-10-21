@@ -12,6 +12,10 @@ Asserted, through the production owner and real key presses:
   made while paused (even one finishing after resuming), keeps rows
   readable; Clear empties the list in either state without changing it, and
   nothing cleared comes back; quick toggles and another tab keep the state.
+- A row's menu, from a real right press, copies the URL, the call as fetch
+  (replayed in the page) and its response, and opens a GET in a new tab,
+  leaving the call closed and reading one response per opening; on a row
+  from an earlier session, cURL, fetch and the response are off with why.
 - The search finds a word only present in a response never opened, in
   several responses, several times in one, in an address only and in both,
   whatever its case, in JSON and text; not in binary, empty or past-limit
@@ -22,6 +26,7 @@ Asserted, through the production owner and real key presses:
 Runs in its own world through the shared runner (suite.py) after ./build.sh.
 """
 import json
+import subprocess
 import time
 from http.server import ThreadingHTTPServer
 from threading import Thread
@@ -132,6 +137,40 @@ def body_read(label):
 
 def key_of(url):
     return url.split('/api/')[1].split('?')[0]
+
+
+def pasted():
+    return subprocess.run(['pbpaste'], capture_output=True, text=True, timeout=5).stdout
+
+
+def first_row():
+    """Where a right press opens the first row's menu: down the panel, right
+    of the page, from its top past the toolbar, until a menu offers Copy URL."""
+    page = bench('probe')['pageFrame']
+    x = page[0] + page[2] + 60
+    for y in range(int(page[1]), int(page[1]) + 300, 8):
+        titles = [item['title'] for item in bench('pointer', 'menu', x, y)['items']]
+        if titles:
+            bench('pointer', 'cancel')
+        if titles and titles[0] == 'Copy URL':
+            return x, y
+    raise AssertionError('no row menu under the panel top')
+
+
+def row_menu(point, ready):
+    """A real right press on the row at `point`; the menu's items once
+    `ready` holds for them, as it is updated while open."""
+    bench('pointer', 'menu', *point)
+    try:
+        s.until('row menu read', lambda: ready({i['title']: i['enabled'] for i in bench('pointer', 'state')['items']}), 10)
+    except s.WaitExpired as error:
+        raise AssertionError(f"row menu: {bench('pointer', 'state')['items']}") from error
+    return [item['title'] for item in bench('pointer', 'state')['items']]
+
+
+def choose(point, title):
+    titles = row_menu(point, lambda items: items.get(title) is True)
+    bench('pointer', 'choose', titles.index(title))
 
 
 def main():
@@ -268,6 +307,52 @@ def main():
         time.sleep(3.2)
         s.require('a cleared call finishing later does not come back', tagged('before-clear'), [])
         print('ok: Clear empties the list in either state and leaves recording alone; cleared calls stay gone', flush=True)
+
+        # A row's menu, from a real right press: copies read for that call
+        # alone without opening it, and why an entry is off.
+        newest = calls()['shown'][0]
+        url = next(r['url'] for r in calls()['rows'] if r['id'] == newest)
+        reads = calls()['reads']
+        point = first_row()
+        choose(point, 'Copy URL')
+        s.require('Copy URL copies the first row', pasted(), url)
+        choose(point, 'Copy as fetch')
+        replay = pasted()
+        s.require('Copy as fetch names the call', replay.startswith('fetch(' + json.dumps(url)), True)
+        choose(point, 'Copy Response')
+        s.require('Copy Response copies the response', json.loads(pasted()), {"n": "1", "items": ["a", "b"]})
+        state = calls()
+        s.require('the menu leaves the call closed', (state['selected'], state['body']), ('', None))
+        s.require('one response read per menu, for its row only', state['reads'] - reads, 4)
+        titles = row_menu(point, lambda items: items.get('Open URL in New Tab') is True)
+        bench('pointer', 'choose', titles.index('Open URL in New Tab'))
+        s.until('the GET opened in a new tab', lambda: s.at(url) is not None, 15)
+        opened = s.at(url)['id']
+        bench('select', opened)
+        bench('press', 13, 'w', 'cmd')
+        bench('select', tab)
+        s.until('back on the collected tab', lambda: base.active()['id'] == tab, 10)
+        print('ok: a row menu copies the URL, the call as fetch and its response, and opens a GET, without opening it', flush=True)
+
+        # Rows kept across a reconnection belong to the earlier session: no
+        # detail, so the copies needing it are off and say why.
+        base.press('i', 34)
+        s.until('inspector shown', lambda: calls()['inspector'] != '', 10)
+        calls(tab, action='frontend', js='InspectorFrontendHost.closeWindow(); true')
+        s.until('reconnected with the rows', lambda: calls()['inspector'] == '' and calls()['phase']['name'] == 'collecting'
+                and calls()['inspection']['connected'] is True and newest in calls()['shown'], 15)
+        titles = row_menu(point, lambda items: not any('reading' in title for title in items))
+        state = {i['title']: i['enabled'] for i in bench('pointer', 'state')['items']}
+        bench('pointer', 'cancel')
+        s.require('without detail, cURL and fetch say why',
+                  (state.get('Copy as cURL (headers unavailable)'), state.get('Copy as fetch (headers unavailable)')), (False, False))
+        s.require('without detail, the response says why',
+                  state.get('Copy Response (this call belongs to an earlier inspection session)'), False)
+        s.require('the URL still copies', state.get('Copy URL'), True)
+        bench('eval', tab, 'window.got = null; ' + replay.rstrip(';') + '.then(r => r.text()).then(t => window.got = t); true')
+        s.until('the copied fetch answered', lambda: js(tab, 'window.got') is not None, 10)
+        s.require('the copied fetch gets the same answer', json.loads(js(tab, 'window.got')), {"n": "1", "items": ["a", "b"]})
+        print('ok: without detail the entries are off with their reason; the copied fetch replays in the page', flush=True)
 
         # Web Inspector's own close makes the panel reconnect: what was
         # cleared, the page's document included, stays gone.

@@ -6,6 +6,7 @@ import SwiftUI
 /// grey; a click puts both into the form. It follows the box when the page
 /// scrolls, and goes when the caret does.
 struct AccountList: View {
+    @SwiftUI.Environment(\.chromeMetrics) private var metrics
     /// For the click; what is listed is `asked`.
     let logins: Logins
     let asked: Logins.Suggesting
@@ -17,9 +18,9 @@ struct AccountList: View {
             }
             HStack(spacing: 6) {
                 Image(systemName: "key")
-                    .font(.system(size: 9, weight: .regular))
+                    .font(.system(size: metrics.length(Metrics.panelBadge), weight: .regular))
                 Text("From your keychain")
-                    .font(.system(size: 10.5))
+                    .font(.system(size: metrics.length(Metrics.panelSmall)))
                 Spacer(minLength: 0)
             }
             .foregroundStyle(Palette.faint)
@@ -27,7 +28,7 @@ struct AccountList: View {
             .padding(.vertical, 7)
             .background(Palette.wash.opacity(0.5))
         }
-        .frame(width: max(240, min(360, asked.spot.width)), alignment: .leading)
+        .frame(width: max(metrics.length(240), min(metrics.length(360), asked.spot.width)), alignment: .leading)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .glass(.panel, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         // Just under the box, left edges lined up. The offset is from the
@@ -36,6 +37,7 @@ struct AccountList: View {
     }
 
     private struct Row: View {
+        @SwiftUI.Environment(\.chromeMetrics) private var metrics
         let login: Login
         let pick: () -> Void
         @State private var hovering = false
@@ -44,17 +46,17 @@ struct AccountList: View {
             Button(action: pick) {
                 HStack(spacing: 10) {
                     Text(String(login.user.first.map { String($0).uppercased() } ?? "•"))
-                        .font(.system(size: 11, weight: .regular))
+                        .font(.system(size: metrics.length(Metrics.panelSymbol), weight: .regular))
                         .foregroundStyle(Palette.ink)
-                        .frame(width: 22, height: 22)
+                        .frame(width: metrics.length(22), height: metrics.length(22))
                         .background(Palette.wash, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                     VStack(alignment: .leading, spacing: 1) {
                         Text(login.user.isEmpty ? "No name" : login.user)
-                            .font(.system(size: 12.5))
+                            .font(.system(size: metrics.length(Metrics.panelText)))
                             .foregroundStyle(Palette.ink)
                             .lineLimit(1)
                         Text(login.host)
-                            .font(.system(size: 10.5))
+                            .font(.system(size: metrics.length(Metrics.panelSmall)))
                             .foregroundStyle(Palette.muted)
                             .lineLimit(1)
                     }
@@ -94,6 +96,7 @@ struct AccountsOver: View {
 /// other lines. The password is never shown back to you — there is nothing
 /// to be learned from reading your own password.
 struct KeepAsking: View {
+    @SwiftUI.Environment(\.chromeMetrics) private var metrics
     @ObservedObject var logins: Logins
 
     var body: some View {
@@ -114,24 +117,24 @@ struct KeepAsking: View {
                  : (login.user.isEmpty
                     ? "Save this password for \(login.host)?"
                     : "Save the password for \(login.user) on \(login.host)?"))
-                .font(.system(size: 12.5))
+                .font(.system(size: metrics.length(Metrics.panelText)))
                 .foregroundStyle(Palette.ink)
                 .lineLimit(1)
             Button(offer.changed ? "Update" : "Save") { logins.keepOffer() }
                 .buttonStyle(.plain)
-                .font(.system(size: 12))
+                .font(.system(size: metrics.length(Metrics.panelNote)))
                 .foregroundStyle(Palette.inverse)
                 .padding(.horizontal, 11)
                 .padding(.vertical, 5)
                 .background(Palette.ink, in: Capsule())
             Button("Not now") { logins.dropOffer() }
                 .buttonStyle(.plain)
-                .font(.system(size: 12))
+                .font(.system(size: metrics.length(Metrics.panelNote)))
                 .foregroundStyle(Palette.muted)
             if !offer.changed {
                 Button("Never here") { logins.neverOffer() }
                     .buttonStyle(.plain)
-                    .font(.system(size: 12))
+                    .font(.system(size: metrics.length(Metrics.panelNote)))
                     .foregroundStyle(Palette.muted)
             }
         }
