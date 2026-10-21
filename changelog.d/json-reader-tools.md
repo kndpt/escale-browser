@@ -1,1 +1,0 @@
-The JSON reader, in a tab and in the API Calls panel, has Expand All and Collapse All, and ⌥-click opens or closes a whole branch; Copy now offers a JavaScript path (`.data[0].id`) beside the JSON Pointer, and an object or array minified or indented with its numbers and key order unchanged; the footer mentions the 1,000-line limit only when lines are hidden (#39).

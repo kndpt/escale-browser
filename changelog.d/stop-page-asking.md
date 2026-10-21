@@ -1,1 +1,0 @@
-A page that keeps asking with alerts or confirmations no longer locks the window: from its second question, the sheet offers to stop it asking until the tab goes to another page, and a tab in the background waits until you show it before asking (#8).

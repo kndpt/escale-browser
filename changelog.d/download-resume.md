@@ -1,1 +1,0 @@
-A download that fails stays in the downloads list, named in the announcement, with Resume when the server allows it, otherwise Retry, saving to the same folder of the same Space; failed rows last until you remove them or quit (#58).

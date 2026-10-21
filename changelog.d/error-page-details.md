@@ -1,1 +1,0 @@
-A page that doesn't load now shows the address that failed and WebKit's error code, has its own sentence for an expired certificate, a bad server answer and a redirect loop, and offers Back to the page you came from, as ⌘[ now does (#17).

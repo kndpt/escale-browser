@@ -1,1 +1,0 @@
-Settings › Extensions can now switch between extensions shared by every Space and a set per Space, for anyone who set up Escale before Welcome asked. Escale relaunches and deletes nothing: switching back brings each Space's own extensions back, and those a Space no longer sees are listed to reinstall (#132).

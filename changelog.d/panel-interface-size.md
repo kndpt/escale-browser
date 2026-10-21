@@ -1,1 +1,0 @@
-History, Downloads, Bookmarks, Passwords, the site card, the accounts list under a field, find on page, the error page and the notes at the bottom of the window now follow Settings › Appearance › Interface size, like the sidebar (#67).

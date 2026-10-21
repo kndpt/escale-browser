@@ -1,1 +1,0 @@
-In the API Calls panel, a call can be copied as fetch as well as cURL, and a right-click on a row copies its URL, the call as cURL or fetch, or its response, or opens a GET in a new tab, without opening the call; an entry WebKit cannot fill says why (#38).

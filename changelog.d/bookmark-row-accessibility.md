@@ -1,1 +1,0 @@
-VoiceOver and Full Keyboard Access now see each bookmark and folder, in the column and in the Bookmarks menu and panel, as a button named by its title; a folder says whether it is open, an open bookmark offers Copy Link and Close Tab, and a bookmark's environments are among its actions, so none of it needs the pointer (#3).

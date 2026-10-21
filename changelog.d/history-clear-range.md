@@ -1,1 +1,0 @@
-History's Clear… can remove only the last hour, today or the last 7 days, taking each page last opened then with its older visits, and a line's Forget This Site removes every page of its site, so the address field stops offering it (#42).
