@@ -291,6 +291,49 @@ final class History: ObservableObject {
         forgotten?(key)
     }
 
+    /// How far back Clear… reaches. Only a page's last visit is kept, so a
+    /// page last opened in the span goes whole, its earlier visits with it.
+    enum Span {
+        case hour, today, week, all
+
+        /// Where the span begins; nil for everything.
+        func start(at now: Date = Date(), in calendar: Calendar = .current) -> Date? {
+            switch self {
+            case .hour: return now.addingTimeInterval(-3_600)
+            case .today: return calendar.startOfDay(for: now)
+            case .week: return now.addingTimeInterval(-7 * 86_400)
+            case .all: return nil
+            }
+        }
+    }
+
+    /// Every place last visited at or after `start`, front doors included.
+    func forget(since start: Date) {
+        forget { $0.last >= start }
+    }
+
+    /// Every page of a host and its front door, so the field stops offering it.
+    func forget(host: String) {
+        let site = History.site(host)
+        forget { URL(string: $0.url)?.host().map(History.site) == site }
+    }
+
+    private static func site(_ host: String) -> String {
+        let host = host.lowercased()
+        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+    }
+
+    /// One change for the lot: each removal on its own would redraw the window.
+    private func forget(where doomed: (Visit) -> Bool) {
+        let gone = visits.values.filter(doomed).map(\.key)
+        guard !gone.isEmpty else { return }
+        var left = visits
+        for key in gone { left[key] = nil }
+        visits = left
+        save()
+        for key in gone { forgotten?(key) }
+    }
+
     /// The last eight places, newest first; worked out again only once the
     /// history has changed.
     func recent() -> [Trace] {

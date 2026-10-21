@@ -114,7 +114,8 @@ enum CallsBench {
         case nil: out["body"] = NSNull()
         }
         out["reader"] = ["shown": calls.reader.shown, "nodes": calls.reader.document?.nodes.count ?? 0,
-                         "failure": calls.reader.error ?? ""]
+                         "failure": calls.reader.error ?? "", "visible": calls.reader.visible.count,
+                         "hidden": calls.reader.hidden ?? ""]
         return out
     }
 

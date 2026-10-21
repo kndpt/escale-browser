@@ -29,6 +29,23 @@ import Testing
     }
 
     @Test(arguments: [
+        ("view-source:localhost:8080/path", "http://localhost:8080/path"),
+        (" View-Source:https://example.test/a?b=1 ", "https://example.test/a?b=1"),
+        ("view-source:example.test", "https://example.test"),
+    ])
+    func readsSource(typed: String, expected: String) {
+        #expect(Address.source(from: typed)?.absoluteString == expected)
+        // Never a page on its own: only the source command takes it.
+        #expect(Address.url(from: typed) == nil)
+    }
+
+    @Test(arguments: ["example.test", "view-source:", "view-source:a search", "view-source:mailto:me@example.test",
+                      "view-source:view-source:example.test", "source:example.test"])
+    func refusesSource(typed: String) {
+        #expect(Address.source(from: typed) == nil)
+    }
+
+    @Test(arguments: [
         ("https://www.example.test/", "example.test"),
         ("https://www.example.test/docs/start?x=1#part", "example.test/docs/start"),
         ("about:blank", "about:blank"),

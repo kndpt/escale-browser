@@ -12,6 +12,9 @@
 // for WebKit's dock. In those cases only, keep WebKit's separate inspector
 // window instead of separating the group or ending a collection.
 //
+// View Page Source is Web Inspector on the page's main resource, whose text
+// WebKit keeps as received: Escale fetches nothing again and keeps no copy.
+//
 // The same sessions serve the API Calls panel (Calls.swift): one collection
 // per tab whose panel is open, each on that page's own inspector, loaded but
 // unseen, and kept while another tab is on screen. This owner stays the only
@@ -89,6 +92,46 @@ final class InspectorSession: NSObject, ObservableObject {
         guard let tab else { return }
         reveal(tab, split: split)
         if let inspector = currentInspector { send(inspector, "toggleElementSelection") }
+    }
+
+    /// View Page Source: WebKit's own selection of the main resource, whose
+    /// text is what the server sent, not the DOM scripts have changed since.
+    /// Without it, Web Inspector opens as ⌥⌘I does.
+    func showSource(tab: Tab?, split: Bool = false) {
+        guard let tab else { return }
+        reveal(tab, split: split)
+        let frame = NSSelectorFromString("_mainFrame"), show = NSSelectorFromString("showMainResourceForFrame:")
+        guard let web = tab.built, let inspector = inspector(for: web), inspector === currentInspector,
+              inspector.responds(to: show), web.responds(to: frame),
+              let handle = web.perform(frame)?.takeUnretainedValue() as? NSObject,
+              let kind = NSClassFromString("_WKFrameHandle"), handle.isKind(of: kind) else { return }
+        inspector.perform(show, with: handle)
+    }
+
+    /// A tab sent to a `view-source:` address, and the load WebKit started
+    /// for it: the source shows when that load finishes, and a load stopped
+    /// or replaced first takes the request with it.
+    var sourceTab: Tab.ID?
+    var sourceLoad: WKNavigation?
+
+    /// The first load to start in the source tab is the one asked for; any
+    /// later one replaced it.
+    func started(_ load: WKNavigation?, in tab: Tab.ID) {
+        guard sourceTab == tab else { return }
+        if sourceLoad == nil { sourceLoad = load } else { dropSource() }
+    }
+
+    /// Whether `load` is the one carrying the source request. It is dropped
+    /// either way when it is: shown now, or never.
+    func takeSource(_ load: WKNavigation?) -> Bool {
+        guard load != nil, load === sourceLoad else { return false }
+        dropSource()
+        return true
+    }
+
+    func dropSource() {
+        sourceTab = nil
+        sourceLoad = nil
     }
 
     func follow(browser: Browser, from old: Tab.ID?) {
@@ -382,6 +425,7 @@ extension Browser {
     func toggleInspector() { inspection.toggle(tab: active, split: panels.group(activeID) != nil) }
     func showConsole() { inspection.showConsole(tab: active, split: panels.group(activeID) != nil) }
     func inspectElement() { inspection.inspectElement(tab: active, split: panels.group(activeID) != nil) }
+    func viewSource() { inspection.showSource(tab: active, split: panels.group(activeID) != nil) }
 
     /// Inspect Element from a page's menu, perhaps a split pane's not yet
     /// picked: that page becomes the one on screen, then WebKit picks the node.

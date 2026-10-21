@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Drive the Escale you already have open, from the shell.
 
-    ./bench tabs                       every tab, yours and the bench's; JSON includes covered/returning/unpainted,
+    ./bench tabs                       every tab, yours and the bench's; JSON includes covered/returning/unpainted/held,
                                        and closed: what History › Recently Closed lists for this Space
     ./bench panels [add ID TARGET left|right|top|bottom | separate|remove|turn|reverse|close|tools ID | menu TITLE]
                                        test world: groups, preview, entry/page frames and existing page identity;
@@ -19,7 +19,8 @@
     ./bench history ID back|forward [INDEX]  recent pages, nearest first; choose INDEX in a test world
     ./bench visual-pick ID [JSON]      test world: targeting state (summary, anchor)/start/stop/more
     ./bench page-capture ID [JSON]     test world: capture state/take/close, mode, path; {"action":"area","step":"start|stop"}
-    ./bench json-reader ID [JSON]      test world: state or action open/raw, query, node
+    ./bench json-reader ID [JSON]      test world: state or action open/raw, query, node (its copies), press LABEL
+                                       (a reader button, the tab's or the API Calls panel's, pressed as VoiceOver does)
     ./bench calls ID|- [JSON]          test world: API Calls panel state, or action open/close/clear/
                                        filter(all,search)/select(call)/record(on)/step(by,times)/resume/report/curl/
                                        frontend(js)/pids; full returns whole text bodies
@@ -53,7 +54,10 @@
     ./bench close ID | all             only tabs the bench opened
     ./bench undo [press]               the line offering closed tabs back here: label, count, and its button as
                                        VoiceOver finds it; press: test run, that button pressed as VoiceOver does
+    ./bench button LABEL               test run: the app's own button VoiceOver calls LABEL, pressed as VoiceOver does
     ./bench media [ID [JSON]]          test run: sources/listeners; action pause/play/previous/next/volume/dismiss/return, value 0...1
+    ./bench sheet [press TITLE [stop]]  test world: the sheet on the window (its texts, buttons, and whether it
+                                       offers to stop a page asking), or its button TITLE pressed, that box ticked first
     ./bench popover [X Y]              test world: the open popover's size, or a click X Y points from its top left,
                                        through the app's event dispatch (the pointer stays where it is)
     ./bench probe                      the window's own state: panels, pageFrame beside its stageFrame and inspectorFrames,
@@ -87,8 +91,9 @@
                                        and whether a drag from there would move the window;
                                        double: test run, a double-click there (start the probe hidden);
                                        click: test run, a single click there; command: click with ⌘ held
-    ./bench pointer state|cancel|choose INDEX [SUB]|move X Y|click X Y|hold X Y|menu X Y  test-only native pointer and tracking-menu
-                                       inspection; menu: a right press, for a context menu; SUB: that item's submenu entry
+    ./bench pointer state|cancel|choose INDEX [SUB]|move X Y|click X Y|hold X Y|menu X Y|away  test-only native pointer and tracking-menu
+                                       inspection; menu: a right press, for a context menu; SUB: that item's submenu entry;
+                                       away: the pointer off the window; at and frame: pointer and menu in window points
     ./bench drag X Y TOX TOY [HOLD_MS [ENDX ENDY [PAUSE_MS]]] [escape] [live]  test run: move in steps, optionally hold, then let go;
                                        escape: press Escape after the hold, before letting go;
                                        live routes every event, press included, through AppKit;
@@ -108,9 +113,11 @@
                                        each timed until the window has caught up; go: then Return, timed
                                        until the page is loading
     ./bench row INDEX                  test run: take that row of Bearings as a click does (its action, not a pointer)
-    ./bench recall [open|close|hunt TEXT|scroll X Y TURNS]  test run: the History panel opened, closed or
-                                       searched, timed until the window rests three times (the last: settled);
-                                       scroll: its list under X Y turned down by the wheel, 40 points TURNS times
+    ./bench recall [open|close|hunt TEXT|scroll X Y TURNS|clear SPAN|forget KEY]  test run: the History panel opened,
+                                       closed or searched, timed until the window rests three times (the last: settled),
+                                       with the lines its search lists; scroll: its list under X Y turned down by the
+                                       wheel, 40 points TURNS times; clear: Clear for hour|today|week|all;
+                                       forget: Forget This Site on the line with that key
     ./bench menu [open]                test run: the Bookmarks menu as it is about to open, and its first
                                        folder (open: its first bookmark picked)
     ./bench bookmark URL [new]         test run: a bookmark picked from the list, timed until it loads
@@ -119,11 +126,12 @@
     ./bench pages on|off               test run: let a hidden probe's pages be painted, off every screen (for picture)
     ./bench picture PATH [sheet]       test run: window or attached sheet drawn to a PNG (start the probe hidden)
     ./bench film peek|unpeek|fold PATH [N] [SECS]  the window drawn N times while it animates → PATH-00.png… — --test runs only
-    ./bench update [ready|offered|fetching|none|open|arrival|close|forget|relaunch] [JSON]
+    ./bench update [ready|offered|fetching|none|open|arrival|close|forget|check|relaunch] [JSON]
                                        test run: the update's door and panels; ready/offered/fetching stand
                                        the stage by hand ({"version": "0.3", "notes": "…", "fraction": 0.4}),
                                        open/arrival show a panel,
                                        forget makes the next launch an arrival (shown with ESCALE_FEED set),
+                                       check reads the feed as Check now does (read, said and line answer),
                                        relaunch goes through the updater's own relaunch
     ./bench ui KEY VALUE               settings/passwords/welcome/history/downloads/bookmarks/hidden/keyChart on|off,
                                        look light|dark|system, tone neutral|escale,
@@ -418,7 +426,7 @@ def main(argv, out=None, err=None, timeout=None, cwd=None):
         elif len(args) in (2, 3) and args[0] == "choose":
             request["index"] = int(args[1])
             if len(args) == 3: request["sub"] = int(args[2])
-        elif args not in (["state"], ["cancel"]): sys.exit("usage: bench pointer state|cancel|choose INDEX [SUB]|move X Y|click X Y|hold X Y|menu X Y")
+        elif args not in (["state"], ["cancel"], ["away"]): sys.exit("usage: bench pointer state|cancel|choose INDEX [SUB]|move X Y|click X Y|hold X Y|menu X Y|away")
     elif verb == "drag":
         while args and args[-1] in ("live", "escape"):
             request[args[-1]] = True
@@ -443,6 +451,9 @@ def main(argv, out=None, err=None, timeout=None, cwd=None):
     elif verb == "undo":
         if args not in ([], ["press"]): sys.exit("usage: bench undo [press]")
         request["press"] = args == ["press"]
+    elif verb == "button":
+        if not args: sys.exit("usage: bench button LABEL")
+        request["label"] = " ".join(args)
     elif verb == "row":
         if len(args) != 1: sys.exit("usage: bench row INDEX")
         request["index"] = int(args[0])
@@ -451,7 +462,8 @@ def main(argv, out=None, err=None, timeout=None, cwd=None):
         elif args[:1] == ["scroll"] and len(args) == 4:
             request["x"], request["y"], request["scroll"] = float(args[1]), float(args[2]), int(args[3])
         elif args in ([], ["open"], ["close"]): request["open"] = args != ["close"]
-        else: sys.exit("usage: bench recall [open|close|hunt TEXT|scroll X Y TURNS]")
+        elif args[:1] in (["clear"], ["forget"]) and len(args) == 2: request[args[0]] = args[1]
+        else: sys.exit("usage: bench recall [open|close|hunt TEXT|scroll X Y TURNS|clear hour|today|week|all|forget KEY]")
     elif verb == "bookmark":
         if len(args) not in (1, 2) or (len(args) == 2 and args[1] != "new"): sys.exit("usage: bench bookmark URL [new]")
         request["url"] = args[0]
@@ -484,6 +496,10 @@ def main(argv, out=None, err=None, timeout=None, cwd=None):
         request["id"] = args[0]
         request["clear"] = args[1:] == ["clear"]
         request["closed"] = args[1:] == ["closed"]
+    elif verb == "sheet":
+        if not (args == [] or (args[:1] == ["press"] and len(args) in (2, 3) and args[2:] in ([], ["stop"]))):
+            sys.exit("usage: bench sheet [press TITLE [stop]]")
+        if args: request["press"], request["stop"] = args[1], args[2:] == ["stop"]
     elif verb == "popover":
         if len(args) not in (0, 2): sys.exit("usage: bench popover [X Y]")
         if args: request["x"], request["y"] = float(args[0]), float(args[1])

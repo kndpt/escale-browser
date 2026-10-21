@@ -5,7 +5,8 @@ import WebKit
 import Translation
 #endif
 
-// Copy and Translate, over text just selected with the mouse.
+// Copy, Translate and a link to the passage, over text just selected with
+// the mouse.
 //
 // The right-click menu already has both, one click and a hunt further away;
 // this puts them where the pointer let go. On unless turned off in Settings ›
@@ -18,7 +19,8 @@ import Translation
 // is watched while the pointer moves. What ends it: a click, a key, a scroll
 // or a resize in the page, the selection going away, another tab, a new
 // page, a zoom, or the switch. Only the rectangle crosses over; the selected
-// words are read from the page when Translate is pressed, never before.
+// words are read from the page when Translate or the link is pressed, never
+// before (the link's own rule is in TextFragment.swift).
 //
 // Frames in the page are left out: their selections would need each frame's
 // place in the page, and an ad or an embed is rarely text worth translating.
@@ -29,13 +31,14 @@ import Translation
 // service as Translate in WebKit's right-click menu. Unless the Mac is set to
 // translate offline, the panel says the words go to Apple and waits for
 // Continue before sending anything: pressing Translate asks for it, nothing
-// before does. Before macOS 14.4 there is no such panel and Copy stands alone.
+// before does. Before macOS 14.4 there is no such panel and the link stands
+// alone beside Copy.
 //
-// The arrival is drawn rather than animated by SwiftUI: Copy's pop and
-// Translate being pulled out of it are two springs on one clock, and the two
-// shapes are one piece of glass while they touch (Bubble.swift, shared with
-// Developer mode's dock). The clock runs for the arrival's 0.37 s and then
-// stops; Reduce Motion skips it for a fade.
+// The arrival is drawn rather than animated by SwiftUI: Copy's pop and the
+// capsule of Translate and the link being pulled out of it are two springs
+// on one clock, and the two shapes are one piece of glass while they touch
+// (Bubble.swift, shared with Developer mode's dock). The clock runs for the
+// arrival's 0.37 s and then stops; Reduce Motion skips it for a fade.
 
 /// Reports a finished mouse selection in the main frame to the tab that owns
 /// the page. WebKit retains this relay; the tab is weak so closing it
@@ -132,9 +135,9 @@ struct SelectionSpot: Equatable {
 struct SelectionFrame: Equatable {
     /// Copy's scale, its height trailing its width.
     var copy: CGSize
-    /// Translate's capsule; nil where there is no Translate.
+    /// The capsule of Translate and the link; nil for Copy alone.
     var pill: CGRect?
-    /// Translate's words, from 0 to 1.
+    /// The capsule's words and symbols, from 0 to 1.
     var label: Double
     /// The fine outline, drawn once the two shapes have parted.
     var edge: Double
@@ -197,20 +200,25 @@ final class SelectionMenu: ObservableObject {
     }
 
     /// Translate's width at rest: its padding, symbol and word.
-    static let pillWidth: CGFloat = {
+    static let translateWidth: CGFloat = {
         let word = ("Translate" as NSString).size(withAttributes: [
             .font: NSFont.systemFont(ofSize: 13, weight: .medium)
         ]).width
         let symbol = NSImage(systemSymbolName: "translate", accessibilityDescription: nil)?
             .withSymbolConfiguration(.init(pointSize: 14, weight: .medium))?.size.width ?? 17
-        return ceil(12 + symbol + 6 + word + 14)
+        return ceil(12 + symbol + 6 + word + 6)
     }()
+
+    /// The capsule at rest: Translate where there is one, then the link,
+    /// round at its end like Copy.
+    static var pillWidth: CGFloat {
+        (translates ? translateWidth : 0) + Metrics.selectionButton
+    }
 
     /// The menu at rest, as the page places it.
     static var size: CGSize {
         let button = Metrics.selectionButton
-        let width = translates ? button + Metrics.selectionGap + pillWidth : button
-        return CGSize(width: width, height: button)
+        return CGSize(width: button + Metrics.selectionGap + pillWidth, height: button)
     }
 
     /// A selection from `tab`, whose page is `page` in size, or its end.
@@ -268,7 +276,8 @@ struct SelectionOver: View {
                 SelectionBubble(
                     menu: menu,
                     copy: { menu.copy(in: tab.built) },
-                    translate: { menu.translate(in: tab.built) }
+                    translate: { menu.translate(in: tab.built) },
+                    link: { tab.onHighlight?(tab) }
                 )
                 .offset(x: shown.origin.x - SelectionBubble.pad, y: shown.origin.y - SelectionBubble.pad)
                 .id(shown.serial)
@@ -283,15 +292,17 @@ struct SelectionOver: View {
     }
 }
 
-/// Copy, and Translate drawn out of it, on one piece of glass.
+/// Copy, and Translate and the link drawn out of it, on one piece of glass.
 private struct SelectionBubble: View {
     @ObservedObject var menu: SelectionMenu
     let copy: () -> Void
     let translate: () -> Void
+    let link: () -> Void
 
     @State private var start = Date()
     @State private var settled = false
     @State private var overTranslate = false
+    @State private var overLink = false
     @SwiftUI.Environment(\.accessibilityReduceMotion) private var reduced
     @SwiftUI.Environment(\.depth) private var depth
     @SwiftUI.Environment(\.accessibilityReduceTransparency) private var reducing
@@ -303,7 +314,7 @@ private struct SelectionBubble: View {
         let still = settled || reduced
         TimelineView(.animation(paused: still)) { context in
             let elapsed = still ? SelectionFrame.total : context.date.timeIntervalSince(start)
-            drawn(SelectionFrame.at(elapsed, pill: SelectionMenu.translates ? SelectionMenu.pillWidth : nil))
+            drawn(SelectionFrame.at(elapsed, pill: SelectionMenu.pillWidth))
         }
         .frame(width: SelectionMenu.size.width + Self.pad * 2, height: SelectionMenu.size.height + Self.pad * 2, alignment: .topLeading)
         .task {
@@ -341,23 +352,40 @@ private struct SelectionBubble: View {
             .offset(x: pad, y: pad)
 
             if let pill {
-                Button(action: translate) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "translate").font(.system(size: 14, weight: .medium))
-                        Text("Translate").font(.system(size: 13, weight: .medium))
+                HStack(spacing: 0) {
+                    if SelectionMenu.translates {
+                        Button(action: translate) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "translate").font(.system(size: 14, weight: .medium))
+                                Text("Translate").font(.system(size: 13, weight: .medium))
+                            }
+                            .fixedSize()
+                            .foregroundStyle(Palette.ink)
+                            .opacity(frame.label)
+                            .padding(.leading, 12)
+                            .frame(width: SelectionMenu.translateWidth, height: pill.height, alignment: .leading)
+                            .background(Capsule().fill(overTranslate ? Palette.hover : .clear))
+                            .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .onHover { overTranslate = $0 }
+                        .modifier(TranslationPanel(menu: menu))
                     }
-                    .fixedSize()
-                    .foregroundStyle(Palette.ink)
-                    .opacity(frame.label)
-                    .padding(.leading, 12)
-                    .frame(width: pill.width, height: pill.height, alignment: .leading)
-                    .background(Capsule().fill(overTranslate ? Palette.hover : .clear))
-                    .clipShape(Capsule())
-                    .contentShape(Capsule())
+                    Button(action: link) {
+                        Image(systemName: "link").font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Palette.ink)
+                            .opacity(frame.label)
+                            .frame(width: Metrics.selectionButton, height: pill.height)
+                            .background(Circle().fill(overLink ? Palette.hover : .clear))
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .onHover { overLink = $0 }
+                    .help("Copy Link with Highlight")
+                    .accessibilityLabel("Copy Link with Highlight")
                 }
-                .buttonStyle(.plain)
-                .onHover { overTranslate = $0 }
-                .modifier(TranslationPanel(menu: menu))
+                .frame(width: pill.width, height: pill.height, alignment: .leading)
+                .clipShape(Capsule())
                 .offset(x: pill.minX, y: pill.minY)
             }
         }

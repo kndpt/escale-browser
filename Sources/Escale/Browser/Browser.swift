@@ -276,7 +276,8 @@ final class Browser: NSObject, ObservableObject {
             guard let self, self.spaces.contains(where: { $0.id == space }) else { return nil }
             return self.downloadsFolder(for: space)
         },
-        announce: { [weak self] line in self?.announce(line) }
+        announce: { [weak self] line in self?.announce(line) },
+        page: { [weak self] space, store in self?.page(in: space, store: store) }
     )
     let floater = Float()
     /// True while the pointer is picking things to hide.
@@ -406,15 +407,47 @@ final class Browser: NSObject, ObservableObject {
         announce("Cache cleared")
     }
 
-    func clearHistory() {
-        history.forget()
-        localhost.forget(space: spaceID)
+    func clearHistory(_ span: History.Span = .all) {
+        if let start = span.start() {
+            history.forget(since: start)
+            localhost.forget(from: start, in: spaceID)
+        } else {
+            history.forget()
+            localhost.forget(space: spaceID)
+        }
         announce("History cleared")
+    }
+
+    /// The three clearings ask first, the same way from the menu, Settings
+    /// and History, and say how far each reaches: history is this Space's,
+    /// cookies and cache are every Space's. `done` runs once history is gone.
+    func askToClearHistory(_ span: History.Span = .all, then done: @escaping () -> Void = {}) {
+        let what = span == .all ? "Visited pages and learned search choices" : "Pages last opened then"
+        Ask.sure("Clear this Space’s history?", detail: "\(what) in this Space will be removed. Other Spaces keep theirs.", confirm: "Clear History") {
+            self.clearHistory(span)
+            done()
+        }
+    }
+
+    func askToClearSites() {
+        Ask.sure("Sign out of every site?", detail: "Cookies, sign-ins and site data will be removed in every Space. Every site will ask you to sign in again.", confirm: "Sign Out of Everything") { self.clearSites() }
+    }
+
+    func askToClearCache() {
+        Ask.sure("Clear the cache in every Space?", detail: "Only what was fetched to draw pages will be removed. Cookies and sign-ins are kept.", confirm: "Clear Cache") { self.clearCache() }
     }
 
     func forgetHistory(_ trace: History.Trace) {
         history.forget(trace.key)
         localhost.forget(url: trace.url, in: spaceID)
+    }
+
+    /// Every page of the trace's host; cookies and cache stay, as with Clear.
+    func forgetSite(_ trace: History.Trace) {
+        guard let host = trace.url.host() else { return }
+        history.forget(host: host)
+        localhost.forget(host: host, in: spaceID)
+        announce("\(host) forgotten")
     }
 
     /// The last few places, for the History menu.
@@ -656,15 +689,22 @@ final class Browser: NSObject, ObservableObject {
     /// links, not a bare address to explain in your own words.
     func copyMarkdownLink() {
         guard let tab = active, let url = tab.address else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(Browser.markdownLink(tab.label, to: url), forType: .string)
+        announce("Link copied")
+    }
+
+    /// `[text](address)`, on one line; the address is the text when there is
+    /// none, as for a link that is only a picture.
+    nonisolated static func markdownLink(_ text: String, to url: URL) -> String {
+        let words = text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
         // A backslash first, so the ones added next aren't doubled; then both
         // brackets, either of which would end or break the link's text.
-        let title = tab.label
+        let title = (words.isEmpty ? url.absoluteString : words)
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "[", with: "\\[")
             .replacingOccurrences(of: "]", with: "\\]")
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString("[\(title)](\(url.absoluteString))", forType: .string)
-        announce("Link copied")
+        return "[\(title)](\(url.absoluteString))"
     }
 
     func announce(_ text: String, symbol: String? = nil) {
@@ -1565,6 +1605,7 @@ final class Browser: NSObject, ObservableObject {
         moved.pin = tab.pin
         moved.migration = tab.migration
         moved.name = tab.name
+        moved.muted = tab.muted
         prepare(moved)
         if moved.pin != nil {
             tabs.insert(moved, at: pinnedCount)
@@ -1673,6 +1714,7 @@ final class Browser: NSObject, ObservableObject {
         } else {
             Tab(bench: tab.bench, space: tab.space, configuration: page)
         }
+        fresh.muted = tab.muted
         prepare(fresh)
         if let here {
             let wasActive = activeID == tab.id
@@ -2021,6 +2063,7 @@ final class Browser: NSObject, ObservableObject {
         }
         tab.onPickEnd = { [weak self] _ in self?.veiling = false }
         tab.onImageMenu = { [weak self] tab, url in self?.showImageMenu(for: tab, at: url) }
+        tab.onHighlight = { [weak self] tab in self?.copyHighlightLink(in: tab) }
         tab.searchName = { [weak self] in self.map { $0.prefs.engine.name(custom: $0.prefs.customEngine) } }
         tab.onSearch = { [weak self] tab, text in
             guard let self, let url = self.searchURL(for: text) else { return }
@@ -2034,6 +2077,7 @@ final class Browser: NSObject, ObservableObject {
         // From a private tab, the new one is private too, as for ⌘-click.
         tab.onMiddleClick = { [weak self] tab, url in self?.openPageLink(url, from: tab, foreground: false) }
         tab.onCross = { [weak self] tab, url in self?.replace(tab, going: url) }
+        tab.onLinkChoice = { [weak self] tab, choice, link in self?.chose(choice, link, on: tab) }
 
         // The caret in a sign-in box: the accounts kept for this site hang
         // from the box, and go when the caret does. Nothing is filled on
@@ -2209,20 +2253,27 @@ final class Browser: NSObject, ObservableObject {
 
         let target: URL?
         var chosen: Suggestion?
+        let source = Address.source(from: field.typed)
         if let picked = field.picked, offers.indices.contains(picked) {
             chosen = offers[picked]
             target = offers[picked].url
         } else if field.ending != nil {
             target = Address.url(from: field.completed)
         } else {
-            target = destination(for: field.typed)
+            target = source ?? destination(for: field.typed)
         }
 
         guard let url = target else {
             field.refuse()
             return
         }
-        navigateFromField(url)
+        let tab = navigateFromField(url)
+        if source == url {
+            inspection.dropSource()
+            inspection.sourceTab = tab?.id
+        } else if inspection.sourceTab == tab?.id {
+            inspection.dropSource()
+        }
         if let chosen { learn(chosen, choice) }
         editing = false
         field.typed = ""
@@ -2236,7 +2287,9 @@ final class Browser: NSObject, ObservableObject {
     /// ⌘⇧R. The article, and nothing that was arranged around it.
     func toggleReader() {
         guard let tab = active else { return }
-        tab.toggleReader { [weak self] worked in
+        let dark = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        let dress = Reader.dress(look: prefs.readerLook, dark: dark, width: prefs.readerWidth, size: prefs.readerSize)
+        tab.toggleReader(dress) { [weak self] worked in
             guard !worked else { return }
             self?.announce("Nothing to read on this page")
         }
@@ -2358,6 +2411,11 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         for action: WKNavigationAction,
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
+        if let page = webView as? PageView, let take = page.takeLink {
+            page.takeLink = nil
+            if let url = action.request.url { take(url) }
+            return nil
+        }
         let opener = tab(for: webView)
         if action.navigationType == .linkActivated, action.request.httpMethod == "GET",
            !action.shouldPerformDownload, let url = action.request.url, let opener,
@@ -2456,7 +2514,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        fail(webView, error)
+        fail(webView, navigation, error)
     }
 
     func webView(
@@ -2464,7 +2522,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         didFailProvisionalNavigation navigation: WKNavigation!,
         withError error: Error
     ) {
-        fail(webView, error)
+        fail(webView, navigation, error)
     }
 
     /// A page asking to close itself.
@@ -2489,6 +2547,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         guard let tab = tab(for: webView) else { return }
         tab.invalidatePageData()
         logins.dropChoice(in: tab.id)
+        inspection.started(navigation, in: tab.id)
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
@@ -2521,6 +2580,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         (webView as? PageView)?.showFirstFrame("navigation-finished", animated: tab(for: webView)?.returning != true)
         guard let tab = tab(for: webView), let url = tab.address else { return }
         tab.reveal()
+        if inspection.takeSource(navigation), tab.id == activeID { viewSource() }
         tellStore(tab)
         // A page that arrived after a password went out: did the sign-in take?
         tab.settleSignIn()
@@ -2534,12 +2594,13 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         localhost.record(url, title: tab.title, in: tab.space)
     }
 
-    private func fail(_ webView: WKWebView, _ error: Error) {
+    private func fail(_ webView: WKWebView, _ navigation: WKNavigation?, _ error: Error) {
         let nsError = error as NSError
         let code = nsError.code
         // Cancelled is not a failure: it's what a redirect, a stopped load, or
         // a second Return in quick succession looks like from here.
         guard code != NSURLErrorCancelled else {
+            _ = inspection.takeSource(navigation)
             tab(for: webView)?.stayed()
             return
         }
@@ -2558,9 +2619,10 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         // ends the navigation with "plug-in handled load" (204) a moment
         // after it starts playing. The page arrived: it is a finish.
         if nsError.domain == "WebKitErrorDomain" && code == 204 {
-            self.webView(webView, didFinish: nil)
+            self.webView(webView, didFinish: navigation)
             return
         }
+        _ = inspection.takeSource(navigation)
         tab(for: webView)?.uncover()
         tab(for: webView)?.failed(message(for: code), at: nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL)
     }

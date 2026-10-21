@@ -263,6 +263,9 @@ final class Bench {
         case "popover":
             // The open popover, and a click in it (PopoverBench.swift).
             PopoverBench.run(request, answer: answer)
+        case "sheet":
+            // The sheet on the window, and a press on it (SheetBench.swift).
+            SheetBench.run(request, answer: answer)
         case "update":
             // The update's door and panels (UpdateBench.swift).
             answer(UpdateBench.run(request, browser: browser))
@@ -286,6 +289,13 @@ final class Bench {
                 && button.map { AXUIElementPerformAction($0, kAXPressAction as CFString) == .success } == true
             answer(["label": closing?.label ?? "", "count": closing?.ghosts.count ?? 0, "pressed": pressed,
                     "button": button.map { Bench.ax($0, kAXValueAttribute) as? String ?? "" } as Any? ?? NSNull()])
+        case "button":
+            // Any of the app's own buttons, popovers included, found by the
+            // name VoiceOver reads and pressed the way VoiceOver does.
+            guard Store.testing else { answer(["error": "only in a test run"]); return }
+            let button = Bench.accessible(button: request["label"] as? String ?? "")
+            let pressed = button.map { AXUIElementPerformAction($0, kAXPressAction as CFString) == .success } == true
+            Bench.afterRests(2) { answer(["found": button != nil, "pressed": pressed]) }
 
         case "media":
             guard Store.testing else { answer(["error": "only in a test run"]); return }
@@ -299,6 +309,7 @@ final class Bench {
                     tab.web.loadHTMLString(html, baseURL: base)
                 }
                 else if action == "dismiss" { tab.media.dismiss() }
+                else if action == "speaker" { tab.toggleMute() }
                 else if action == "return" { browser.returnToMedia(tab.id) }
                 else if action == "float" { browser.floatMedia(tab.id) }
                 else if action == "minimize" { browser.floater.onMinimize?() }
@@ -442,10 +453,15 @@ final class Bench {
                 if action == "open" { reader.open(tab.built) }
                 if action == "raw" { reader.raw() }
                 if let query = request["query"] as? String { reader.query = query }
+                // A reader button, the tab's or the API Calls panel's, pressed as VoiceOver does.
+                let pressed = (request["press"] as? String).flatMap { Bench.accessible(button: $0) }
+                    .map { AXUIElementPerformAction($0, kAXPressAction as CFString) == .success }
                 var state: [String: Any] = ["available": reader.available, "shown": reader.shown,
-                    "count": reader.document?.nodes.count ?? 0, "visible": reader.visible.count, "failure": reader.error ?? ""]
+                    "count": reader.document?.nodes.count ?? 0, "visible": reader.visible.count, "failure": reader.error ?? "",
+                    "hidden": reader.hidden ?? "", "pressed": pressed ?? false]
                 if let id = request["node"] as? Int, let document = reader.document, document.nodes.indices.contains(id) {
-                    state["value"] = document.value(id); state["path"] = document.path(id)
+                    state["value"] = document.value(id); state["path"] = document.path(id); state["script"] = document.script(id)
+                    state["minified"] = document.formatted(id, indent: false); state["indented"] = document.formatted(id, indent: true)
                 }
                 answer(state)
             } else {
@@ -723,6 +739,10 @@ final class Bench {
                 "transfers": browser.downloads.transfers.map { transfer -> [String: Any] in
                     ["name": transfer.name, "space": transfer.space.uuidString,
                      "fraction": transfer.fraction as Any? ?? NSNull()]
+                },
+                "failedDownloads": browser.downloads.failures.map { failure -> [String: Any] in
+                    ["name": failure.name, "space": failure.space.uuidString, "folder": failure.file?.deletingLastPathComponent().path ?? "",
+                     "action": failure.action ?? ""]
                 },
                 "modal": NSApp.modalWindow.map { "\(type(of: $0)) “\($0.title)”" } ?? "",
                 "look": browser.prefs.look.rawValue,
@@ -1185,6 +1205,16 @@ final class Bench {
             let start = CACurrentMediaTime()
             if let hunt = request["hunt"] as? String {
                 browser.recallHunt = hunt
+            } else if let clear = request["clear"] as? String {
+                // What the panel's Clear does for that span.
+                let spans: [String: History.Span] = ["hour": .hour, "today": .today, "week": .week, "all": .all]
+                guard let span = spans[clear] else { answer(["error": "recall clear hour|today|week|all"]); return }
+                browser.clearHistory(span)
+            } else if let key = request["forget"] as? String {
+                // What a line's Forget This Site does.
+                guard let trace = browser.history.everything().first(where: { $0.key == key })
+                else { answer(["error": "no line \(key)"]); return }
+                browser.forgetSite(trace)
             } else {
                 browser.recalling = request["open"] as? Bool ?? true
             }
@@ -1193,7 +1223,9 @@ final class Bench {
                 Bench.whenResting(since: start) { rested in
                     rests.append(rested)
                     guard rests.count == 3 else { DispatchQueue.main.async { rest() }; return }
-                    answer(["ms": rests, "open": browser.recalling, "hunt": browser.recallHunt])
+                    // The lines the panel lists for its search, as it reads them.
+                    answer(["ms": rests, "open": browser.recalling, "hunt": browser.recallHunt,
+                            "lines": browser.history.everything(matching: browser.recallHunt).count])
                 }
             }
             rest()
@@ -1843,7 +1875,7 @@ final class Bench {
 
         default:
             answer(["error": "unknown command “\(verb)”", "commands": [
-                "calls", "update", "tabs", "alerts", "transfer", "open", "go", "close", "wait", "sleep", "idle", "pin", "caches", "select", "crash", "text", "eval", "click", "type", "submit", "shot", "probe", "key", "resize", "hit", "pointer", "drag", "film", "window", "pages", "picture", "place", "field", "recall", "bookmark", "menu", "space", "routes", "shelf", "environments", "strip", "column", "bar", "ui",
+                "calls", "update", "tabs", "alerts", "sheet", "transfer", "open", "go", "close", "wait", "sleep", "idle", "pin", "caches", "select", "crash", "text", "eval", "click", "type", "submit", "shot", "probe", "key", "resize", "hit", "pointer", "drag", "film", "window", "pages", "picture", "place", "field", "recall", "bookmark", "menu", "space", "routes", "shelf", "environments", "strip", "column", "bar", "ui",
             ]])
         }
     }
@@ -2010,6 +2042,8 @@ final class Bench {
             "pageZoom": Double(tab.built?.pageZoom ?? 1),
             "zoom": Double(tab.zoom),
             "noisy": tab.noisy,
+            "muted": tab.muted,
+            "pageMuted": tab.built.flatMap { Mute.available ? ($0.value(forKey: "_mediaMutedState") as? UInt).map { $0 & 1 == 1 } : nil } as Any? ?? NSNull(),
             "audioAvailable": tab.built?.responds(to: NSSelectorFromString("_isPlayingAudio")) ?? false,
             "audioValue": tab.built.flatMap { $0.responds(to: NSSelectorFromString("_isPlayingAudio")) ? $0.value(forKey: "_isPlayingAudio") as? Bool : nil } as Any? ?? NSNull(),
             "camera": Bench.name(of: tab.built?.cameraCaptureState),
@@ -2023,6 +2057,8 @@ final class Bench {
             "covered": tab.cover != nil,
             "returning": tab.returning,
             "unpainted": tab.built?.unpainted ?? false,
+            // Questions the page asked while out of the window (Dialogs.swift).
+            "held": tab.built?.held.count ?? 0,
             "shy": tab.shy,
             "space": tab.space.uuidString,
             "store": tab.store.identifier?.uuidString ?? "default",
