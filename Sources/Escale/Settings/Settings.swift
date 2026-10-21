@@ -805,15 +805,15 @@ struct SettingsPanel: View {
             }
             Card {
                 Line(.history) {
-                    Pill("Clear") { browser.clearHistory() }
+                    Pill("Clear") { browser.askToClearHistory() }
                 }
                 Rule()
                 Line(.cookies) {
-                    Pill("Sign out of everything") { browser.clearSites() }
+                    Pill("Sign out of everything") { browser.askToClearSites() }
                 }
                 Rule()
                 Line(.cache) {
-                    Pill("Clear") { browser.clearCache() }
+                    Pill("Clear") { browser.askToClearCache() }
                 }
             }
         }

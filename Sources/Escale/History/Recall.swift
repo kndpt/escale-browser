@@ -181,21 +181,22 @@ struct HistoryPanel: View {
                 Line("History", span == .all ? "Everywhere you have been"
                      : "Each page last opened then goes, with its older visits") {
                     Pill("Clear") {
-                        browser.clearHistory(span)
-                        refresh()
-                        withAnimation(Motion.settle) { clearing = false }
+                        browser.askToClearHistory(span) {
+                            refresh()
+                            withAnimation(Motion.settle) { clearing = false }
+                        }
                     }
                 }
                 Segmented(options: [(History.Span.hour, "Last hour"), (.today, "Today"), (.week, "Last 7 days"), (.all, "Everything")],
                           selection: $span, wide: true)
                     .padding([.horizontal, .bottom], 10)
                 Rule()
-                Line("Cookies and sign-ins", "Signs you out of every site") {
-                    Pill("Sign out of everything") { browser.clearSites() }
+                Line("Cookies and sign-ins", "Signs you out of every site, in every Space") {
+                    Pill("Sign out of everything") { browser.askToClearSites() }
                 }
                 Rule()
-                Line("Cache", "Only what was fetched to draw pages") {
-                    Pill("Clear") { browser.clearCache() }
+                Line("Cache", "Only what was fetched to draw pages, in every Space") {
+                    Pill("Clear") { browser.askToClearCache() }
                 }
             }
             HStack {

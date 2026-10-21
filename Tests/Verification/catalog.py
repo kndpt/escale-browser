@@ -251,6 +251,13 @@ CHECKS = {
               "app", ("bundle",),
               paths=("Sources/Escale/History/Recall.swift", "Sources/Escale/History/History.swift",
                      "Sources/Escale/Design/Plate.swift")),
+        Check("clearing", ("python3", "Tests/Bench/clearing.py"),
+              BENCH + ("Tests/Bench/clearing.py", "Tests/Bench/tab_access.py"),
+              "history, sign-out and cache ask first from Settings and History; history stays per Space",
+              "app", ("bundle",),
+              paths=("Sources/Escale/History/Recall.swift", "Sources/Escale/Settings/Settings.swift",
+                     "Sources/Escale/Browser/Browser.swift", "Sources/Escale/Keyboard/KeyRouting.swift",
+                     "Tests/Bench/clearing.py")),
         Check("address", ("python3", "Tests/Bench/address_field.py"),
               BENCH + ("Tests/Bench/address_field.py",),
               "real typing, suggestions, focus, switcher, refusal and Space transition", "app", ("bundle",),
@@ -497,7 +504,7 @@ def plan(paths, risks=(), checks=(), quick=False, acknowledge=None):
         include_dependencies(name)
     # Dependencies are small and explicit; no scoring or model-specific workflow.
     order = ["icons", "harness", "portable", "links", "whitespace", "changelog", "build", "swift",
-             "bundle", "app", "wake", "sleeping", "sleep-by-hand", "dialogs", "tabs", "closed-tabs", "tab-reopen", "shortcut-motion", "sidebar-rows", "tab-access", "tab-search-button", "capture-area", "text-fragment", "navigation", "navigation-command-click", "history-menus", "kept-history", "download-resume", "history-panel", "update", "address", "keywords", "keyboard", "keyboard-settings", "panel-keys", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus", "routes", "tab-source", "environments", "bookmarked-page", "inspector", "view-source", "elsewhere", "calls", "calls-browse", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "extension-switch", "welcome-extensions", "space-media", "tab-mute", "space-reorder", "space-send", "link-menu", "call-float", "transfer", "warnings"]
+             "bundle", "app", "wake", "sleeping", "sleep-by-hand", "dialogs", "tabs", "closed-tabs", "tab-reopen", "shortcut-motion", "sidebar-rows", "tab-access", "tab-search-button", "capture-area", "text-fragment", "navigation", "navigation-command-click", "history-menus", "kept-history", "download-resume", "history-panel", "clearing", "update", "address", "keywords", "keyboard", "keyboard-settings", "panel-keys", "github-search", "habits", "commands", "favicon", "icon-lists", "chrome", "focus", "routes", "tab-source", "environments", "bookmarked-page", "inspector", "view-source", "elsewhere", "calls", "calls-browse", "extension-speech", "extension-messaging", "extension-state", "extension-bar", "shared-extensions", "extension-switch", "welcome-extensions", "space-media", "tab-mute", "space-reorder", "space-send", "link-menu", "call-float", "transfer", "warnings"]
     return {"checks": [n for n in order if n in chosen], "reasons": chosen,
             "risks": list(risks), "requested": list(checks),
             "unknown": unknown, "acknowledge": acknowledge, "quick": quick,

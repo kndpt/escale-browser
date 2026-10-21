@@ -86,9 +86,9 @@ enum Setting: String, CaseIterable, Identifiable {
         case .bench: return ("Let a script drive Escale", "A local socket for testing. Its tabs open beside yours with a flask on them and never take over — see ./bench")
         case .shield: return ("Block ads and trackers", "Third parties whose only job is to watch")
         case .capture: return ("Camera and microphone", "What sites in this Space were allowed or refused")
-        case .history: return ("History", "Every address you have been to")
-        case .cookies: return ("Cookies and sign-ins", "Signs you out of every site")
-        case .cache: return ("Cache", "Only what was fetched to draw pages")
+        case .history: return ("History", "Pages visited in this Space")
+        case .cookies: return ("Cookies and sign-ins", "Signs you out of every site, in every Space")
+        case .cache: return ("Cache", "Only what was fetched to draw pages, in every Space")
         case .feedback: return ("Found something wrong?", "Opens a draft with the version already in it")
         }
     }

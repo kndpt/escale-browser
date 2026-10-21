@@ -418,6 +418,25 @@ final class Browser: NSObject, ObservableObject {
         announce("History cleared")
     }
 
+    /// The three clearings ask first, the same way from the menu, Settings
+    /// and History, and say how far each reaches: history is this Space's,
+    /// cookies and cache are every Space's. `done` runs once history is gone.
+    func askToClearHistory(_ span: History.Span = .all, then done: @escaping () -> Void = {}) {
+        let what = span == .all ? "Visited pages and learned search choices" : "Pages last opened then"
+        Ask.sure("Clear this Space’s history?", detail: "\(what) in this Space will be removed. Other Spaces keep theirs.", confirm: "Clear History") {
+            self.clearHistory(span)
+            done()
+        }
+    }
+
+    func askToClearSites() {
+        Ask.sure("Sign out of every site?", detail: "Cookies, sign-ins and site data will be removed in every Space. Every site will ask you to sign in again.", confirm: "Sign Out of Everything") { self.clearSites() }
+    }
+
+    func askToClearCache() {
+        Ask.sure("Clear the cache in every Space?", detail: "Only what was fetched to draw pages will be removed. Cookies and sign-ins are kept.", confirm: "Clear Cache") { self.clearCache() }
+    }
+
     func forgetHistory(_ trace: History.Trace) {
         history.forget(trace.key)
         localhost.forget(url: trace.url, in: spaceID)
