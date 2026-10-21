@@ -962,6 +962,9 @@ enum Motion {
     static let quick = Animation.easeOut(duration: 0.14)
     /// How long a closed tab is offered back (UndoClose.swift).
     static let undoClose: TimeInterval = 5
+    /// A setting a search opened stays marked this long, then fades.
+    static let foundHold: TimeInterval = 1.6
+    static let foundFade = Animation.easeOut(duration: 0.6)
     /// The page tools' dock rising from the window's foot: a spring with a
     /// little give.
     static let dock = Animation.spring(response: 0.42, dampingFraction: 0.76)
