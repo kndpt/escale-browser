@@ -1,1 +1,0 @@
-A tab's speaker now mutes it: one click silences the page without pausing it, the speaker shows crossed out, the Space loses its sound mark, and a second click gives the sound back; a muted tab stays muted through sleep (#210).

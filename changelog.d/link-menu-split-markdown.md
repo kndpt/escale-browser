@@ -1,1 +1,0 @@
-Right-clicking a link now offers Open Link in Split View, which puts it beside the page within the split's limits, and Copy Link as Markdown, which copies a Markdown link named by the link's text, or by its address when it has none (#31).

@@ -11,6 +11,56 @@ Search before that is in
 
 ## Unreleased
 
+## 0.13 — 2026-10-21
+
+### Highlights
+
+- **The page comes back when your dev server does.** Open a local site before its server runs, and the page loads by itself once it starts.
+- **The page at a phone's size.** See a site as a phone or tablet would, check where its layout changes, then open it on a real phone.
+- **Copy a link to the selected text.** Share a link that opens the page scrolled to the words you picked, marked.
+- **Reading mode in the dark.** The simplified article view turns dark with the browser, and its width and text size can be changed.
+- **Undo a closed tab.** Just after closing a tab, a button at the bottom brings it back for a few seconds.
+
+### What changed
+
+- A refused local address such as `localhost:3000` now says "Nothing is listening on :3000" and reloads by itself once a server starts there, as long as its tab is on screen, for up to ten minutes; Escale reads the Mac's own list of listening ports for that and sends nothing to the port (#16).
+- A page that doesn't load now shows the address that failed and WebKit's error code, has its own sentence for an expired certificate, a bad server answer and a redirect loop, and offers Back to the page you came from, as ⌘[ now does (#17).
+- Developer mode's Screens (⌥⌘R) lays the page out at a phone's, a tablet's or any width under a ruler that shows the page's own CSS breakpoints; its edges drag and catch on each side of a breakpoint, every layout can be seen side by side, elements sticking out past the sides are counted and outlined, and the page opens in the running Simulator or on a phone by QR code, with a warning when the dev server only listens on the Mac.
+- VoiceOver and Full Keyboard Access now see each bookmark and folder, in the column and in the Bookmarks menu and panel, as a button named by its title; a folder says whether it is open, an open bookmark offers Copy Link and Close Tab, and a bookmark's environments are among its actions, so none of it needs the pointer (#3).
+- The JSON reader, in a tab and in the API Calls panel, has Expand All and Collapse All, and ⌥-click opens or closes a whole branch; Copy now offers a JavaScript path (`.data[0].id`) beside the JSON Pointer, and an object or array minified or indented with its numbers and key order unchanged; the footer mentions the 1,000-line limit only when lines are hidden (#39).
+- Clearing history, signing out of everything and clearing the cache now ask first, the same way from the menu, Settings and the History panel, and say how far they reach: history is this Space's, cookies, sign-ins and cache are every Space's (#10).
+- A download that fails stays in the downloads list, named in the announcement, with Resume when the server allows it, otherwise Retry, saving to the same folder of the same Space; failed rows last until you remove them or quit (#58).
+- The menu over selected text has a link button, Copy Link with Highlight: it copies the page's address with a text fragment that scrolls to the passage and marks it when the link is opened, with the words around it when the passage appears more than once. The right-click menu offers the same where WebKit has no entry of its own; text in a frame copies the plain address and the line at the bottom says so (#30).
+- History's Clear… can remove only the last hour, today or the last 7 days, taking each page last opened then with its older visits, and a line's Forget This Site removes every page of its site, so the address field stops offering it (#42).
+- Reading mode (⇧⌘R) follows Escale's light or dark look, with readable quotes, captions and code, and a bar at the foot of the page sets its look, a narrow, normal or wide column and the text size; the choices are kept for every article read after (#12).
+- View Page Source (⌥⌘U, or `view-source:` before an address) opens Web Inspector on the page's HTML as the server sent it, before any script changed it (#35).
+- In Passwords, Copy now asks for Touch ID or your Mac's password, as Show does, and a refusal copies nothing. The copied password is hidden from clipboard history apps and cleared after 30 seconds unless you have copied something else since (#7).
+- A page that keeps asking with alerts or confirmations no longer locks the window: from its second question, the sheet offers to stop it asking until the tab goes to another page, and a tab in the background waits until you show it before asking (#8).
+- In the API Calls panel, a call can be copied as fetch as well as cURL, and a right-click on a row copies its URL, the call as cURL or fetch, or its response, or opens a GET in a new tab, without opening the call; an entry WebKit cannot fill says why (#38).
+- When the update feed can't be read, Settings and Check now say "Couldn't check for updates" and keep the date of the last check that worked, instead of calling this build the latest; an update that can't be installed says why and what to do: try again, move Escale to Applications or download the disk image (#2).
+- Export bookmarks… in the Bookmarks panel saves the current Space's bookmarks as a standard HTML bookmarks file for other browsers to import, folders and order kept; environments go in an Environments folder at the end (#43).
+- Add Right Split and the other split commands, from the keyboard or the menu bar, open their list of tabs over the page, on the side the panel will take, instead of wherever the pointer is; from a click it still opens under the pointer (#11).
+- Open Page In, in the page's right-click menu and the Tabs menu, sends the address to another browser on this Mac, and Open Link In sends a link; only the address goes (#34).
+- Right-clicking a link now offers Open Link in Split View, which puts it beside the page within the split's limits, and Copy Link as Markdown, which copies a Markdown link named by the link's text, or by its address when it has none (#31).
+- The link rule editor refuses a host no link can carry, such as `*adeo*`, and says wildcards are not supported instead of saving a rule that never matches (#154).
+- A tab's speaker now mutes it: one click silences the page without pausing it, the speaker shows crossed out, the Space loses its sound mark, and a second click gives the sound back; a muted tab stays muted through sleep (#210).
+- History, Downloads, Bookmarks, Passwords, the site card, the accounts list under a field, find on page, the error page and the notes at the bottom of the window now follow Settings › Appearance › Interface size, like the sidebar (#67).
+- Find a setting now looks through every setting's name and description, with words in any order, and lists each one with its page: choosing it opens the page, scrolls to the setting and marks it for a moment (#13).
+- Settings › Web Pages has a Default zoom: every site you haven't zoomed opens at it, open pages follow it, and Actual Size (⌘0) brings a site back to it, while a site you set to another size, 100% included, keeps its own (#24).
+- ⌘/, or Help › Keyboard Shortcuts, lays every shortcut over the window, grouped as in Settings › Keyboard and showing the keys you chose; Escape or ⌘/ closes it, and a web code editor still gets ⌘/ while you type in it (#14).
+- Show Bookmarks (⌥⌘B), Close Other Tabs (⌥⌘W), Copy as Markdown Link (⌥⇧⌘C), Select Area to Capture (⌥⇧⌘S) and Show Localhost (⇧⌘L) now have a shortcut out of the box; a key you already gave another command stays with it (#15).
+- Settings › Extensions can now switch between extensions shared by every Space and a set per Space, for anyone who set up Escale before Welcome asked. Escale relaunches and deletes nothing: switching back brings each Space's own extensions back, and those a Space no longer sees are listed to reinstall (#132).
+- A tab duplicated with ⌘D or moved to another Space, sleeping or not, keeps its Back and Forward history; private tabs and extension pages start fresh as before (#60).
+- After Clear or Close Other Tabs, the line at the bottom of the window offers Undo for a few seconds, and Undo (or ⇧⌘T while it shows) brings every tab back in its place with the one you were on selected; only that one loads until you look at the others (#62).
+- Each Space now keeps its own last ten closed tabs, so closing many tabs in one Space no longer erases what ⇧⌘T can reopen in another, and a reopened tab gets back the name you gave it (#61).
+- Closing a tab shows Undo at the bottom of the window for five seconds, a ring emptying as time runs out; the tab comes back in its place with its back history and scroll position, as ⌘⇧T now also restores it.
+- A tab's right-click menu and the Tabs menu gain Move to Space, listing the other Spaces with their icons, and Move Tab to Next Space and Move Tab to Previous Space can be given keys in the shortcut settings. The tab moves as it does when dragged onto a Space's icon, and a tab that cannot move says so (#57).
+- A heavy page can be put to sleep without waiting: Sleep Tab in the menu of a tab that isn't on screen, and Sleep Other Tabs in the Tabs menu and a tab's menu, both in the shortcut settings without a key; pinned tabs, sound, calls, downloads and unsent text stay awake, and Escale says why (#56).
+- The Tabs menu has Next Panel, Previous Panel, Swap with Next Panel, Move Out of Split and Separate Split, so a split view can be worked from the keyboard once you give them shortcuts in Settings; they are disabled when no split is on screen (#53).
+- VoiceOver and Full Keyboard Access now see each tab, in the sidebar and the top bar, as a button named by its title and saying whether it is active, pinned or sleeping, with Close Tab and Copy Link among its actions, so neither needs the pointer to hover (#4).
+- Importing an Escale file into a new Escale no longer leaves an empty Personal Space behind: the file's first Space takes its place (#129).
+- The API Calls panel keeps up with a page left alone for a few seconds: a call answering then shows its response instead of staying in progress, and new calls are listed as they are made.
+
 ## 0.12 — 2026-10-15
 
 ### Highlights
