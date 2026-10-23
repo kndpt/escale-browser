@@ -92,6 +92,11 @@ is a gap, not a failure.
   Foundation lacks, such as partition keys, cannot be edited.
 - While Web Inspector is attached, `StageView` keeps the narrowed frame WebKit
   gave the page.
+- WebKit opens an extension's `DeclarativeNetRequestRules.db` again without
+  closing it (Dashlane: three times a minute, kept after the extension is
+  switched off). Escale can't close them; `OpenFiles.swift` raises the
+  process's limit and keeps `revive` from restarting an extension once it is
+  reached.
 - Migration uses Foundation, Security, SQLite and zlib only; see
   [MIGRATION](MIGRATION.md).
 
