@@ -14,6 +14,7 @@ struct EscaleApp: App {
         // Whose browser this is, before anything is written: a test run
         // under an identity that isn't its world's stops here (see Store.admit).
         _ = Store.world
+        OpenFiles.raise()
     }
 
     var body: some Scene {

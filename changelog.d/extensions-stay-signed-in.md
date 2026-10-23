@@ -1,0 +1,1 @@
+A password manager such as Dashlane no longer signs out after Escale has been open for a while: the browser could run out of open files, and then restarted the extension every minute, losing its session.

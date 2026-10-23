@@ -650,6 +650,12 @@ final class Extensions: NSObject, ObservableObject {
         guard let item = installed.first(where: { $0.id == id }), item.enabled,
               Date().timeIntervalSince(revived[id] ?? .distantPast) > 60 else { return }
         revived[id] = Date()
+        // Out of files, it couldn't open its storage again either; a restart
+        // would only lose its session (OpenFiles.swift).
+        guard !OpenFiles.exhausted else {
+            noteError("not restarted: Escale can't open another file", for: id)
+            return
+        }
         noteError("restarted the extension: \(reason)", for: id)
         // Its popup goes with it; it is opened again once the extension is back.
         let popup = ExtensionPopup.shared.extensionID == id ? ExtensionPopup.shared.view?.url : nil
