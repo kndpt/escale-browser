@@ -11,6 +11,10 @@ Search before that is in
 
 ## Unreleased
 
+## 0.13.1 — 2026-10-27
+
+- A password manager such as Dashlane no longer signs out after Escale has been open for a while: the browser could run out of open files, and then restarted the extension every minute, losing its session.
+
 ## 0.13 — 2026-10-21
 
 ### Highlights

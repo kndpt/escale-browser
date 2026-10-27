@@ -1,3 +1,5 @@
+Escale 0.13.1: a password manager such as Dashlane stays signed in, however long Escale stays open.
+
 Escale 0.13: undo a closed tab, and see any page at a phone's size. A page that couldn't load comes back by itself once your dev server starts.
 
 Escale 0.12: ⌘K finds tabs in your other Spaces and the ones you just closed. Drag a download straight out to the Finder or your editor, and Clear tosses your tabs into the bin.
