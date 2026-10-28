@@ -19,7 +19,7 @@ from http.server import ThreadingHTTPServer
 from threading import Event, Thread
 import suite as s
 
-releases = {name: Event() for name in ('one', 'two', 'unknown', 'fail', 'cancel')}
+releases = {name: Event() for name in ('one', 'two', 'unknown', 'fail', 'cancel', 'popup')}
 body = b'escale fixture\n' * 65536
 DOWN, UP, RETURN, DELETE, ESCAPE = ('125', '\uf701'), ('126', '\uf700'), ('36', '\r'), ('51', '\x7f'), ('53', '\x1b')
 
@@ -69,6 +69,21 @@ def start(base, name):
     bench('tap', tab['id'], '#download')
     s.until(name + ' transfer', lambda: any(t['name'] == name + '.bin' for t in state()['transfers']), 15)
     return tab['id']
+
+
+def popup(base):
+    """A link that opens its file in a new tab leaves no tab behind: coming
+    back to it would load the address again, the file twice."""
+    bench('bookmark', base + '/home-popup', 'new')
+    tab = next(t for t in s.tabs() if t['active'])
+    bench('wait', tab['id'], '10')
+    before = len(s.tabs())
+    bench('eval', tab['id'], "document.body.innerHTML='<a id=download href=/popup target=_blank>Download</a>'; 'ready'")
+    bench('tap', tab['id'], '#download')
+    s.until('popup transfer', lambda: any(t['name'] == 'popup.bin' for t in state()['transfers']), 15)
+    s.until('the download tab is gone', lambda: len(s.tabs()) == before, 10)
+    s.require('no tab holds the file address', s.at(base + '/popup'), None)
+    releases['popup'].set()
 
 
 def kept_files(base):
@@ -148,6 +163,7 @@ def main():
         s.require('completion removes progress', state()['downloadFraction'], None)
         bench('space', 'go', '1')
         s.require('files kept in originating Space', sorted(state()['keptDownloads']), ['one.bin', 'two.bin'])
+        popup(base); count(0)
         start(base, 'fail'); count(1)
         releases['fail'].set(); count(0)
         assert 'fail.bin' not in state()['keptDownloads']

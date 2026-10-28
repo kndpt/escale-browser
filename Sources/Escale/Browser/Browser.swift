@@ -2610,6 +2610,15 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         // page didn't load" over a download that had worked — clicked again,
         // it downloaded again.
         if nsError.domain == "WebKitErrorDomain" && code == 102 {
+            // A tab made only for the file has no page to come back to, and
+            // coming back would load its address again: the file twice.
+            // The download is Downloads' now, not the tab's.
+            if let tab = tab(for: webView), tab.hollow {
+                // A pin is only put down, with the address kept to wake.
+                if tab.pin != nil { unpin(tab) }
+                close(tab)
+                return
+            }
             (webView as? PageView)?.showFirstFrame("download", animated: false)
             tab(for: webView)?.uncover()
             tab(for: webView)?.stayed()
