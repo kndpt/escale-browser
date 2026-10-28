@@ -2614,6 +2614,8 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             // coming back would load its address again: the file twice.
             // The download is Downloads' now, not the tab's.
             if let tab = tab(for: webView), tab.hollow {
+                // A pin is only put down, with the address kept to wake.
+                if tab.pin != nil { unpin(tab) }
                 close(tab)
                 return
             }
