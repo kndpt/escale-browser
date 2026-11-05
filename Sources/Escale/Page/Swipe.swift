@@ -1,18 +1,12 @@
 import Foundation
 
-// Two fingers sideways means back, or forward.
+// Two fingers on a trackpad move the page, and nothing else.
 //
-// WebKit has a swipe of its own, and it drags the whole page across the window
-// with a picture of the last one behind it. This is the other kind: a disc
-// comes in from the edge you are pulling from, and past a certain point it is
-// armed. Let go then, and the page simply goes back. Let go before, and it
-// slips out again. Nothing slides, nothing is kept in memory to slide.
-//
-// The one hard question is whether a sideways swipe belongs to the page — a
-// carousel, a wide table, a map — or is free to mean something. The page is
-// asked, on every sideways wheel event, whether anything under the pointer
-// could scroll that way. The answer arrives a frame or two after the gesture
-// starts, which is before there is anything to show.
+// Escale once read a sideways swipe as back or forward. In a spreadsheet, a
+// map or a wide table that same swipe is how you move around, and guessing
+// which one was meant got it wrong often enough to lose people their place.
+// The gesture is gone; ⌘[ and ⌘] and a mouse's side buttons go back and
+// forward. What is left here is the page standing still at its edges.
 
 enum Swipe {
     /// No rubber-banding. Pulling past the top of a page showed a band of
@@ -31,21 +25,4 @@ enum Swipe {
     /// its own is calmed exactly as before; a page that sets its own rule
     /// later in the cascade wins the way any later, unremarkable rule would.
     static let calm = Bundled.script("swipe-calm.js")
-
-    /// Whether a sideways swipe here would scroll something. Said once per
-    /// change of mind, and at most ten times a second, so the page is never
-    /// made to shout.
-    static let watch = Bundled.script("swipe-watch.js")
-}
-
-/// Where a sideways swipe has got to, for the disc that shows it.
-struct Pull: Equatable {
-    /// Pulling from the left edge, to go back; otherwise from the right.
-    var back: Bool
-    /// How far the fingers have come, in points, before any damping.
-    var travel: CGFloat
-    /// Far enough that letting go will do it.
-    var armed: Bool
-    /// Let go while armed: the page is on its way, and the disc leaves.
-    var going: Bool
 }

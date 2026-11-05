@@ -91,24 +91,11 @@ struct Page: View {
                         back: tab.holdsPageBehind || tab.canGoBack ? { tab.back() } : nil) { tab.reload() }
                     .transition(.opacity)
             }
-
-            if let pull = tab.pull {
-                Disc(pull: pull)
-                    // A disc for each edge, never one that changes edges: a
-                    // view whose alignment flips is a view that glides the
-                    // whole way across the window to get there.
-                    .id(pull.back)
-                    // A short fade and a little growth, both ways. Anything
-                    // longer is still arriving when a quick flick has already
-                    // let go.
-                    .transition(.opacity.combined(with: .scale(scale: 0.85)))
-            }
         }
         .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
         .background { PageGround(corner: corner) }
         .animation(Motion.quick, value: tab.failure)
         .animation(Motion.quick, value: tab.floating)
-        .animation(.easeOut(duration: 0.16), value: tab.pull == nil)
     }
 }
 
@@ -129,51 +116,6 @@ struct PageGround: View {
             }
             .shadow(color: corner > 0 ? Palette.shadow.opacity(0.5) : .clear, radius: 6, y: 1)
             .allowsHitTesting(false)
-    }
-}
-
-/// The disc a sideways swipe brings in from the edge.
-///
-/// Glass, with an edge, like everything else that floats over a page. A
-/// line of ink winds round it as the fingers go and closes at the point where
-/// letting go would mean it. Turn back and it unwinds. Let go while it is
-/// closed and the disc leaves with the page.
-///
-/// It follows the fingers directly, with no spring between: a spring reads
-/// as lag on a quick flick, and a quick flick is how most people swipe.
-private struct Disc: View {
-    let pull: Pull
-    @SwiftUI.Environment(\.chromeMetrics) private var metrics
-
-    var body: some View {
-        // The fingers can travel as far as they like; the disc stops short.
-        let reach = metrics.length(150) * (1 - exp(-pull.travel / metrics.length(110)))
-        let grown = min(1, pull.travel / metrics.length(110))
-        let diameter = metrics.length(52) * (pull.going ? 1.08 : 0.86 + 0.14 * grown)
-
-        ZStack {
-            Color.clear.glass(.chip, in: Circle(), lifted: false)
-            // How far there is to go, wound round the edge, closed when it
-            // is armed.
-            Circle()
-                .trim(from: 0, to: grown)
-                .stroke(Palette.ink, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-                .padding(0.75)
-            Image(systemName: pull.back ? "arrow.left" : "arrow.right")
-                .font(.system(size: metrics.length(15), weight: .medium))
-                .foregroundStyle(Palette.ink.opacity(0.4 + 0.6 * grown))
-        }
-        .frame(width: diameter, height: diameter)
-        .shadow(color: Palette.shadow, radius: 16, y: 6)
-        .opacity(pull.going ? 0 : 1)
-        // Whole from the first point, a little way in from the edge, drawn
-        // further in as the fingers go — and a step further on its way out
-        // with the page.
-        .offset(x: (pull.back ? 1 : -1) * (10 + reach * 0.2 + (pull.going ? 12 : 0)))
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: pull.back ? .leading : .trailing)
-        .allowsHitTesting(false)
-        .animation(.easeOut(duration: 0.22), value: pull.going)
     }
 }
 

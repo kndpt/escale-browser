@@ -1,5 +1,5 @@
 /*
-Swipe navigation disables vertical overscroll in the page while the gesture is active.
+The page stands still at its top and bottom edges instead of bouncing.
 A stylesheet keeps the adjustment separate from the page’s own inline styles.
 */
 (function () {
