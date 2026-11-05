@@ -9,8 +9,8 @@ assembled app copied outside the build folder by fresh.sh, that each script
 is there and does its part, from what it leaves in the page:
 
 1. A page loaded in an ordinary tab carries every script added when it was
-   created: the pointing mode for hiding things (`__escaleVeil`), the swipe
-   watch and its calm stylesheet, the image menu's and the middle button's
+   created: the pointing mode for hiding things (`__escaleVeil`), the calm
+   stylesheet, the image menu's and the middle button's
    watches, and, with passkeys not offered (a test world's default), the
    passkey object taken away. Middle-button scrolling and link destinations
    are enabled by default. Retired preferences are discarded at launch.
@@ -61,7 +61,6 @@ ARTICLE = f"""<!doctype html><title>Article</title>
 # What each script leaves in the page, read in one go.
 LOOK = """JSON.stringify({
   veil: typeof window.__escaleVeil,
-  swipe: window.__escaleSwipe === true,
   calm: !!document.getElementById('escale-calm'),
   images: window.__escaleImages === true,
   middle: window.__escaleMiddle === true,
@@ -170,7 +169,7 @@ def exercise(base):
     bench("wait", id, "10", deadline=15)
 
     # 1. Every script added with the page.
-    settle("a page as it loads", id, veil="object", swipe=True, calm=True, images=True,
+    settle("a page as it loads", id, veil="object", calm=True, images=True,
            middle=True, passkeys=True, scroll="function", reader=False)
 
     probe = json.loads(bench("--json", "probe").stdout)

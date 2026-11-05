@@ -291,9 +291,6 @@ final class Tab: ObservableObject, Identifiable {
     /// True while this tab's page is out in the little window.
     @Published var floating = false
 
-    /// A sideways swipe in progress, for the disc that shows it.
-    @Published var pull: Pull?
-
     /// Remembered for the site, not for the tab: setting a paper's type to
     /// 125% once should be the last time you think about it.
     func rememberZoom() {
@@ -515,11 +512,10 @@ final class Tab: ObservableObject, Identifiable {
         // else on a Mac. ⌘+ and ⌘- are the other thing — they lay the page out
         // again at a bigger size — and both are worth having.
         web.allowsMagnification = true
-        // WebKit's own two-finger swipe stays off. It drags the page across
-        // the window with a picture of the last one behind it; ours is in
-        // PageView, and it moves nothing but a disc.
+        // Two fingers sideways never leave the page: in a sheet, a map or a
+        // wide table they are how you move around, and going back by
+        // accident lost the place.
         web.allowsBackForwardNavigationGestures = false
-        web.onPull = { [weak self] pull in self?.pull = pull }
         web.onTouch = { [weak self] in
             guard let self else { return }
             self.onPanelFocus?(self)
@@ -681,11 +677,6 @@ final class Tab: ObservableObject, Identifiable {
         }
         controller.addUserScript(
             WKUserScript(source: Swipe.calm, injectionTime: .atDocumentStart, forMainFrameOnly: true)
-        )
-        // Every frame: a swipe over an embedded map is the map's, and only the
-        // map's own document can say so.
-        controller.addUserScript(
-            WKUserScript(source: Swipe.watch, injectionTime: .atDocumentStart, forMainFrameOnly: false)
         )
         controller.addUserScript(
             WKUserScript(source: ImageRelay.watch, injectionTime: .atDocumentStart, forMainFrameOnly: false)
@@ -1039,7 +1030,6 @@ final class Tab: ObservableObject, Identifiable {
         lastY = 0
         noisy = false
         stale = false
-        pull = nil
         // Loading about:blank here looked like letting the page go, and
         // wasn't: WebKit keeps the document it just left in the back-forward
         // cache — alive, suspended, and still counted by its own origin as an
@@ -1061,7 +1051,6 @@ final class Tab: ObservableObject, Identifiable {
         self.picture = picture
         pending = url
         stale = false
-        pull = nil
         discard()
         sleeping = true
     }
@@ -1435,7 +1424,6 @@ final class Tab: ObservableObject, Identifiable {
         controller.removeScriptMessageHandler(forName: LinkRelay.name, contentWorld: .defaultClient)
         controller.removeScriptMessageHandler(forName: MiddleRelay.name)
         controller.removeAllUserScripts()
-        web.onPull = nil
         web.onTouch = nil
         web.searchName = nil
         web.onSearch = nil
@@ -1535,7 +1523,7 @@ final class MiddleRelay: NSObject, WKScriptMessageHandler {
     }
 }
 
-/// A web view that reads the two-finger swipe for itself.
+/// The web view every tab shows its page in.
 final class PageView: WKWebView {
     /// What extensions added to the right-click menu, at the end of it.
     override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
@@ -1636,8 +1624,6 @@ final class PageView: WKWebView {
         DispatchQueue.main.async { [weak self] in self.map(Dialogs.showHeld) }
     }
 
-    /// Told where a sideways swipe has got to, and nil when there is none.
-    var onPull: ((Pull?) -> Void)?
     /// Told the moment the page is reached for — a click, a scroll — so the
     /// split group can give that pane the focus.
     var onTouch: (() -> Void)?
@@ -1734,32 +1720,6 @@ final class PageView: WKWebView {
     /// Safari takes down the picture it shows while a page comes back.
     static let firstFrame: UInt = 1 << 1
 
-    // MARK: - two fingers sideways
-
-    private enum Axis { case across, down }
-
-    private var sideways: CGFloat = 0
-    private var gatheredX: CGFloat = 0
-    private var gatheredY: CGFloat = 0
-    private var axis: Axis?
-    /// Which way the gesture set off, decided once and kept. Turning round
-    /// mid-swipe pulls the disc back; it never becomes the other disc.
-    private var back = true
-    /// The page's word on whether this swipe is its own. Nil until it says.
-    private var free: Bool?
-    private var asked: Date?
-    /// Already went somewhere, or was refused: nothing more this gesture.
-    private var spent = false
-    private var armedNow = false
-    private var showing = false
-    private var going = false
-    private var pulls = 0
-
-    /// How far the fingers travel before letting go means it.
-    private static let arm: CGFloat = 110
-    /// Less than this and there is nothing to show yet — or nothing left to.
-    private static let show: CGFloat = 6
-
     // MARK: - two fingers together
 
     // The pinch itself is WebKit's own: during the gesture it scales the
@@ -1813,139 +1773,8 @@ final class PageView: WKWebView {
 
     override func scrollWheel(with event: NSEvent) {
         onTouch?()
-        // The page gets every event first and scrolls as it always did. The
-        // swipe is only read, never taken.
         super.scrollWheel(with: event)
-        // Only a live trackpad gesture — not its glide afterwards, and not a
-        // mouse wheel, which has no beginning or end to speak of.
-        guard event.momentumPhase == [] else { return }
-
-        switch event.phase {
-        case .mayBegin, .began:
-            sideways = 0
-            gatheredX = 0
-            gatheredY = 0
-            axis = nil
-            free = nil
-            asked = nil
-            spent = false
-            armedNow = false
-            showing = false
-            // A disc still on its way out belongs to the last gesture. It is
-            // already invisible; it is only taken off the stage so the next
-            // one arrives fresh rather than fading back in.
-            pulls += 1
-            if going {
-                going = false
-                onPull?(nil)
-            }
-        case .changed:
-            guard !spent else { return }
-            if axis == nil {
-                // A few points in, the gesture has shown which way it means
-                // to go. Only a clearly sideways one is read further.
-                gatheredX += abs(event.scrollingDeltaX)
-                gatheredY += abs(event.scrollingDeltaY)
-                sideways += event.scrollingDeltaX
-                guard gatheredX + gatheredY > 6 else { return }
-                axis = gatheredX > gatheredY * 1.3 ? .across : .down
-                if axis == .down {
-                    spent = true
-                    return
-                }
-                back = sideways > 0
-                // Nowhere to go that way: nothing to show, and nothing more
-                // to read from this gesture.
-                if back ? !canGoBack : !canGoForward {
-                    spent = true
-                    return
-                }
-                asked = Date()
-                tell()
-                return
-            }
-            sideways += event.scrollingDeltaX
-            tell()
-        case .ended:
-            release()
-        case .cancelled:
-            spent = true
-            settle(nil)
-        default:
-            break
-        }
     }
-
-    /// The page has said whether the swipe would scroll something.
-    func answer(free yes: Bool) {
-        guard axis != .down, !spent else { return }
-        guard yes else {
-            free = false
-            spent = true
-            settle(nil)
-            return
-        }
-        guard free == nil else { return }
-        free = true
-        tell()
-    }
-
-    /// Only the distance in the direction it set off in. Past the origin the
-    /// other way is just nought.
-    private var travel: CGFloat { max(0, back ? sideways : -sideways) }
-
-    private func tell() {
-        if free == nil, let asked, Date().timeIntervalSince(asked) > 0.18 {
-            // A page that never answers — a PDF, a page that failed to load —
-            // still has to be leavable by hand.
-            free = true
-        }
-        guard free == true else { return }
-
-        let travel = travel
-        // Drawn all the way back, the disc goes; drawn out again, it returns.
-        // Nothing is decided until the fingers lift.
-        guard travel >= PageView.show else {
-            if showing { settle(nil) }
-            return
-        }
-
-        let armed = travel >= PageView.arm
-        if armed != armedNow {
-            // Two different taps: one for reaching it, a lighter one for
-            // stepping back from it, so you know without looking that
-            // letting go now is safe.
-            NSHapticFeedbackManager.defaultPerformer.perform(
-                armed ? .levelChange : .alignment, performanceTime: .now
-            )
-        }
-        armedNow = armed
-        settle(Pull(back: back, travel: travel, armed: armed, going: false))
-    }
-
-    private func release() {
-        defer { spent = true }
-        guard !spent, free == true, armedNow else {
-            settle(nil)
-            return
-        }
-        going = true
-        settle(Pull(back: back, travel: travel, armed: true, going: true))
-        if back { goBack() } else { goForward() }
-        pulls += 1
-        let mine = pulls
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) { [weak self] in
-            guard let self, pulls == mine else { return }
-            going = false
-            settle(nil)
-        }
-    }
-
-    private func settle(_ pull: Pull?) {
-        showing = pull != nil
-        onPull?(pull)
-    }
-
 }
 
 /// Carries the page's scroll position back to its tab.
@@ -1963,10 +1792,6 @@ final class ScrollRelay: NSObject, WKScriptMessageHandler {
         didReceive message: WKScriptMessage
     ) {
         guard let body = message.body as? [String: Any] else { return }
-        if let side = body["side"] as? String {
-            MainActor.assumeIsolated { tab?.web.answer(free: side == "free") }
-            return
-        }
         guard let y = body["y"] as? Double,
               let ceiling = body["max"] as? Double
         else { return }

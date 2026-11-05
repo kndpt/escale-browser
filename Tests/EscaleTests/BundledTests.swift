@@ -38,7 +38,7 @@ import Testing
     @MainActor
     @Test func everyScriptPagesAreGivenIsFound() {
         var scripts = [
-            Veiling.picker, Reader.script, AutoScroll.script, Swipe.calm, Swipe.watch,
+            Veiling.picker, Reader.script, AutoScroll.script, Swipe.calm,
             Isolate.on, Isolate.where_, Isolate.toggle, Isolate.off, HoveredLink.script,
             SelectionWatch.script, LinkRelay.watch,
             ImageRelay.watch, StoreRelay.script,
