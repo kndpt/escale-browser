@@ -580,7 +580,7 @@ struct SideBar: View {
                     if browser.aimPanel(tab, at: point) { return }
                     guard browser.spaceID != tab.space else { return }
                     spaceHover.cancel()
-                    _ = browser.aimShelf(at: metrics.layout(point.y - looseFrame.minY))
+                    _ = browser.aimShelf(at: point.y - looseFrame.minY)
                 },
                                 release: { point in
                     finishTab(tab, at: point)
@@ -602,7 +602,7 @@ struct SideBar: View {
                     browser.shelfAim = nil
                     return
                 }
-                if browser.aimShelf(at: metrics.layout(value.location.y - looseFrame.minY)) { return }
+                if browser.aimShelf(at: value.location.y - looseFrame.minY) { return }
                 // The squares make way while the hand stays over the column;
                 // heading for the pages carries the square instead.
                 guard value.location.x <= looseFrame.maxX else { return }
@@ -680,7 +680,7 @@ struct SideBar: View {
                     if browser.aimPanel(tab, at: point) { return }
                     guard browser.spaceID != tab.space else { return }
                     spaceHover.cancel()
-                    _ = browser.aimShelf(at: metrics.layout(point.y - looseFrame.minY))
+                    _ = browser.aimShelf(at: point.y - looseFrame.minY)
                 },
                                 release: { point in
                     finishTab(tab, at: point)
@@ -705,7 +705,7 @@ struct SideBar: View {
                 // Held over the bookmarks, it is aimed at them rather than at
                 // a place in the row, and the row keeps it where it was (see
                 // Shelf.swift).
-                let shelfY = metrics.layout(value.location.y - looseFrame.minY)
+                let shelfY = value.location.y - looseFrame.minY
                 if browser.aimShelf(at: shelfY) {
                     if index != from { withAnimation(Motion.settle) { browser.move(tab, to: browser.place(of: from, among: looseTabs)) } }
                     return
@@ -753,7 +753,7 @@ struct SideBar: View {
         if switched || ready {
             guard let moved = browser.transfer(tab, to: destination, draft: dragDraft) else { return }
             if overDoor == nil {
-                let shelfY = metrics.layout(point.y - looseFrame.minY)
+                let shelfY = point.y - looseFrame.minY
                 if browser.aimShelf(at: shelfY) {
                     if moved.pin != nil { browser.unpin(moved) }
                     browser.dropOnShelf(moved)
