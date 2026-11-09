@@ -11,6 +11,13 @@ Search before that is in
 
 ## Unreleased
 
+## 0.13.2 — 2026-11-09
+
+- Dashlane no longer wears Escale down over a few days of use: each time it rewrote its unchanged rules, three times a minute, the browser kept another file open, until extensions stopped opening or signed out.
+- Swiping sideways with two fingers no longer goes back or forward: in a spreadsheet, a map or a wide table it just moves the page. ⌘[ and ⌘] and a mouse's side buttons still go back and forward.
+- A tab dragged onto the bookmarks lands where the pointer is, at every interface size, instead of drifting above or below it the further it travels.
+- A link that opens its file in a new tab no longer leaves that tab behind: coming back to it used to download the file again.
+
 ## 0.13.1 — 2026-10-27
 
 - A password manager such as Dashlane no longer signs out after Escale has been open for a while: the browser could run out of open files, and then restarted the extension every minute, losing its session.

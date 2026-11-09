@@ -1,3 +1,5 @@
+Escale 0.13.2: Dashlane keeps working however many days Escale stays open. A two-finger swipe moves the page instead of going back, and dragged tabs land where you drop them.
+
 Escale 0.13.1: a password manager such as Dashlane stays signed in, however long Escale stays open.
 
 Escale 0.13: undo a closed tab, and see any page at a phone's size. A page that couldn't load comes back by itself once your dev server starts.
