@@ -1,1 +1,0 @@
-Dashlane no longer wears Escale down over a few days of use: each time it rewrote its unchanged rules, three times a minute, the browser kept another file open, until extensions stopped opening or signed out.
