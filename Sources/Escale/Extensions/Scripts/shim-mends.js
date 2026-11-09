@@ -310,12 +310,27 @@
       p.then((r) => callback(r));
     });
   }
+  // WebKit leaves the rules database open once more at each change to the
+  // dynamic rules, and Dashlane writes the same five back three times a
+  // minute — until the browser can open no file at all. A change that
+  // leaves the rules as they are isn't passed on.
+  const canon = (v) => Array.isArray(v) ? "[" + v.map(canon).join(",") + "]"
+    : v && typeof v === "object" ? "{" + Object.keys(v).sort().filter((k) => v[k] !== undefined).map((k) => JSON.stringify(k) + ":" + canon(v[k])).join(",") + "}"
+    : JSON.stringify(v);
+  const byId = (rules) => canon([...rules].sort((a, b) => a.id - b.id));
+  const changesNothing = async (opts) => {
+    if (typeof dnr.getDynamicRules !== "function") return false;
+    const now = await dnr.getDynamicRules();
+    const removed = new Set(opts.removeRuleIds || []);
+    return byId(now) === byId(now.filter((r) => !removed.has(r.id)).concat(opts.addRules || []));
+  };
   if (dnr) for (const name of ["updateSessionRules", "updateDynamicRules"]) {
     if (typeof dnr[name] !== "function") continue;
     const original = dnr[name].bind(dnr);
     put(dnr, name, (options = {}, callback) => {
       if (options && Array.isArray(options.addRules)) options = { ...options, addRules: options.addRules.map(mendRule).filter(Boolean) };
       const attempt = async (opts, left) => {
+        if (left === 100 && name === "updateDynamicRules" && await changesNothing(opts).catch(() => false)) return;
         try { return await original(opts); }
         catch (e) {
           const at = /rule at index (\d+)/.exec(String(e && e.message));
