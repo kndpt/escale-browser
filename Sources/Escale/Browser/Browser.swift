@@ -1468,6 +1468,14 @@ final class Browser: NSObject, ObservableObject {
         rememberSession()
     }
 
+    /// What a detached tab starts in the main window (a link, a popup, a
+    /// question) is shown there: its Space on screen, the window in front.
+    func face(_ tab: Tab) {
+        guard apart.holds(tab) else { return }
+        if tab.space != spaceID { switchSpace(to: tab.space) }
+        Links.window?.makeKeyAndOrderFront(nil)
+    }
+
     /// Its window closed: the tab comes back to the end of its space's row.
     private func bringBack(_ tab: Tab) {
         guard spaces.contains(where: { $0.id == tab.space }) else { tab.close(); return }
@@ -1700,7 +1708,7 @@ final class Browser: NSObject, ObservableObject {
             activeID = tab.id
             editing = false
             field.typed = ""
-            if let source, apart.holds(source) { Links.window?.makeKeyAndOrderFront(nil) }
+            if let source { face(source) }
         }
         return tab
     }
@@ -2461,6 +2469,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             return nil
         }
         let opener = tab(for: webView)
+        if let opener { face(opener) }
         if action.navigationType == .linkActivated, action.request.httpMethod == "GET",
            !action.shouldPerformDownload, let url = action.request.url, let opener,
            routeLink(url, from: opener) { return nil }
@@ -2546,6 +2555,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         decide = decisionHandler
         askedAbout = key
         asking = CaptureAsk(host: host, wants: Browser.name(for: type), space: tab.space)
+        face(tab)
     }
 
     private static func name(for type: WKMediaCaptureType) -> String {
