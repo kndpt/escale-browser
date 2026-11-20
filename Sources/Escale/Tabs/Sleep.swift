@@ -142,7 +142,6 @@ extension Browser {
         let shown = !away
         if shown, panelTabs.contains(where: { $0.id == tab.id }) { return "on screen" }
         if shown, tab.pin != nil { return "pinned" }
-        if apart.holds(tab) { return "in its own window" }
         if tab.bench { return "a bench tab" }
         if tab.isBlank { return "blank" }
         if tab.asleep { return "already asleep" }

@@ -347,7 +347,8 @@ final class Extensions: NSObject, ObservableObject {
 
     private func row(_ space: UUID) -> [Tab] {
         guard let browser else { return [] }
-        let tabs = browser.spaceID == space ? browser.tabs : browser.parked[space]?.tabs ?? []
+        // A tab in its own window (Apart.swift) is still open, so still the row's.
+        let tabs = (browser.spaceID == space ? browser.tabs : browser.parked[space]?.tabs ?? []) + browser.apart.tabs
         return tabs.filter { $0.space == space }
     }
 

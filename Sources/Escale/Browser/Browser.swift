@@ -191,7 +191,7 @@ final class Browser: NSObject, ObservableObject {
         engine: { [weak self] in self.map { $0.prefs.engine.name(custom: $0.prefs.customEngine) } ?? "" },
         keyword: { [weak self] typed in self.flatMap { Keyword.search(typed, in: $0.prefs.searchKeywords) } },
         others: { [weak self] in self.map { browser in browser.tabs.filter { ($0.id != browser.activeID || browser.field.opening != nil) && !$0.bench && $0.shy == browser.searchIsPrivate } } ?? [] },
-        elsewhere: { [weak self] in self.map { browser in browser.parkedTabs.filter { !$0.bench && !browser.apart.holds($0) && $0.shy == browser.searchIsPrivate } } ?? [] },
+        elsewhere: { [weak self] in self.map { browser in browser.parkedTabs.filter { !$0.bench && $0.shy == browser.searchIsPrivate } } ?? [] },
         // With Spaces off, another Space's closed tab has nowhere to reopen.
         closed: { [weak self] in
             guard let self, !self.searchIsPrivate else { return [] }
@@ -921,7 +921,7 @@ final class Browser: NSObject, ObservableObject {
         // part of it, not only the one that happened to ask for it.
         Favicons.shared.arrived = { [weak self] site, image in
             guard let self else { return }
-            for tab in tabs + parkedTabs
+            for tab in tabs + parkedTabs + apart.tabs
             where tab.address.flatMap(Favicons.part) == site || tab.address?.host()?.lowercased() == site {
                 tab.icon = image
             }
@@ -1086,7 +1086,7 @@ final class Browser: NSObject, ObservableObject {
             .sink { [weak self] on in
                 guard let self else { return }
                 Shield.shared.enabled = on
-                Shield.shared.apply(to: (tabs + parkedTabs).compactMap { $0.built?.configuration.userContentController })
+                Shield.shared.apply(to: (tabs + parkedTabs + apart.tabs).compactMap { $0.built?.configuration.userContentController })
                 announce(on ? "Ads and trackers blocked" : "Blocking off — reload to see the difference")
             }
             .store(in: &bag)
@@ -1131,7 +1131,7 @@ final class Browser: NSObject, ObservableObject {
             .dropFirst()
             .sink { [weak self] on in
                 guard let self else { return }
-                for tab in tabs + parkedTabs {
+                for tab in tabs + parkedTabs + apart.tabs {
                     tab.arm(hiding: curtain(for: tab.space).css(on: curtain.host(of: tab.address)))
                     tab.built?.evaluateJavaScript(on ? AutoScroll.script : AutoScroll.off)
                 }
@@ -1151,7 +1151,7 @@ final class Browser: NSObject, ObservableObject {
                 // A list of accounts already hanging from a box goes too: it
                 // would stay where it was and still fill in what was picked.
                 if !filling { logins.dropChoice() }
-                for tab in tabs + parkedTabs {
+                for tab in tabs + parkedTabs + apart.tabs {
                     tab.arm(hiding: curtain(for: tab.space).css(on: curtain.host(of: tab.address)))
                     tab.built?.evaluateJavaScript(FormRelay.signIns)
                 }
@@ -1168,7 +1168,7 @@ final class Browser: NSObject, ObservableObject {
                 Tab.defaultZoom = CGFloat(percent) / 100
                 // A floating meeting keeps its own size until it lands, which
                 // reapplies the default; a floating video has none of its own.
-                for tab in tabs + parkedTabs where !(tab.floating && floatingMeeting) { tab.applyRememberedZoom() }
+                for tab in tabs + parkedTabs + apart.tabs where !(tab.floating && floatingMeeting) { tab.applyRememberedZoom() }
             }
             .store(in: &bag)
 
@@ -1179,7 +1179,7 @@ final class Browser: NSObject, ObservableObject {
             .sink { [weak self] on in
                 guard let self else { return }
                 ScrollRelay.on = on
-                for tab in tabs + parkedTabs {
+                for tab in tabs + parkedTabs + apart.tabs {
                     tab.arm(hiding: curtain(for: tab.space).css(on: curtain.host(of: tab.address)))
                     tab.built?.evaluateJavaScript(on ? ScrollRelay.script : ScrollRelay.off)
                 }
@@ -1192,7 +1192,7 @@ final class Browser: NSObject, ObservableObject {
             .sink { [weak self] on in
                 guard let self else { return }
                 if !on { linkStatus.dismiss() }
-                for tab in tabs + parkedTabs {
+                for tab in tabs + parkedTabs + apart.tabs {
                     tab.arm(hiding: curtain(for: tab.space).css(on: curtain.host(of: tab.address)))
                     tab.built?.evaluateJavaScript(on ? HoveredLink.script : HoveredLink.off, in: nil, in: .defaultClient)
                 }
@@ -1205,7 +1205,7 @@ final class Browser: NSObject, ObservableObject {
             .sink { [weak self] on in
                 guard let self else { return }
                 if !on { selectionMenu.dismiss() }
-                for tab in tabs + parkedTabs {
+                for tab in tabs + parkedTabs + apart.tabs {
                     tab.arm(hiding: curtain(for: tab.space).css(on: curtain.host(of: tab.address)))
                     tab.built?.evaluateJavaScript(on ? SelectionWatch.script : SelectionWatch.off, in: nil, in: .defaultClient)
                 }
@@ -1220,7 +1220,7 @@ final class Browser: NSObject, ObservableObject {
                 // Each tab keeps whatever is hidden on the site it is showing:
                 // re-arming with nothing would quietly restore every element
                 // this person had taken off, everywhere.
-                for tab in tabs + parkedTabs {
+                for tab in tabs + parkedTabs + apart.tabs {
                     tab.arm(hiding: curtain(for: tab.space).css(on: curtain.host(of: tab.address)))
                 }
                 announce(on ? "Passkeys offered again — reload the page" : "Sites will ask for a password instead")
@@ -1236,7 +1236,7 @@ final class Browser: NSObject, ObservableObject {
     }
 
     private func relook() {
-        Favicons.shared.relook((tabs + parkedTabs).filter { !$0.asleep })
+        Favicons.shared.relook((tabs + parkedTabs + apart.tabs).filter { !$0.asleep })
     }
 
     func writeSession(now: Bool = false) {
@@ -1475,6 +1475,8 @@ final class Browser: NSObject, ObservableObject {
     private func bringBack(_ tab: Tab) {
         guard spaces.contains(where: { $0.id == tab.space }) else { tab.close(); return }
         if tab.space != spaceID { switchSpace(to: tab.space) }
+        // Its Space could not be shown (Spaces off): never into another's row.
+        guard tab.space == spaceID else { tab.close(); return }
         tabs.append(tab)
         select(tab)
         Links.window?.makeKeyAndOrderFront(nil)
@@ -1690,6 +1692,8 @@ final class Browser: NSObject, ObservableObject {
     /// in the same store, as a link that asks for a new window already does.
     @discardableResult
     func open(_ url: URL, foreground: Bool, atEnd: Bool = false, from source: Tab? = nil, shy: Bool = false) -> Tab {
+        // A link from a tab in its own window opens beside it, in its Space.
+        if let source, apart.holds(source), source.space != spaceID { switchSpace(to: source.space) }
         let (tab, url) = made(for: url, from: source, shy: shy)
         let here = atEnd ? nil : tabs.firstIndex { $0.id == activeID }
         tabs.insert(tab, at: here.map { $0 + 1 } ?? tabs.count)
