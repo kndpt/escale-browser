@@ -1461,14 +1461,11 @@ final class Browser: NSObject, ObservableObject {
         panels.remove(tab.id)
         if !tab.wake() { tab.revive() }
         let size = tab.web.bounds.size
+        apart.open(tab, at: point, size: size.width > 0 ? size : NSSize(width: 900, height: 640))
         tabs.remove(at: index)
         if tabs.isEmpty { adopt(Tab()) }
         if activeID == tab.id { select(tabs[min(index, tabs.count - 1)]) }
         rememberSession()
-        // A turn later, once the stage has let the page go for the next tab.
-        DispatchQueue.main.async { [weak self] in
-            self?.apart.open(tab, at: point, size: size.width > 0 ? size : NSSize(width: 900, height: 640))
-        }
     }
 
     /// Its window closed: the tab comes back to the end of its space's row.
@@ -1703,6 +1700,7 @@ final class Browser: NSObject, ObservableObject {
             activeID = tab.id
             editing = false
             field.typed = ""
+            if let source, apart.holds(source) { Links.window?.makeKeyAndOrderFront(nil) }
         }
         return tab
     }

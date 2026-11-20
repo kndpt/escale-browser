@@ -35,8 +35,14 @@ final class Apart: NSObject, NSWindowDelegate {
         window.tabbingMode = .disallowed
         window.delegate = self
         window.contentView = NSView(frame: NSRect(origin: .zero, size: size))
-        show(tab, in: window)
-        window.makeKeyAndOrderFront(nil)
+        // Held at once, so nothing sees the tab gone between the row and here;
+        // the page moves a turn later, once the stage has let it go.
+        out[tab.id] = (tab, window, AnyCancellable {})
+        DispatchQueue.main.async { [weak self, weak window] in
+            guard let self, let window, out[tab.id]?.window === window else { return }
+            show(tab, in: window)
+            window.makeKeyAndOrderFront(nil)
+        }
     }
 
     /// A tab replaced by another (Browser.replace): the new page takes the window.
