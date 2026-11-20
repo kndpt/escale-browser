@@ -21,6 +21,12 @@ import SwiftUI
         if browser.apart.holds(event.window) {
             guard let stroke = KeyStroke(event) else { return false }
             if stroke == KeyStroke("w", .command) { event.window?.performClose(nil); return true }
+            // The editing gestures the main window leaves to a text field.
+            if stroke.flags == .command, ["left", "right"].contains(stroke.key) { return false }
+            if stroke == KeyStroke("v", [.command, .shift]) {
+                _ = event.window?.firstResponder?.tryToPerform(#selector(NSTextView.pasteAsPlainText(_:)), with: nil)
+                return true
+            }
             return browser.prefs.keyBindings.action(for: stroke) != nil
         }
         guard !event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
@@ -94,7 +100,7 @@ extension Browser {
         // A tab's own window (Apart.swift) is not the row the menu's commands
         // aim at: closing closes that window, the rest waits for the main one.
         if apart.holds(NSApp.keyWindow) {
-            if action == .closeTab || action == .closeWindow { NSApp.keyWindow?.performClose(nil) }
+            if action == .closeTab || action == .closeWindow, NSApp.keyWindow?.sheetParent == nil { NSApp.keyWindow?.performClose(nil) }
             return
         }
         guard keyAvailable(action) else { return }

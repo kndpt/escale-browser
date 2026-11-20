@@ -191,7 +191,7 @@ final class Browser: NSObject, ObservableObject {
         engine: { [weak self] in self.map { $0.prefs.engine.name(custom: $0.prefs.customEngine) } ?? "" },
         keyword: { [weak self] typed in self.flatMap { Keyword.search(typed, in: $0.prefs.searchKeywords) } },
         others: { [weak self] in self.map { browser in browser.tabs.filter { ($0.id != browser.activeID || browser.field.opening != nil) && !$0.bench && $0.shy == browser.searchIsPrivate } } ?? [] },
-        elsewhere: { [weak self] in self.map { browser in browser.parkedTabs.filter { !$0.bench && $0.shy == browser.searchIsPrivate } } ?? [] },
+        elsewhere: { [weak self] in self.map { browser in (browser.parkedTabs + browser.apart.tabs).filter { !$0.bench && $0.shy == browser.searchIsPrivate } } ?? [] },
         // With Spaces off, another Space's closed tab has nowhere to reopen.
         closed: { [weak self] in
             guard let self, !self.searchIsPrivate else { return [] }
@@ -1757,7 +1757,7 @@ final class Browser: NSObject, ObservableObject {
         // A private tab stays private, and keeps its own sign-ins when it
         // had them; an extension's page it showed was in that extension's
         // store, so going back to the web takes a new private one.
-        let page = url.flatMap { Browser.extensionConfiguration(for: $0) }
+        let page = url.flatMap { Browser.extensionConfiguration(for: $0, space: tab.space) }
         let fresh = if tab.shy {
             Tab(shy: true, bench: tab.bench, space: tab.space, configuration: page
                 ?? Web.configuration(shy: true, store: tab.store.isPersistent ? nil : tab.store))
@@ -2235,6 +2235,7 @@ final class Browser: NSObject, ObservableObject {
             switchSpace(to: ghost.space, focus: false, waking: false)
             reopen(ghost)
         } else if let id = offer.tab {
+            if let tab = apart.tabs.first(where: { $0.id == id }) { apart.front(tab); learn(offer, choice); return }
             guard let tab = (tabs + parkedTabs).first(where: { $0.id == id }) else { field.refresh(); return }
             // Another Space's tab is chosen in its own row, where it stays.
             if tab.space != spaceID { switchSpace(to: tab.space, focus: false, waking: false) }

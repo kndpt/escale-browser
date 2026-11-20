@@ -284,6 +284,10 @@ final class Extensions: NSObject, ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.follow() }
             .store(in: &bag)
+        browser.apart.dropped
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.follow() }
+            .store(in: &bag)
         browser.$activeID
             .removeDuplicates()
             .scan((nil, nil)) { ($0.1, $1) }

@@ -341,6 +341,6 @@ extension Browser {
     /// A page already built in that Space on that store, parked or not; none
     /// is built for it.
     func page(in space: UUID, store: WKWebsiteDataStore) -> WKWebView? {
-        Downloads.sharing(store, in: space, among: tabs + parkedTabs).lazy.compactMap(\.built).first
+        Downloads.sharing(store, in: space, among: tabs + parkedTabs + apart.tabs).lazy.compactMap(\.built).first
     }
 }

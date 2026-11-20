@@ -14,12 +14,18 @@ final class Apart: NSObject, NSWindowDelegate {
     private var out: [Tab.ID: (tab: Tab, window: NSWindow, title: AnyCancellable)] = [:]
     /// Asked when a window closes: the tab goes home.
     var onClose: ((Tab) -> Void)?
+    /// A tab closed out here, which no row change announces (Extensions.swift).
+    let dropped = PassthroughSubject<Void, Never>()
 
     var tabs: [Tab] { out.values.map(\.tab) }
 
     func holds(_ tab: Tab) -> Bool { out[tab.id] != nil }
 
-    func holds(_ window: NSWindow?) -> Bool { out.values.contains { $0.window === window } }
+    /// The window, or a sheet on it (a page's dialog or file picker).
+    func holds(_ window: NSWindow?) -> Bool {
+        let window = window?.sheetParent ?? window
+        return out.values.contains { $0.window === window }
+    }
 
     /// A window under the pointer, the page's size, the page moved into it.
     func open(_ tab: Tab, at point: NSPoint, size: NSSize) {
@@ -71,7 +77,11 @@ final class Apart: NSObject, NSWindowDelegate {
         guard let entry = out.removeValue(forKey: tab.id) else { return }
         entry.window.delegate = nil
         entry.window.close()
+        dropped.send()
     }
+
+    /// Chosen from ⌘K: its window comes forward.
+    func front(_ tab: Tab) { out[tab.id]?.window.makeKeyAndOrderFront(nil) }
 
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow,
