@@ -688,6 +688,8 @@ struct ContentView: View {
     private func take(_ event: NSEvent) -> Bool {
         // The native sheet owns editing keys, including Escape and Return.
         if browser.environmentEditor.request != nil || Links.window?.attachedSheet != nil || NSApp.modalWindow != nil { return false }
+        // A tab's own window answers to its own keys, before the main window's.
+        if browser.apart.holds(event.window) { return KeyRouting.take(event, browser: browser) }
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
 
         // A Space icon held in the rail lets go first, whatever else is open.

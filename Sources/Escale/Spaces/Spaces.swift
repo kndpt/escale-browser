@@ -175,10 +175,10 @@ struct Parked {
 extension Browser {
     var space: Space { spaces.first { $0.id == spaceID } ?? spaces[0] }
 
-    /// Every tab of the spaces not on screen. Parked is not closed: their
-    /// pages go on loading and calling back, settings reach them, and the
-    /// sleep timer counts them.
-    var parkedTabs: [Tab] { parked.values.flatMap(\.tabs) }
+    /// Every tab of the spaces not on screen, and every tab in its own window
+    /// (Apart.swift). Parked is not closed: their pages go on loading and
+    /// calling back, settings reach them, and the sleep timer counts them.
+    var parkedTabs: [Tab] { parked.values.flatMap(\.tabs) + apart.tabs }
 
     /// Where a download from the space on screen lands.
     var downloadsFolder: URL { downloadsFolder(for: spaceID) }
@@ -373,6 +373,7 @@ extension Browser {
             if floating == tab.id { land() }
             tab.close()
         }
+        for tab in apart.tabs where tab.space == id { apart.drop(tab); tab.close() }
         eraseClosedTabs(in: id)
         linkRoutes.remove(space: id)
         spaces.remove(at: at)

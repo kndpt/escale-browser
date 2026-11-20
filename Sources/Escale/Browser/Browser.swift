@@ -191,7 +191,7 @@ final class Browser: NSObject, ObservableObject {
         engine: { [weak self] in self.map { $0.prefs.engine.name(custom: $0.prefs.customEngine) } ?? "" },
         keyword: { [weak self] typed in self.flatMap { Keyword.search(typed, in: $0.prefs.searchKeywords) } },
         others: { [weak self] in self.map { browser in browser.tabs.filter { ($0.id != browser.activeID || browser.field.opening != nil) && !$0.bench && $0.shy == browser.searchIsPrivate } } ?? [] },
-        elsewhere: { [weak self] in self.map { browser in browser.parkedTabs.filter { !$0.bench && $0.shy == browser.searchIsPrivate } } ?? [] },
+        elsewhere: { [weak self] in self.map { browser in browser.parkedTabs.filter { !$0.bench && !browser.apart.holds($0) && $0.shy == browser.searchIsPrivate } } ?? [] },
         // With Spaces off, another Space's closed tab has nowhere to reopen.
         closed: { [weak self] in
             guard let self, !self.searchIsPrivate else { return [] }

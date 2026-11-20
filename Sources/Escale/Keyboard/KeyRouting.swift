@@ -16,11 +16,12 @@ import SwiftUI
 
     static func take(_ event: NSEvent, browser: Browser) -> Bool {
         // A tab's own window (Apart.swift) has no row to command: ⌘W closes
-        // it, which puts the tab back, and the rest is the page's.
+        // it, which puts the tab back. Other browser keys stop here, since the
+        // menu would aim them at the main window's tab; the rest is the page's.
         if browser.apart.holds(event.window) {
-            guard KeyStroke(event) == KeyStroke("w", .command) else { return false }
-            event.window?.performClose(nil)
-            return true
+            guard let stroke = KeyStroke(event) else { return false }
+            if stroke == KeyStroke("w", .command) { event.window?.performClose(nil); return true }
+            return browser.prefs.keyBindings.action(for: stroke) != nil
         }
         guard !event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
               let stroke = KeyStroke(event) else { return false }
