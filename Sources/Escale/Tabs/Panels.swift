@@ -270,6 +270,8 @@ extension Browser {
         if let window = Links.window,
            !CGRect(origin: .zero, size: window.frame.size).contains(point) {
             panels.finish()
+            // Out of the window altogether: a window of its own.
+            detach(tab, at: NSPoint(x: window.frame.minX + point.x, y: window.frame.maxY - point.y))
             return true
         }
         let inside = panels.frame.contains(point)

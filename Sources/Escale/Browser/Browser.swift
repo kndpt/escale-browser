@@ -280,6 +280,8 @@ final class Browser: NSObject, ObservableObject {
         page: { [weak self] space, store in self?.page(in: space, store: store) }
     )
     let floater = Float()
+    /// Tabs dragged out of the window, each in a window of its own (Apart.swift).
+    let apart = Apart()
     /// True while the pointer is picking things to hide.
     @Published private(set) var veiling = false
     /// True while the list of what is hidden here is up.
@@ -996,6 +998,7 @@ final class Browser: NSObject, ObservableObject {
         }
         floater.onClose = { [weak self] in self?.land() }
         floater.onMinimize = { [weak self] in self?.minimizeMedia() }
+        apart.onClose = { [weak self] tab in self?.bringBack(tab) }
 
         // Yesterday's tabs, or one empty one. Either way a web view is built
         // now, which starts a content process while the window is still being
@@ -1246,10 +1249,12 @@ final class Browser: NSObject, ObservableObject {
     func writeSession(of space: UUID, now: Bool = false) {
         unsaved.remove(space)
         let row: [Tab], active: Tab.ID?
+        // A tab out in its own window is still one of this space's.
+        let out = apart.tabs.filter { $0.space == space }
         if space == spaceID {
-            (row, active) = (tabs, activeID)
+            (row, active) = (tabs + out, activeID)
         } else if let parked = parked[space] {
-            (row, active) = (parked.tabs, parked.active)
+            (row, active) = (parked.tabs + out, parked.active)
         } else {
             return
         }
@@ -1371,6 +1376,13 @@ final class Browser: NSObject, ObservableObject {
     /// ⌘W, or the cross on the tab. Closing the last one leaves a blank tab
     /// behind; closing that blank tab closes the window.
     func close(_ tab: Tab) {
+        // Closed from its own window's page: the window goes with it.
+        if apart.holds(tab) {
+            apart.drop(tab)
+            tab.close()
+            rememberSession(tab.space)
+            return
+        }
         let sibling = panels.group(tab.id)?.members.first { $0 != tab.id }
         panels.remove(tab.id)
         if activeID == tab.id, let sibling, let next = tabs.first(where: { $0.id == sibling }) { select(next) }
@@ -1438,6 +1450,34 @@ final class Browser: NSObject, ObservableObject {
             select(source ?? tabs[min(index, tabs.count - 1)])
         }
         rememberSession()
+    }
+
+    /// Dropped outside the window: the tab leaves the row for a window of its
+    /// own, where its page goes on as it was. A pin keeps its place in the row,
+    /// and a blank tab has no page to take.
+    func detach(_ tab: Tab, at point: NSPoint) {
+        guard tab.pin == nil, !tab.isBlank, !tab.bench, floating != tab.id,
+              let index = tabs.firstIndex(where: { $0.id == tab.id }) else { return }
+        panels.remove(tab.id)
+        if !tab.wake() { tab.revive() }
+        let size = tab.web.bounds.size
+        tabs.remove(at: index)
+        if tabs.isEmpty { adopt(Tab()) }
+        if activeID == tab.id { select(tabs[min(index, tabs.count - 1)]) }
+        rememberSession()
+        // A turn later, once the stage has let the page go for the next tab.
+        DispatchQueue.main.async { [weak self] in
+            self?.apart.open(tab, at: point, size: size.width > 0 ? size : NSSize(width: 900, height: 640))
+        }
+    }
+
+    /// Its window closed: the tab comes back to the end of its space's row.
+    private func bringBack(_ tab: Tab) {
+        guard spaces.contains(where: { $0.id == tab.space }) else { tab.close(); return }
+        if tab.space != spaceID { switchSpace(to: tab.space) }
+        tabs.append(tab)
+        select(tab)
+        Links.window?.makeKeyAndOrderFront(nil)
     }
 
     /// Everything but this one. Pinned tabs are put down rather than removed —
@@ -2642,5 +2682,6 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
     /// go on loading, redirecting and failing while another is on screen.
     func tab(for webView: WKWebView) -> Tab? {
         tabs.first { $0.built === webView } ?? parkedTabs.first { $0.built === webView }
+            ?? apart.tabs.first { $0.built === webView }
     }
 }

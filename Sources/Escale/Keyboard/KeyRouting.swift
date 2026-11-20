@@ -15,6 +15,13 @@ import SwiftUI
     }
 
     static func take(_ event: NSEvent, browser: Browser) -> Bool {
+        // A tab's own window (Apart.swift) has no row to command: ⌘W closes
+        // it, which puts the tab back, and the rest is the page's.
+        if browser.apart.holds(event.window) {
+            guard KeyStroke(event) == KeyStroke("w", .command) else { return false }
+            event.window?.performClose(nil)
+            return true
+        }
         guard !event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
               let stroke = KeyStroke(event) else { return false }
         let typing = browser.active?.typing == true || browser.active?.built?.inputContext != nil
