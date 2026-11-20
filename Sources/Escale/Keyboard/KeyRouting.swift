@@ -91,6 +91,12 @@ extension Browser {
     }
 
     func performKeyAction(_ action: KeyAction, event: NSEvent? = nil) {
+        // A tab's own window (Apart.swift) is not the row the menu's commands
+        // aim at: closing closes that window, the rest waits for the main one.
+        if apart.holds(NSApp.keyWindow) {
+            if action == .closeTab || action == .closeWindow { NSApp.keyWindow?.performClose(nil) }
+            return
+        }
         guard keyAvailable(action) else { return }
         if action.rawValue.hasPrefix("space"), let index = action.index { makingSpace = false; switchSpace(index: index - 1); return }
         if action.rawValue.hasPrefix("tab"), let index = action.index { select(index: index - 1); return }

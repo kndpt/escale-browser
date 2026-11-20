@@ -1744,10 +1744,10 @@ final class Browser: NSObject, ObservableObject {
     /// leaves the new tab blank.
     @discardableResult
     func replace(_ tab: Tab, going url: URL?) -> Tab? {
-        // The row it is in, on screen or parked (see Spaces.swift).
+        // The row it is in, on screen or parked (see Spaces.swift), or its own window.
         let here = tabs.firstIndex { $0.id == tab.id }
         let there = parked[tab.space]?.tabs.firstIndex { $0.id == tab.id }
-        guard here != nil || there != nil else { return nil }
+        guard here != nil || there != nil || apart.holds(tab) else { return nil }
         // A private tab stays private, and keeps its own sign-ins when it
         // had them; an extension's page it showed was in that extension's
         // store, so going back to the web takes a new private one.
@@ -1767,6 +1767,8 @@ final class Browser: NSObject, ObservableObject {
         } else if let there {
             parked[tab.space]?.tabs[there] = fresh
             if parked[tab.space]?.active == tab.id { parked[tab.space]?.active = fresh.id }
+        } else {
+            apart.swap(tab, for: fresh)
         }
         if let url { fresh.go(to: url) }
         tab.close()

@@ -34,19 +34,30 @@ final class Apart: NSObject, NSWindowDelegate {
         window.backgroundColor = Palette.NS.ground
         window.tabbingMode = .disallowed
         window.delegate = self
-        let ground = NSView(frame: NSRect(origin: .zero, size: size))
+        window.contentView = NSView(frame: NSRect(origin: .zero, size: size))
+        show(tab, in: window)
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    /// A tab replaced by another (Browser.replace): the new page takes the window.
+    func swap(_ old: Tab, for fresh: Tab) {
+        guard let entry = out.removeValue(forKey: old.id) else { return }
+        entry.window.contentView?.subviews.forEach { $0.removeFromSuperview() }
+        show(fresh, in: entry.window)
+    }
+
+    private func show(_ tab: Tab, in window: NSWindow) {
+        guard let ground = window.contentView else { return }
         let page = tab.web
         page.removeFromSuperview()
         page.autoresizingMask = [.width, .height]
         page.frame = ground.bounds
         page.alphaValue = 1
         ground.addSubview(page)
-        window.contentView = ground
         let title = tab.$title.sink { [weak window, weak tab] _ in
             DispatchQueue.main.async { if let tab { window?.title = tab.label } }
         }
         out[tab.id] = (tab, window, title)
-        window.makeKeyAndOrderFront(nil)
     }
 
     /// The window goes without asking for the tab back: the tab was closed.
