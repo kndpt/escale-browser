@@ -373,6 +373,7 @@ extension Browser {
             if floating == tab.id { land() }
             tab.close()
         }
+        for tab in apart.tabs where tab.space == id { apart.drop(tab); tab.close() }
         eraseClosedTabs(in: id)
         linkRoutes.remove(space: id)
         spaces.remove(at: at)
@@ -420,6 +421,7 @@ extension Browser {
             }
         }
         parked = [:]
+        for tab in apart.tabs where tab.space != Space.firstID { apart.drop(tab); tab.close() }
     }
 }
 

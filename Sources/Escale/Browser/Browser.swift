@@ -191,7 +191,7 @@ final class Browser: NSObject, ObservableObject {
         engine: { [weak self] in self.map { $0.prefs.engine.name(custom: $0.prefs.customEngine) } ?? "" },
         keyword: { [weak self] typed in self.flatMap { Keyword.search(typed, in: $0.prefs.searchKeywords) } },
         others: { [weak self] in self.map { browser in browser.tabs.filter { ($0.id != browser.activeID || browser.field.opening != nil) && !$0.bench && $0.shy == browser.searchIsPrivate } } ?? [] },
-        elsewhere: { [weak self] in self.map { browser in browser.parkedTabs.filter { !$0.bench && $0.shy == browser.searchIsPrivate } } ?? [] },
+        elsewhere: { [weak self] in self.map { browser in (browser.parkedTabs + browser.apart.tabs).filter { !$0.bench && $0.shy == browser.searchIsPrivate } } ?? [] },
         // With Spaces off, another Space's closed tab has nowhere to reopen.
         closed: { [weak self] in
             guard let self, !self.searchIsPrivate else { return [] }
@@ -280,6 +280,8 @@ final class Browser: NSObject, ObservableObject {
         page: { [weak self] space, store in self?.page(in: space, store: store) }
     )
     let floater = Float()
+    /// Tabs dragged out of the window, each in a window of its own (Apart.swift).
+    let apart = Apart()
     /// True while the pointer is picking things to hide.
     @Published private(set) var veiling = false
     /// True while the list of what is hidden here is up.
@@ -919,7 +921,7 @@ final class Browser: NSObject, ObservableObject {
         // part of it, not only the one that happened to ask for it.
         Favicons.shared.arrived = { [weak self] site, image in
             guard let self else { return }
-            for tab in tabs + parkedTabs
+            for tab in tabs + parkedTabs + apart.tabs
             where tab.address.flatMap(Favicons.part) == site || tab.address?.host()?.lowercased() == site {
                 tab.icon = image
             }
@@ -996,6 +998,7 @@ final class Browser: NSObject, ObservableObject {
         }
         floater.onClose = { [weak self] in self?.land() }
         floater.onMinimize = { [weak self] in self?.minimizeMedia() }
+        apart.onClose = { [weak self] tab in self?.bringBack(tab) }
 
         // Yesterday's tabs, or one empty one. Either way a web view is built
         // now, which starts a content process while the window is still being
@@ -1083,7 +1086,7 @@ final class Browser: NSObject, ObservableObject {
             .sink { [weak self] on in
                 guard let self else { return }
                 Shield.shared.enabled = on
-                Shield.shared.apply(to: (tabs + parkedTabs).compactMap { $0.built?.configuration.userContentController })
+                Shield.shared.apply(to: (tabs + parkedTabs + apart.tabs).compactMap { $0.built?.configuration.userContentController })
                 announce(on ? "Ads and trackers blocked" : "Blocking off — reload to see the difference")
             }
             .store(in: &bag)
@@ -1128,7 +1131,7 @@ final class Browser: NSObject, ObservableObject {
             .dropFirst()
             .sink { [weak self] on in
                 guard let self else { return }
-                for tab in tabs + parkedTabs {
+                for tab in tabs + parkedTabs + apart.tabs {
                     tab.arm(hiding: curtain(for: tab.space).css(on: curtain.host(of: tab.address)))
                     tab.built?.evaluateJavaScript(on ? AutoScroll.script : AutoScroll.off)
                 }
@@ -1148,7 +1151,7 @@ final class Browser: NSObject, ObservableObject {
                 // A list of accounts already hanging from a box goes too: it
                 // would stay where it was and still fill in what was picked.
                 if !filling { logins.dropChoice() }
-                for tab in tabs + parkedTabs {
+                for tab in tabs + parkedTabs + apart.tabs {
                     tab.arm(hiding: curtain(for: tab.space).css(on: curtain.host(of: tab.address)))
                     tab.built?.evaluateJavaScript(FormRelay.signIns)
                 }
@@ -1165,7 +1168,7 @@ final class Browser: NSObject, ObservableObject {
                 Tab.defaultZoom = CGFloat(percent) / 100
                 // A floating meeting keeps its own size until it lands, which
                 // reapplies the default; a floating video has none of its own.
-                for tab in tabs + parkedTabs where !(tab.floating && floatingMeeting) { tab.applyRememberedZoom() }
+                for tab in tabs + parkedTabs + apart.tabs where !(tab.floating && floatingMeeting) { tab.applyRememberedZoom() }
             }
             .store(in: &bag)
 
@@ -1176,7 +1179,7 @@ final class Browser: NSObject, ObservableObject {
             .sink { [weak self] on in
                 guard let self else { return }
                 ScrollRelay.on = on
-                for tab in tabs + parkedTabs {
+                for tab in tabs + parkedTabs + apart.tabs {
                     tab.arm(hiding: curtain(for: tab.space).css(on: curtain.host(of: tab.address)))
                     tab.built?.evaluateJavaScript(on ? ScrollRelay.script : ScrollRelay.off)
                 }
@@ -1189,7 +1192,7 @@ final class Browser: NSObject, ObservableObject {
             .sink { [weak self] on in
                 guard let self else { return }
                 if !on { linkStatus.dismiss() }
-                for tab in tabs + parkedTabs {
+                for tab in tabs + parkedTabs + apart.tabs {
                     tab.arm(hiding: curtain(for: tab.space).css(on: curtain.host(of: tab.address)))
                     tab.built?.evaluateJavaScript(on ? HoveredLink.script : HoveredLink.off, in: nil, in: .defaultClient)
                 }
@@ -1202,7 +1205,7 @@ final class Browser: NSObject, ObservableObject {
             .sink { [weak self] on in
                 guard let self else { return }
                 if !on { selectionMenu.dismiss() }
-                for tab in tabs + parkedTabs {
+                for tab in tabs + parkedTabs + apart.tabs {
                     tab.arm(hiding: curtain(for: tab.space).css(on: curtain.host(of: tab.address)))
                     tab.built?.evaluateJavaScript(on ? SelectionWatch.script : SelectionWatch.off, in: nil, in: .defaultClient)
                 }
@@ -1217,7 +1220,7 @@ final class Browser: NSObject, ObservableObject {
                 // Each tab keeps whatever is hidden on the site it is showing:
                 // re-arming with nothing would quietly restore every element
                 // this person had taken off, everywhere.
-                for tab in tabs + parkedTabs {
+                for tab in tabs + parkedTabs + apart.tabs {
                     tab.arm(hiding: curtain(for: tab.space).css(on: curtain.host(of: tab.address)))
                 }
                 announce(on ? "Passkeys offered again — reload the page" : "Sites will ask for a password instead")
@@ -1233,7 +1236,7 @@ final class Browser: NSObject, ObservableObject {
     }
 
     private func relook() {
-        Favicons.shared.relook((tabs + parkedTabs).filter { !$0.asleep })
+        Favicons.shared.relook((tabs + parkedTabs + apart.tabs).filter { !$0.asleep })
     }
 
     func writeSession(now: Bool = false) {
@@ -1246,10 +1249,12 @@ final class Browser: NSObject, ObservableObject {
     func writeSession(of space: UUID, now: Bool = false) {
         unsaved.remove(space)
         let row: [Tab], active: Tab.ID?
+        // A tab out in its own window is still one of this space's.
+        let out = apart.tabs.filter { $0.space == space }
         if space == spaceID {
-            (row, active) = (tabs, activeID)
+            (row, active) = (tabs + out, activeID)
         } else if let parked = parked[space] {
-            (row, active) = (parked.tabs, parked.active)
+            (row, active) = (parked.tabs + out, parked.active)
         } else {
             return
         }
@@ -1371,6 +1376,13 @@ final class Browser: NSObject, ObservableObject {
     /// ⌘W, or the cross on the tab. Closing the last one leaves a blank tab
     /// behind; closing that blank tab closes the window.
     func close(_ tab: Tab) {
+        // Closed from its own window's page: the window goes with it.
+        if apart.holds(tab) {
+            apart.drop(tab)
+            tab.close()
+            rememberSession(tab.space)
+            return
+        }
         let sibling = panels.group(tab.id)?.members.first { $0 != tab.id }
         panels.remove(tab.id)
         if activeID == tab.id, let sibling, let next = tabs.first(where: { $0.id == sibling }) { select(next) }
@@ -1438,6 +1450,41 @@ final class Browser: NSObject, ObservableObject {
             select(source ?? tabs[min(index, tabs.count - 1)])
         }
         rememberSession()
+    }
+
+    /// Dropped outside the window: the tab leaves the row for a window of its
+    /// own, where its page goes on as it was. A pin keeps its place in the row,
+    /// and a blank tab has no page to take.
+    func detach(_ tab: Tab, at point: NSPoint) {
+        guard tab.pin == nil, !tab.isBlank, !tab.bench, floating != tab.id,
+              let index = tabs.firstIndex(where: { $0.id == tab.id }) else { return }
+        panels.remove(tab.id)
+        if !tab.wake() { tab.revive() }
+        let size = tab.web.bounds.size
+        apart.open(tab, at: point, size: size.width > 0 ? size : NSSize(width: 900, height: 640))
+        tabs.remove(at: index)
+        if tabs.isEmpty { adopt(Tab()) }
+        if activeID == tab.id { select(tabs[min(index, tabs.count - 1)]) }
+        rememberSession()
+    }
+
+    /// What a detached tab starts in the main window (a link, a popup, a
+    /// question) is shown there: its Space on screen, the window in front.
+    func face(_ tab: Tab) {
+        guard apart.holds(tab) else { return }
+        if tab.space != spaceID { switchSpace(to: tab.space) }
+        Links.window?.makeKeyAndOrderFront(nil)
+    }
+
+    /// Its window closed: the tab comes back to the end of its space's row.
+    private func bringBack(_ tab: Tab) {
+        guard spaces.contains(where: { $0.id == tab.space }) else { tab.close(); return }
+        if tab.space != spaceID { switchSpace(to: tab.space) }
+        // Its Space could not be shown (Spaces off): never into another's row.
+        guard tab.space == spaceID else { tab.close(); return }
+        tabs.append(tab)
+        select(tab)
+        Links.window?.makeKeyAndOrderFront(nil)
     }
 
     /// Everything but this one. Pinned tabs are put down rather than removed —
@@ -1650,6 +1697,8 @@ final class Browser: NSObject, ObservableObject {
     /// in the same store, as a link that asks for a new window already does.
     @discardableResult
     func open(_ url: URL, foreground: Bool, atEnd: Bool = false, from source: Tab? = nil, shy: Bool = false) -> Tab {
+        // A link from a tab in its own window opens beside it, in its Space.
+        if let source, apart.holds(source), source.space != spaceID { switchSpace(to: source.space) }
         let (tab, url) = made(for: url, from: source, shy: shy)
         let here = atEnd ? nil : tabs.firstIndex { $0.id == activeID }
         tabs.insert(tab, at: here.map { $0 + 1 } ?? tabs.count)
@@ -1659,6 +1708,7 @@ final class Browser: NSObject, ObservableObject {
             activeID = tab.id
             editing = false
             field.typed = ""
+            if let source { face(source) }
         }
         return tab
     }
@@ -1700,14 +1750,14 @@ final class Browser: NSObject, ObservableObject {
     /// leaves the new tab blank.
     @discardableResult
     func replace(_ tab: Tab, going url: URL?) -> Tab? {
-        // The row it is in, on screen or parked (see Spaces.swift).
+        // The row it is in, on screen or parked (see Spaces.swift), or its own window.
         let here = tabs.firstIndex { $0.id == tab.id }
         let there = parked[tab.space]?.tabs.firstIndex { $0.id == tab.id }
-        guard here != nil || there != nil else { return nil }
+        guard here != nil || there != nil || apart.holds(tab) else { return nil }
         // A private tab stays private, and keeps its own sign-ins when it
         // had them; an extension's page it showed was in that extension's
         // store, so going back to the web takes a new private one.
-        let page = url.flatMap { Browser.extensionConfiguration(for: $0) }
+        let page = url.flatMap { Browser.extensionConfiguration(for: $0, space: tab.space) }
         let fresh = if tab.shy {
             Tab(shy: true, bench: tab.bench, space: tab.space, configuration: page
                 ?? Web.configuration(shy: true, store: tab.store.isPersistent ? nil : tab.store))
@@ -1723,6 +1773,8 @@ final class Browser: NSObject, ObservableObject {
         } else if let there {
             parked[tab.space]?.tabs[there] = fresh
             if parked[tab.space]?.active == tab.id { parked[tab.space]?.active = fresh.id }
+        } else {
+            apart.swap(tab, for: fresh)
         }
         if let url { fresh.go(to: url) }
         tab.close()
@@ -2183,6 +2235,7 @@ final class Browser: NSObject, ObservableObject {
             switchSpace(to: ghost.space, focus: false, waking: false)
             reopen(ghost)
         } else if let id = offer.tab {
+            if let tab = apart.tabs.first(where: { $0.id == id }) { apart.front(tab); learn(offer, choice); return }
             guard let tab = (tabs + parkedTabs).first(where: { $0.id == id }) else { field.refresh(); return }
             // Another Space's tab is chosen in its own row, where it stays.
             if tab.space != spaceID { switchSpace(to: tab.space, focus: false, waking: false) }
@@ -2417,6 +2470,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             return nil
         }
         let opener = tab(for: webView)
+        if let opener { face(opener) }
         if action.navigationType == .linkActivated, action.request.httpMethod == "GET",
            !action.shouldPerformDownload, let url = action.request.url, let opener,
            routeLink(url, from: opener) { return nil }
@@ -2502,6 +2556,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         decide = decisionHandler
         askedAbout = key
         asking = CaptureAsk(host: host, wants: Browser.name(for: type), space: tab.space)
+        face(tab)
     }
 
     private static func name(for type: WKMediaCaptureType) -> String {
@@ -2642,5 +2697,6 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
     /// go on loading, redirecting and failing while another is on screen.
     func tab(for webView: WKWebView) -> Tab? {
         tabs.first { $0.built === webView } ?? parkedTabs.first { $0.built === webView }
+            ?? apart.tabs.first { $0.built === webView }
     }
 }

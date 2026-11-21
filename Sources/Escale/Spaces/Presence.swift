@@ -67,7 +67,7 @@ final class Presences: ObservableObject {
 
 extension Browser {
     func presence(in space: UUID) -> Presence? {
-        (tabs + parkedTabs).lazy.filter { $0.space == space }.compactMap(\.presence).max()
+        (tabs + parkedTabs + apart.tabs).lazy.filter { $0.space == space }.compactMap(\.presence).max()
     }
 }
 

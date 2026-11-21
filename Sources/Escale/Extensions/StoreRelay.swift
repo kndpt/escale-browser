@@ -67,7 +67,7 @@ extension Browser {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in
                 guard let self else { return }
-                for tab in tabs + parkedTabs where tab.built != nil { tellStore(tab) }
+                for tab in tabs + parkedTabs + apart.tabs where tab.built != nil { tellStore(tab) }
             }
     }
 }

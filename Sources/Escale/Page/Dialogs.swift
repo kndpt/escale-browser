@@ -206,8 +206,9 @@ extension Browser {
         guard let tab = tab(for: webView) else { return }
         tab.calls.lost(reason: "The page's process ended; WebKit's collection went with it.")
         // In front of you: straight back, a reload beats a white page with a
-        // button on it. Behind another tab: the moment you come back to it.
-        if tab.id == activeID, !tab.isBlank {
+        // button on it; a tab in its own window is in front too. Behind
+        // another tab: the moment you come back to it.
+        if tab.id == activeID || apart.holds(tab), !tab.isBlank {
             tab.recoverFromCrash()
         } else {
             tab.stale = true

@@ -67,7 +67,7 @@ enum ExtensionAuth {
             waiting[scope] = (tab.id, { result in continuation.resume(with: result) })
             // Closing the tab is saying no.
             watch = browser.$tabs.sink { tabs in
-                for (key, entry) in waiting where !(tabs + browser.parkedTabs).contains(where: { $0.id == entry.tab }) {
+                for (key, entry) in waiting where !(tabs + browser.parkedTabs + browser.apart.tabs).contains(where: { $0.id == entry.tab }) {
                     waiting[key] = nil
                     entry.finish(.failure(Declined()))
                 }
@@ -95,7 +95,7 @@ enum ExtensionAuth {
         // The popup, when the answer came in one, goes with the flow's tab:
         // left behind, it would hold a redirect that never loads.
         if from.id != entry.tab { browser.close(from) }
-        if let tab = (browser.tabs + browser.parkedTabs).first(where: { $0.id == entry.tab }) { browser.close(tab) }
+        if let tab = (browser.tabs + browser.parkedTabs + browser.apart.tabs).first(where: { $0.id == entry.tab }) { browser.close(tab) }
         return true
     }
 }
