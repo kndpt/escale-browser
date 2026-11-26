@@ -377,6 +377,19 @@ struct SideBar: View {
                                     guard let id = browser.entryID(for: id) else { return }
                                     withAnimation(Motion.glide) { proxy.scrollTo(id) }
                                 }
+                                // A tab that opens is a tab you see, behind or
+                                // in front. Its row comes in on the rows'
+                                // spring, and until that settles the scroll
+                                // stops short of it, under New tab. Another tab
+                                // chosen meanwhile keeps the scroll.
+                                .onChange(of: looseTabs.map(\.id)) { old, new in
+                                    guard let id = new.last(where: { !old.contains($0) }) else { return }
+                                    let active = browser.activeID
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + Motion.settled) {
+                                        guard browser.activeID == active else { return }
+                                        withAnimation(Motion.glide) { proxy.scrollTo(id) }
+                                    }
+                                }
                                 .onAppear {
                                     if let id = browser.entryID(for: browser.activeID) { proxy.scrollTo(id, anchor: .center) }
                                 }
