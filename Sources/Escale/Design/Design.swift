@@ -1003,7 +1003,10 @@ enum Motion {
     /// One calm curve for arrival pages, disclosure and import state changes.
     static let arrival = Animation.smooth(duration: 0.34, extraBounce: 0)
     static let glide = Animation.spring(response: 0.34, dampingFraction: 0.82)
-    static let settle = Animation.spring(response: 0.30, dampingFraction: 0.86)
+    static let settle = Animation.spring(settling)
+    private static let settling = Spring(response: 0.30, dampingRatio: 0.86)
+    /// How long settle takes to come to rest.
+    static let settled = settling.settlingDuration
     /// A short, bounded fade for column contents when the rail stays put.
     static let fadeDuration: TimeInterval = 0.5
     static let fade = Animation.easeInOut(duration: fadeDuration)
